@@ -100,6 +100,7 @@ public sealed class TopologyHtmlRendererTests
         html.Should().Contain("id=\"pageStatus\"");
         html.Should().Contain("Inclusion / Exclusion Filters");
         html.Should().Contain("Server Inspector");
+        html.Should().Contain("Reset Positions");
     }
 
     [Fact]

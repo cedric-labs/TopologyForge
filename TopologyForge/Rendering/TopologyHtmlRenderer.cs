@@ -433,7 +433,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
         sb.AppendLine("      <div class=\"btn-row\">");
         sb.AppendLine("        <button id=\"btnResetZoom\" type=\"button\">Center View</button>");
-        sb.AppendLine("        <button id=\"btnRecomputeLayout\" type=\"button\">Recompute Routes</button>");
+        sb.AppendLine("        <button id=\"btnRecomputeLayout\" type=\"button\">Reset Positions</button>");
         sb.AppendLine("        <button id=\"btnClearFilters\" type=\"button\">Reset Filters</button>");
         sb.AppendLine("      </div>");
 
