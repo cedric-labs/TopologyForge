@@ -13,13 +13,13 @@ public interface ITopologyHtmlRenderer
     /// <param name="graph">Graphe topologique consolidé à représenter.</param>
     /// <param name="title">Titre affiché dans l'en-tête de la carte.</param>
     /// <returns>Chaîne contenant le code HTML5 complet (CSS et moteur JS embarqués).</returns>
-    string RenderHtml(NetworkTopologyGraph graph, string title = "Cartographie des Flux & Serveurs");
+    string RenderHtml(NetworkTopologyGraph graph, string title = "Network Flow & Server Topology Map");
 
     /// <summary>
     /// Génère le document HTML complet et autonome avec les options de tri, de routage et d'écartement spécifiées.
     /// </summary>
     /// <param name="graph">Graphe topologique consolidé à représenter.</param>
-    /// <param name="options">Options de rendu (tri, routage des flèches, écartements).</param>
+    /// <param name="options">Options de rendu (tri, routage des flèches, écartements, pagination).</param>
     /// <returns>Chaîne contenant le code HTML5 complet.</returns>
     string RenderHtml(NetworkTopologyGraph graph, TopologyRenderingOptions options);
 
@@ -34,7 +34,7 @@ public interface ITopologyHtmlRenderer
     Task WriteHtmlFileAsync(
         string outputPath,
         NetworkTopologyGraph graph,
-        string title = "Cartographie des Flux & Serveurs",
+        string title = "Network Flow & Server Topology Map",
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -42,7 +42,7 @@ public interface ITopologyHtmlRenderer
     /// </summary>
     /// <param name="outputPath">Chemin du fichier HTML cible.</param>
     /// <param name="graph">Graphe topologique consolidé.</param>
-    /// <param name="options">Options de rendu (tri, routage des flèches, écartements).</param>
+    /// <param name="options">Options de rendu (tri, routage des flèches, écartements, pagination).</param>
     /// <param name="cancellationToken">Jeton d'annulation coopératif.</param>
     /// <returns>Tâche représentant l'opération d'écriture.</returns>
     Task WriteHtmlFileAsync(

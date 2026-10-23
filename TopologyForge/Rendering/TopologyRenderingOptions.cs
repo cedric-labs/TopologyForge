@@ -1,14 +1,14 @@
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Options de rendu visuel, de tri, de routage de flèches et d'écartement pour la cartographie HTML autonome.
+/// Options de rendu visuel, de tri, de routage de flèches, d'écartement et de pagination pour la cartographie HTML autonome.
 /// </summary>
 public sealed record TopologyRenderingOptions
 {
     /// <summary>
     /// Titre principal affiché dans l'en-tête de la cartographie.
     /// </summary>
-    public string Title { get; init; } = "Cartographie des Flux & Serveurs";
+    public string Title { get; init; } = "Network Flow & Server Topology Map";
 
     /// <summary>
     /// Méthode de tri initiale des serveurs (Sugiyama anti-croisement par défaut).
@@ -24,4 +24,9 @@ public sealed record TopologyRenderingOptions
     /// Profil d'écartement initial entre serveurs et flèches.
     /// </summary>
     public TopologySpacingProfile DefaultSpacingProfile { get; init; } = TopologySpacingProfile.Balanced;
+
+    /// <summary>
+    /// Nombre initial de serveurs affichés par page (100 par défaut).
+    /// </summary>
+    public int DefaultPageSize { get; init; } = 100;
 }

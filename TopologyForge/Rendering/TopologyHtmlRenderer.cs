@@ -7,7 +7,7 @@ using TopologyForge.Models;
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Générateur de cartes topologiques HTML5 autonomes (Single-File, zéro dépendance externe) avec moteur de routage anti-croisement et pointes directionnelles IN/OUT.
+/// Générateur de cartes topologiques HTML5 autonomes (Single-File, zéro dépendance externe) avec moteur de routage anti-croisement, pagination par tranche et pointes directionnelles IN/OUT.
 /// </summary>
 public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 {
@@ -22,7 +22,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
     public Task WriteHtmlFileAsync(
         string outputPath,
         NetworkTopologyGraph graph,
-        string title = "Cartographie des Flux & Serveurs",
+        string title = "Network Flow & Server Topology Map",
         CancellationToken cancellationToken = default) =>
         WriteHtmlFileAsync(
             outputPath,
@@ -52,7 +52,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
     }
 
     /// <inheritdoc />
-    public string RenderHtml(NetworkTopologyGraph graph, string title = "Cartographie des Flux & Serveurs") =>
+    public string RenderHtml(NetworkTopologyGraph graph, string title = "Network Flow & Server Topology Map") =>
         RenderHtml(graph, new TopologyRenderingOptions { Title = title });
 
     /// <inheritdoc />
@@ -61,13 +61,13 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(options);
 
-        var safeTitle = EscapeHtmlText(string.IsNullOrWhiteSpace(options.Title) ? "Cartographie des Flux & Serveurs" : options.Title);
+        var safeTitle = EscapeHtmlText(string.IsNullOrWhiteSpace(options.Title) ? "Network Flow & Server Topology Map" : options.Title);
         var payloadJson = SerializeGraphPayload(graph, options);
         var generatedAtFormatted = graph.GeneratedAtUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
 
         var sb = new StringBuilder(49152);
         sb.AppendLine("<!DOCTYPE html>");
-        sb.AppendLine("<html lang=\"fr\">");
+        sb.AppendLine("<html lang=\"en\">");
         sb.AppendLine("<head>");
         sb.AppendLine("  <meta charset=\"utf-8\" />");
         sb.AppendLine("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />");
@@ -107,6 +107,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
             _ => "balanced"
         };
 
+        var defaultPageSize = options.DefaultPageSize > 0 ? options.DefaultPageSize : 100;
+
         var dto = new
         {
             GeneratedAtUtc = graph.GeneratedAtUtc.ToString("o", CultureInfo.InvariantCulture),
@@ -115,6 +117,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
             DefaultSort = defaultSort,
             DefaultRouting = defaultRouting,
             DefaultSpacing = defaultSpacing,
+            DefaultPageSize = defaultPageSize,
             Nodes = graph.Nodes.Select(n => new
             {
                 n.NodeId,
@@ -261,7 +264,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   font-size: 0.78rem;
                   transition: background 0.15s, border-color 0.15s;
                 }
-                button:hover { border-color: var(--accent-local); background: #26354d; }
+                button:hover:not(:disabled) { border-color: var(--accent-local); background: #26354d; }
+                button:disabled { opacity: 0.45; cursor: not-allowed; }
                 .canvas-area {
                   flex: 1;
                   position: relative;
@@ -302,6 +306,25 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   gap: 0.95rem;
                   flex-wrap: wrap;
                 }
+                .pagination-bar {
+                  position: absolute;
+                  bottom: 12px;
+                  right: 12px;
+                  background: rgba(17, 24, 39, 0.94);
+                  border: 1px solid var(--border-color);
+                  border-radius: 6px;
+                  padding: 0.4rem 0.65rem;
+                  font-size: 0.75rem;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.45rem;
+                  flex-wrap: wrap;
+                }
+                .page-status {
+                  color: var(--text-primary);
+                  font-weight: 600;
+                  padding: 0 0.35rem;
+                }
                 .legend-item { display: flex; align-items: center; gap: 0.38rem; }
                 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
                 .arrow-sample { width: 18px; height: 3px; display: inline-block; border-radius: 2px; }
@@ -315,108 +338,108 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("  <header>");
         sb.AppendLine("    <div class=\"title-block\">");
         sb.Append("      <h1>").Append(safeTitle).AppendLine("</h1>");
-        sb.Append("      <span>Généré le ").Append(generatedAtFormatted).AppendLine(" • Cartographie interactive hors-ligne (TopologyForge)</span>");
+        sb.Append("      <span>Generated on ").Append(generatedAtFormatted).AppendLine(" • Self-contained offline topology map (TopologyForge)</span>");
         sb.AppendLine("    </div>");
         sb.AppendLine("    <div class=\"kpi-bar\">");
-        sb.Append("      <div class=\"kpi-badge\">Serveurs<strong id=\"kpiNodes\">").Append(graph.Nodes.Count.ToString(CultureInfo.InvariantCulture)).AppendLine("</strong></div>");
-        sb.Append("      <div class=\"kpi-badge\">Ports Services<strong id=\"kpiPorts\">").Append(totalPorts.ToString(CultureInfo.InvariantCulture)).AppendLine("</strong></div>");
-        sb.Append("      <div class=\"kpi-badge\">Flux Inter-Serveurs<strong id=\"kpiEdges\">").Append(graph.Edges.Count.ToString(CultureInfo.InvariantCulture)).AppendLine("</strong></div>");
-        sb.Append("      <div class=\"kpi-badge\">Flux Filtrés<strong>").Append(graph.ExcludedFlowsCount.ToString(CultureInfo.InvariantCulture)).Append('/').Append(graph.TotalProcessedFlows.ToString(CultureInfo.InvariantCulture)).AppendLine("</strong></div>");
+        sb.Append("      <div class=\"kpi-badge\">Servers<strong id=\"kpiNodes\">").Append(graph.Nodes.Count.ToString(CultureInfo.InvariantCulture)).AppendLine("</strong></div>");
+        sb.Append("      <div class=\"kpi-badge\">Service Ports<strong id=\"kpiPorts\">").Append(totalPorts.ToString(CultureInfo.InvariantCulture)).AppendLine("</strong></div>");
+        sb.Append("      <div class=\"kpi-badge\">Inter-Server Flows<strong id=\"kpiEdges\">").Append(graph.Edges.Count.ToString(CultureInfo.InvariantCulture)).AppendLine("</strong></div>");
+        sb.Append("      <div class=\"kpi-badge\">Filtered Flows<strong>").Append(graph.ExcludedFlowsCount.ToString(CultureInfo.InvariantCulture)).Append('/').Append(graph.TotalProcessedFlows.ToString(CultureInfo.InvariantCulture)).AppendLine("</strong></div>");
         sb.AppendLine("    </div>");
         sb.AppendLine("  </header>");
 
         sb.AppendLine("  <div class=\"workspace\">");
         sb.AppendLine("    <aside class=\"sidebar\">");
-        sb.AppendLine("      <div class=\"section-title\">1. Disposition, Tri &amp; Routage</div>");
+        sb.AppendLine("      <div class=\"section-title\">1. Layout, Sorting &amp; Routing</div>");
         sb.AppendLine("      <div class=\"grid-2\">");
         sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"layoutSelect\">Disposition</label>");
+        sb.AppendLine("          <label for=\"layoutSelect\">Layout</label>");
         sb.AppendLine("          <select id=\"layoutSelect\">");
-        sb.AppendLine("            <option value=\"layered\">Hiérarchique (Couches)</option>");
-        sb.AppendLine("            <option value=\"circular\">Anneau Concentrique</option>");
-        sb.AppendLine("            <option value=\"grid\">Grille Multi-Colonnes</option>");
+        sb.AppendLine("            <option value=\"layered\">Hierarchical (Layered)</option>");
+        sb.AppendLine("            <option value=\"circular\">Concentric Ring</option>");
+        sb.AppendLine("            <option value=\"grid\">Multi-Column Grid</option>");
         sb.AppendLine("          </select>");
         sb.AppendLine("        </div>");
         sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"sortSelect\">Méthode de Tri</label>");
+        sb.AppendLine("          <label for=\"sortSelect\">Sorting Method</label>");
         sb.AppendLine("          <select id=\"sortSelect\">");
-        sb.AppendLine("            <option value=\"sugiyama\">Sugiyama (Anti-croisement)</option>");
-        sb.AppendLine("            <option value=\"degree\">Densité de connexions</option>");
-        sb.AppendLine("            <option value=\"alpha\">Alphabétique (Serveur)</option>");
-        sb.AppendLine("            <option value=\"ip\">Sous-réseau / IP</option>");
+        sb.AppendLine("            <option value=\"sugiyama\">Sugiyama (Anti-crossing)</option>");
+        sb.AppendLine("            <option value=\"degree\">Connection Degree</option>");
+        sb.AppendLine("            <option value=\"alpha\">Alphabetical (Hostname)</option>");
+        sb.AppendLine("            <option value=\"ip\">Subnet / IP Address</option>");
         sb.AppendLine("          </select>");
         sb.AppendLine("        </div>");
         sb.AppendLine("      </div>");
 
         sb.AppendLine("      <div class=\"grid-2\">");
         sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"routingSelect\">Routage des Flèches</label>");
+        sb.AppendLine("          <label for=\"routingSelect\">Arrow Routing</label>");
         sb.AppendLine("          <select id=\"routingSelect\">");
-        sb.AppendLine("            <option value=\"bezier\">Courbes Bézier (Contournement)</option>");
-        sb.AppendLine("            <option value=\"orthogonal\">Couloirs Orthogonaux (90°)</option>");
-        sb.AppendLine("            <option value=\"straight\">Direct (Bord à bord)</option>");
+        sb.AppendLine("            <option value=\"bezier\">Curved Bezier (Obstacle bypass)</option>");
+        sb.AppendLine("            <option value=\"orthogonal\">Orthogonal Corridors (90°)</option>");
+        sb.AppendLine("            <option value=\"straight\">Direct (Border to border)</option>");
         sb.AppendLine("          </select>");
         sb.AppendLine("        </div>");
         sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"spacingSelect\">Profil d'Écartement</label>");
+        sb.AppendLine("          <label for=\"spacingSelect\">Spacing Profile</label>");
         sb.AppendLine("          <select id=\"spacingSelect\">");
         sb.AppendLine("            <option value=\"compact\">Compact (Dense)</option>");
-        sb.AppendLine("            <option value=\"balanced\">Équilibré (Standard)</option>");
-        sb.AppendLine("            <option value=\"spacious\">Aéré (100+ serveurs)</option>");
+        sb.AppendLine("            <option value=\"balanced\">Balanced (Standard)</option>");
+        sb.AppendLine("            <option value=\"spacious\">Spacious (100+ servers)</option>");
         sb.AppendLine("          </select>");
         sb.AppendLine("        </div>");
         sb.AppendLine("      </div>");
 
         sb.AppendLine("      <div class=\"grid-2\">");
         sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"nodeGapRange\"><span>Écart Serveurs</span><span id=\"nodeGapVal\">1.0x</span></label>");
+        sb.AppendLine("          <label for=\"nodeGapRange\"><span>Server Gap</span><span id=\"nodeGapVal\">1.0x</span></label>");
         sb.AppendLine("          <input id=\"nodeGapRange\" type=\"range\" min=\"0.65\" max=\"2.4\" step=\"0.05\" value=\"1.0\" />");
         sb.AppendLine("        </div>");
         sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"edgeFanRange\"><span>Écart Flèches</span><span id=\"edgeFanVal\">18px</span></label>");
+        sb.AppendLine("          <label for=\"edgeFanRange\"><span>Arrow Fan</span><span id=\"edgeFanVal\">18px</span></label>");
         sb.AppendLine("          <input id=\"edgeFanRange\" type=\"range\" min=\"6\" max=\"46\" step=\"2\" value=\"18\" />");
         sb.AppendLine("        </div>");
         sb.AppendLine("      </div>");
 
-        sb.AppendLine("      <div class=\"section-title\">2. Filtres d'Inclusion &amp; Exclusion</div>");
+        sb.AppendLine("      <div class=\"section-title\">2. Inclusion / Exclusion Filters</div>");
         sb.AppendLine("      <div class=\"filter-group\">");
-        sb.AppendLine("        <label for=\"searchInput\">Recherche globale (Serveur, IP, Port, Processus)</label>");
-        sb.AppendLine("        <input id=\"searchInput\" type=\"text\" placeholder=\"Ex: SRV-SQL, 1433, nginx...\" />");
+        sb.AppendLine("        <label for=\"searchInput\">Global Search (Server, IP, Port, Process)</label>");
+        sb.AppendLine("        <input id=\"searchInput\" type=\"text\" placeholder=\"e.g. SRV-SQL, 1433, nginx...\" />");
         sb.AppendLine("      </div>");
         sb.AppendLine("      <div class=\"grid-2\">");
         sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"includePortsInput\">Inclure ports</label>");
+        sb.AppendLine("          <label for=\"includePortsInput\">Include ports</label>");
         sb.AppendLine("          <input id=\"includePortsInput\" type=\"text\" placeholder=\"80, 443, 1433\" />");
         sb.AppendLine("        </div>");
         sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"excludePortsInput\">Exclure ports</label>");
+        sb.AppendLine("          <label for=\"excludePortsInput\">Exclude ports</label>");
         sb.AppendLine("          <input id=\"excludePortsInput\" type=\"text\" placeholder=\"53, 123, 135\" />");
         sb.AppendLine("        </div>");
         sb.AppendLine("      </div>");
         sb.AppendLine("      <div class=\"grid-2\">");
         sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"excludeHostsInput\">Exclure serveurs/IP</label>");
+        sb.AppendLine("          <label for=\"excludeHostsInput\">Exclude servers/IP</label>");
         sb.AppendLine("          <input id=\"excludeHostsInput\" type=\"text\" placeholder=\"SRV-MON, 10.99.\" />");
         sb.AppendLine("        </div>");
         sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"directionSelect\">Sens des Flux</label>");
+        sb.AppendLine("          <label for=\"directionSelect\">Flow Direction</label>");
         sb.AppendLine("          <select id=\"directionSelect\">");
-        sb.AppendLine("            <option value=\"all\">Tous (IN &amp; OUT)</option>");
-        sb.AppendLine("            <option value=\"OUT\">Sortants (OUT)</option>");
-        sb.AppendLine("            <option value=\"IN\">Entrants (IN)</option>");
+        sb.AppendLine("            <option value=\"all\">All (IN &amp; OUT)</option>");
+        sb.AppendLine("            <option value=\"OUT\">Outbound (OUT)</option>");
+        sb.AppendLine("            <option value=\"IN\">Inbound (IN)</option>");
         sb.AppendLine("          </select>");
         sb.AppendLine("        </div>");
         sb.AppendLine("      </div>");
 
         sb.AppendLine("      <div class=\"btn-row\">");
-        sb.AppendLine("        <button id=\"btnResetZoom\" type=\"button\">Centrer la vue</button>");
-        sb.AppendLine("        <button id=\"btnRecomputeLayout\" type=\"button\">Recalculer routes</button>");
-        sb.AppendLine("        <button id=\"btnClearFilters\" type=\"button\">Réinitialiser</button>");
+        sb.AppendLine("        <button id=\"btnResetZoom\" type=\"button\">Center View</button>");
+        sb.AppendLine("        <button id=\"btnRecomputeLayout\" type=\"button\">Recompute Routes</button>");
+        sb.AppendLine("        <button id=\"btnClearFilters\" type=\"button\">Reset Filters</button>");
         sb.AppendLine("      </div>");
 
         sb.AppendLine("      <div class=\"inspector\" id=\"inspectorPanel\">");
-        sb.AppendLine("        <div class=\"section-title\">3. Inspecteur de Serveur (Glisser / Cliquer)</div>");
-        sb.AppendLine("        <div id=\"inspectorContent\">Cliquez sur un serveur pour isoler ses routes entrantes (IN) et sortantes (OUT), ou glissez-le pour ajuster sa position.</div>");
+        sb.AppendLine("        <div class=\"section-title\">3. Server Inspector (Drag / Click)</div>");
+        sb.AppendLine("        <div id=\"inspectorContent\">Click on a server to isolate its inbound (IN) and outbound (OUT) routes, or drag it to adjust its position.</div>");
         sb.AppendLine("      </div>");
         sb.AppendLine("    </aside>");
 
@@ -446,11 +469,18 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("        </g>");
         sb.AppendLine("      </svg>");
         sb.AppendLine("      <div class=\"legend\">");
-        sb.AppendLine("        <div class=\"legend-item\"><span class=\"dot\" style=\"background:var(--accent-local)\"></span>Serveur Audité</div>");
-        sb.AppendLine("        <div class=\"legend-item\"><span class=\"dot\" style=\"background:var(--accent-remote)\"></span>Serveur Distant</div>");
-        sb.AppendLine("        <div class=\"legend-item\"><span class=\"arrow-sample\" style=\"background:var(--accent-out)\"></span>➔ Flux Sortant (OUT)</div>");
-        sb.AppendLine("        <div class=\"legend-item\"><span class=\"arrow-sample\" style=\"background:var(--accent-in)\"></span>➔ Flux Entrant (IN)</div>");
-        sb.AppendLine("        <div class=\"legend-item\"><span class=\"arrow-sample\" style=\"background:var(--accent-highlight)\"></span>➔ Flux Sélectionné</div>");
+        sb.AppendLine("        <div class=\"legend-item\"><span class=\"dot\" style=\"background:var(--accent-local)\"></span>Audited Server</div>");
+        sb.AppendLine("        <div class=\"legend-item\"><span class=\"dot\" style=\"background:var(--accent-remote)\"></span>Remote Server</div>");
+        sb.AppendLine("        <div class=\"legend-item\"><span class=\"arrow-sample\" style=\"background:var(--accent-out)\"></span>➔ Outbound Flow (OUT)</div>");
+        sb.AppendLine("        <div class=\"legend-item\"><span class=\"arrow-sample\" style=\"background:var(--accent-in)\"></span>➔ Inbound Flow (IN)</div>");
+        sb.AppendLine("        <div class=\"legend-item\"><span class=\"arrow-sample\" style=\"background:var(--accent-highlight)\"></span>➔ Highlighted Flow</div>");
+        sb.AppendLine("      </div>");
+        sb.AppendLine("      <div class=\"pagination-bar\">");
+        sb.AppendLine("        <button id=\"btnPrevPage\" type=\"button\">◀ Prev</button>");
+        sb.AppendLine("        <span id=\"pageStatus\" class=\"page-status\">Page 1 / 1</span>");
+        sb.AppendLine("        <button id=\"btnNextPage\" type=\"button\">Next ▶</button>");
+        sb.AppendLine("        <button id=\"btnLoadMore100\" type=\"button\">+100 Servers</button>");
+        sb.AppendLine("        <button id=\"btnShowAll\" type=\"button\">Show All</button>");
         sb.AppendLine("      </div>");
         sb.AppendLine("    </main>");
         sb.AppendLine("  </div>");
@@ -485,12 +515,20 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 const directionSelect = document.getElementById('directionSelect');
                 const inspectorContent = document.getElementById('inspectorContent');
 
+                const btnPrevPage = document.getElementById('btnPrevPage');
+                const btnNextPage = document.getElementById('btnNextPage');
+                const btnLoadMore100 = document.getElementById('btnLoadMore100');
+                const btnShowAll = document.getElementById('btnShowAll');
+                const pageStatus = document.getElementById('pageStatus');
+
                 const NODE_W = 236, NODE_H = 106;
                 let panX = 50, panY = 50, scale = 1.0;
                 let isPanning = false, startPanX = 0, startPanY = 0;
                 let draggingNodeId = null, dragOffsetX = 0, dragOffsetY = 0, hasDragged = false;
                 let selectedNodeId = null;
                 let nodePositions = new Map();
+                let currentPageIndex = 0;
+                let currentPageSize = TOPOLOGY_DATA.defaultPageSize || 100;
 
                 if (TOPOLOGY_DATA.defaultSort) sortSelect.value = TOPOLOGY_DATA.defaultSort;
                 if (TOPOLOGY_DATA.defaultRouting) routingSelect.value = TOPOLOGY_DATA.defaultRouting;
@@ -577,6 +615,28 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   draggingNodeId = null;
                 });
 
+                function rankNodesByActivity(nodes, edges) {
+                  const obsByNode = new Map();
+                  edges.forEach(e => {
+                    const obs = e.observationCount || 1;
+                    obsByNode.set(e.sourceNodeId, (obsByNode.get(e.sourceNodeId) || 0) + obs);
+                    obsByNode.set(e.targetNodeId, (obsByNode.get(e.targetNodeId) || 0) + obs);
+                  });
+
+                  const degreeOf = (n) => (n.inboundConnectionCount || 0) + (n.outboundConnectionCount || 0) + (n.ports ? n.ports.length : 0);
+
+                  return [...nodes].sort((a, b) => {
+                    if (a.isLocalAuditedServer !== b.isLocalAuditedServer) {
+                      return a.isLocalAuditedServer ? -1 : 1;
+                    }
+                    const degDiff = degreeOf(b) - degreeOf(a);
+                    if (degDiff !== 0) return degDiff;
+                    const obsDiff = (obsByNode.get(b.nodeId) || 0) - (obsByNode.get(a.nodeId) || 0);
+                    if (obsDiff !== 0) return obsDiff;
+                    return a.hostName.localeCompare(b.hostName);
+                  });
+                }
+
                 function sortNodes(nodes, edges, sortMethod) {
                   const copy = [...nodes];
                   const degreeOf = (n) => (n.inboundConnectionCount || 0) + (n.outboundConnectionCount || 0);
@@ -588,10 +648,10 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     return copy.sort((a, b) => ipToSortableNumber(a.ipAddress) - ipToSortableNumber(b.ipAddress) || a.hostName.localeCompare(b.hostName));
                   }
                   if (sortMethod === 'degree') {
-                    return copy.sort((a, b) => degreeOf(b) - degreeOf(a) || a.hostName.localeCompare(b.hostName));
+                    return rankNodesByActivity(copy, edges);
                   }
 
-                  // Heuristique Barycentrique de Sugiyama (minimisation des croisements)
+                  // Sugiyama 2-pass Barycentric Crossing Minimization
                   const locals = copy.filter(n => n.isLocalAuditedServer).sort((a, b) => degreeOf(b) - degreeOf(a));
                   const remotes = copy.filter(n => !n.isLocalAuditedServer);
 
@@ -619,7 +679,6 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     return degreeOf(b) - degreeOf(a) || a.hostName.localeCompare(b.hostName);
                   });
 
-                  // Seconde passe (Cibles -> Sources) pour affiner l'alignement
                   const remoteRank = new Map();
                   remotes.forEach((n, idx) => remoteRank.set(n.nodeId, idx));
                   locals.sort((a, b) => {
@@ -670,7 +729,6 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     return;
                   }
 
-                  // Mode Hiérarchique multi-colonnes adapté aux parcs de 100+ serveurs
                   const locals = ordered.filter(n => n.isLocalAuditedServer);
                   const remotes = ordered.filter(n => !n.isLocalAuditedServer);
                   const maxPerColumn = Math.max(6, Math.min(18, Math.ceil(Math.sqrt(remotes.length) * 1.8)));
@@ -691,7 +749,6 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   });
                 }
 
-                // Calcule le point d'ancrage exact sur la bordure extérieure du rectangle serveur + décalage de slot
                 function computeBorderAnchor(fromPos, toPos, isTarget, slotOffset) {
                   const cx1 = fromPos.x + NODE_W / 2, cy1 = fromPos.y + NODE_H / 2;
                   const cx2 = toPos.x + NODE_W / 2, cy2 = toPos.y + NODE_H / 2;
@@ -730,7 +787,6 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   }
                 }
 
-                // Détecte si le segment direct [p1, p2] traverse la boîte d'un serveur tiers
                 function findBlockingObstacle(p1, p2, sourceId, targetId, allNodes) {
                   const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
                   const minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
@@ -746,7 +802,6 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
                     if (maxX < bx1 || minX > bx2 || maxY < by1 || minY > by2) continue;
 
-                    // Test de proximité de la boîte au segment
                     const boxCy = pos.y + NODE_H / 2;
                     const boxCx = pos.x + NODE_W / 2;
                     const t = Math.max(0, Math.min(1, ((boxCx - p1.x) * (p2.x - p1.x) + (boxCy - p1.y) * (p2.y - p1.y)) / (Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2) || 1)));
@@ -797,7 +852,6 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     };
                   }
 
-                  // Mode Bézier Cubique avec évitement d'obstacle et éventail
                   let detourShiftY = fanOffset * 1.6;
                   if (obstacle) {
                     const bypassDir = ((y1 + y2) / 2 <= obstacle.boxCy) ? -1 : 1;
@@ -811,7 +865,6 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   const cx2 = x2 - dirX * tension;
                   const cy2 = y2 + detourShiftY;
 
-                  // Point médian sur la courbe de Bézier cubique (t = 0.5)
                   const bx = 0.125 * x1 + 0.375 * cx1 + 0.375 * cx2 + 0.125 * x2;
                   const by = 0.125 * y1 + 0.375 * cy1 + 0.375 * cy2 + 0.125 * y2;
 
@@ -822,7 +875,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   };
                 }
 
-                function filterGraph() {
+                function filterAndPaginateGraph() {
                   const q = (searchInput.value || '').trim().toLowerCase();
                   const incPorts = parsePortList(includePortsInput.value);
                   const excPorts = parsePortList(excludePortsInput.value);
@@ -851,46 +904,81 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     return true;
                   });
 
-                  const nodeIds = new Set(filteredNodes.map(n => n.nodeId));
-                  const activeEdges = filteredEdges.filter(e => nodeIds.has(e.sourceNodeId) && nodeIds.has(e.targetNodeId));
-                  return { nodes: filteredNodes, edges: activeEdges };
+                  // Rank servers so most active/audited servers appear on page 1
+                  const rankedNodes = sortSelect.value === 'alpha' || sortSelect.value === 'ip'
+                    ? sortNodes(filteredNodes, filteredEdges, sortSelect.value)
+                    : rankNodesByActivity(filteredNodes, filteredEdges);
+
+                  const totalFiltered = rankedNodes.length;
+                  const totalPages = Math.max(1, Math.ceil(totalFiltered / currentPageSize));
+                  if (currentPageIndex >= totalPages) currentPageIndex = totalPages - 1;
+                  if (currentPageIndex < 0) currentPageIndex = 0;
+
+                  const startIdx = currentPageIndex * currentPageSize;
+                  const endIdx = Math.min(totalFiltered, startIdx + currentPageSize);
+                  const pageSlice = rankedNodes.slice(startIdx, endIdx);
+                  const pageNodeIds = new Set(pageSlice.map(n => n.nodeId));
+
+                  // Always keep audited local servers connected to the visible page slice so no arrow is orphaned
+                  filteredEdges.forEach(e => {
+                    if (pageNodeIds.has(e.targetNodeId)) {
+                      const src = filteredNodes.find(n => n.nodeId === e.sourceNodeId);
+                      if (src && src.isLocalAuditedServer) pageNodeIds.add(src.nodeId);
+                    }
+                    if (pageNodeIds.has(e.sourceNodeId)) {
+                      const dst = filteredNodes.find(n => n.nodeId === e.targetNodeId);
+                      if (dst && dst.isLocalAuditedServer) pageNodeIds.add(dst.nodeId);
+                    }
+                  });
+
+                  const pagedNodes = rankedNodes.filter(n => pageNodeIds.has(n.nodeId));
+                  const activeEdges = filteredEdges.filter(e => pageNodeIds.has(e.sourceNodeId) && pageNodeIds.has(e.targetNodeId));
+
+                  const displayStart = totalFiltered === 0 ? 0 : startIdx + 1;
+                  pageStatus.textContent = `Page ${currentPageIndex + 1} / ${totalPages} (${displayStart}–${endIdx} of ${totalFiltered} servers)`;
+                  btnPrevPage.disabled = currentPageIndex <= 0;
+                  btnNextPage.disabled = currentPageIndex >= totalPages - 1;
+                  btnLoadMore100.disabled = currentPageSize >= totalFiltered;
+                  btnShowAll.disabled = currentPageSize >= totalFiltered && currentPageIndex === 0;
+
+                  return { nodes: pagedNodes, edges: activeEdges, totalFiltered };
                 }
 
                 function renderInspector(node, edges, allNodesMap) {
                   if (!node) {
-                    inspectorContent.innerHTML = 'Cliquez sur un serveur pour isoler ses routes entrantes (IN) et sortantes (OUT), ou glissez-le pour ajuster sa position.';
+                    inspectorContent.innerHTML = 'Click on a server to isolate its inbound (IN) and outbound (OUT) routes, or drag it to adjust its position.';
                     return;
                   }
                   const portsHtml = node.ports.length > 0
                     ? node.ports.map(p => `<span class="port-pill">:${p.port}/${p.protocol}${p.processName ? ' (' + p.processName + ')' : ''}</span>`).join(' ')
-                    : '<span style="color:var(--text-muted)">Aucun port d\'écoute direct</span>';
+                    : '<span style="color:var(--text-muted)">No direct listening port</span>';
 
                   const outbound = edges.filter(e => e.sourceNodeId === node.nodeId);
                   const inbound = edges.filter(e => e.targetNodeId === node.nodeId);
 
                   const outHtml = outbound.map(e => {
                     const target = allNodesMap.get(e.targetNodeId);
-                    return `<div><span style="color:var(--accent-out)">[OUT ➔]</span> <strong>${target ? target.hostName : e.targetNodeId}</strong> :${e.targetPort}/${e.protocol} (${e.processName || 'flux'})</div>`;
+                    return `<div><span style="color:var(--accent-out)">[OUT ➔]</span> <strong>${target ? target.hostName : e.targetNodeId}</strong> :${e.targetPort}/${e.protocol} (${e.processName || 'flow'})</div>`;
                   }).join('');
 
                   const inHtml = inbound.map(e => {
                     const source = allNodesMap.get(e.sourceNodeId);
-                    return `<div><span style="color:var(--accent-in)">[⬅ IN]</span> <strong>${source ? source.hostName : e.sourceNodeId}</strong> vers :${e.targetPort}/${e.protocol}</div>`;
+                    return `<div><span style="color:var(--accent-in)">[⬅ IN]</span> <strong>${source ? source.hostName : e.sourceNodeId}</strong> to :${e.targetPort}/${e.protocol}</div>`;
                   }).join('');
 
                   inspectorContent.innerHTML = `
                     <div><strong>${node.hostName}</strong> (${node.ipAddress || 'IP N/A'})</div>
-                    <div style="margin-top:4px;color:var(--text-muted)">Ports non éphémères :</div>
+                    <div style="margin-top:4px;color:var(--text-muted)">Non-ephemeral service ports:</div>
                     <div>${portsHtml}</div>
-                    <div style="margin-top:6px;color:var(--text-muted)">Flux Sortants OUT (${outbound.length}) :</div>
-                    <div>${outHtml || 'Aucun'}</div>
-                    <div style="margin-top:6px;color:var(--text-muted)">Flux Entrants IN (${inbound.length}) :</div>
-                    <div>${inHtml || 'Aucun'}</div>
+                    <div style="margin-top:6px;color:var(--text-muted)">Outbound Flows OUT (${outbound.length}):</div>
+                    <div>${outHtml || 'None'}</div>
+                    <div style="margin-top:6px;color:var(--text-muted)">Inbound Flows IN (${inbound.length}):</div>
+                    <div>${inHtml || 'None'}</div>
                   `;
                 }
 
                 function renderGraph(recomputePositions = false) {
-                  const { nodes, edges } = filterGraph();
+                  const { nodes, edges } = filterAndPaginateGraph();
                   const nodesMap = new Map(nodes.map(n => [n.nodeId, n]));
                   document.getElementById('kpiNodes').textContent = String(nodes.length);
                   document.getElementById('kpiEdges').textContent = String(edges.length);
@@ -902,7 +990,6 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   const routingMode = routingSelect.value;
                   const fanSpacing = parseInt(edgeFanRange.value, 10) || 18;
 
-                  // Groupement des liens partageant la même paire de serveurs pour l'écartement en éventail
                   const pairBuckets = new Map();
                   const nodePortSlots = new Map();
 
@@ -1009,7 +1096,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     sub.setAttribute('y', '41');
                     sub.setAttribute('fill', '#94a3b8');
                     sub.setAttribute('font-size', '11');
-                    sub.textContent = `${n.ipAddress || 'IP N/A'} • ${n.isLocalAuditedServer ? 'Serveur Audité' : 'Serveur Distant'}`;
+                    sub.textContent = `${n.ipAddress || 'IP N/A'} • ${n.isLocalAuditedServer ? 'Audited Server' : 'Remote Server'}`;
                     g.appendChild(sub);
 
                     const portSummary = n.ports.slice(0, 5).map(p => `:${p.port}`).join(' ') + (n.ports.length > 5 ? ` +${n.ports.length - 5}` : '');
@@ -1019,7 +1106,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     portsTxt.setAttribute('fill', '#34d399');
                     portsTxt.setAttribute('font-size', '11.5');
                     portsTxt.setAttribute('font-family', 'monospace');
-                    portsTxt.textContent = portSummary || 'Aucun port exposé';
+                    portsTxt.textContent = portSummary || 'No exposed port';
                     g.appendChild(portsTxt);
 
                     const statsTxt = document.createElementNS(SVG_NS, 'text');
@@ -1027,7 +1114,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     statsTxt.setAttribute('y', '90');
                     statsTxt.setAttribute('fill', '#cbd5e1');
                     statsTxt.setAttribute('font-size', '10.5');
-                    statsTxt.textContent = `IN (Entrants): ${n.inboundConnectionCount}  |  OUT (Sortants): ${n.outboundConnectionCount}`;
+                    statsTxt.textContent = `IN (Inbound): ${n.inboundConnectionCount}  |  OUT (Outbound): ${n.outboundConnectionCount}`;
                     g.appendChild(statsTxt);
 
                     g.addEventListener('mousedown', (ev) => {
@@ -1056,9 +1143,15 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 }
 
                 [searchInput, includePortsInput, excludePortsInput, excludeHostsInput].forEach(el => {
-                  el.addEventListener('input', () => renderGraph(true));
+                  el.addEventListener('input', () => {
+                    currentPageIndex = 0;
+                    renderGraph(true);
+                  });
                 });
-                directionSelect.addEventListener('change', () => renderGraph(true));
+                directionSelect.addEventListener('change', () => {
+                  currentPageIndex = 0;
+                  renderGraph(true);
+                });
                 layoutSelect.addEventListener('change', () => renderGraph(true));
                 sortSelect.addEventListener('change', () => renderGraph(true));
                 routingSelect.addEventListener('change', () => renderGraph(false));
@@ -1078,6 +1171,29 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   renderGraph(false);
                 });
 
+                btnPrevPage.addEventListener('click', () => {
+                  if (currentPageIndex > 0) {
+                    currentPageIndex--;
+                    renderGraph(true);
+                  }
+                });
+
+                btnNextPage.addEventListener('click', () => {
+                  currentPageIndex++;
+                  renderGraph(true);
+                });
+
+                btnLoadMore100.addEventListener('click', () => {
+                  currentPageSize += 100;
+                  renderGraph(true);
+                });
+
+                btnShowAll.addEventListener('click', () => {
+                  currentPageIndex = 0;
+                  currentPageSize = Math.max(100, TOPOLOGY_DATA.nodes.length);
+                  renderGraph(true);
+                });
+
                 document.getElementById('btnResetZoom').addEventListener('click', () => {
                   panX = 50; panY = 50; scale = 1.0; updateTransform();
                 });
@@ -1093,6 +1209,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   excludeHostsInput.value = '';
                   directionSelect.value = 'all';
                   selectedNodeId = null;
+                  currentPageIndex = 0;
+                  currentPageSize = TOPOLOGY_DATA.defaultPageSize || 100;
                   renderInspector(null, [], new Map());
                   renderGraph(true);
                 });

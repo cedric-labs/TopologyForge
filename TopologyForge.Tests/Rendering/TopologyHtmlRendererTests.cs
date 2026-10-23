@@ -28,11 +28,12 @@ public sealed class TopologyHtmlRendererTests
         var graph = CreateSampleGraph();
 
         // Act
-        var html = renderer.RenderHtml(graph, "Carte Réseau Production");
+        var html = renderer.RenderHtml(graph, "Production Network Topology");
 
         // Assert
         html.Should().StartWith("<!DOCTYPE html>");
-        html.Should().Contain("Carte Réseau Production");
+        html.Should().Contain("<html lang=\"en\">");
+        html.Should().Contain("Production Network Topology");
         html.Should().Contain("SRV-FRONT-01");
         html.Should().Contain("SRV-API-01");
         html.Should().Contain("SRV-DB-01");
@@ -52,7 +53,7 @@ public sealed class TopologyHtmlRendererTests
         var graph = CreateSampleGraph();
         var options = new TopologyRenderingOptions
         {
-            Title = "Topologie Grand Parc",
+            Title = "Enterprise Fleet Topology",
             DefaultSortMethod = TopologyNodeSortMethod.BarycentricSugiyama,
             DefaultRoutingMode = TopologyEdgeRoutingMode.OrthogonalCorridors,
             DefaultSpacingProfile = TopologySpacingProfile.Spacious
@@ -62,7 +63,7 @@ public sealed class TopologyHtmlRendererTests
         var html = renderer.RenderHtml(graph, options);
 
         // Assert
-        html.Should().Contain("Topologie Grand Parc");
+        html.Should().Contain("Enterprise Fleet Topology");
         html.Should().Contain("id=\"arrowOut\"");
         html.Should().Contain("id=\"arrowIn\"");
         html.Should().Contain("id=\"arrowHighlight\"");
@@ -77,6 +78,31 @@ public sealed class TopologyHtmlRendererTests
     }
 
     [Fact]
+    public void RenderHtml_WhenPaginationConfigured_EmbedsPaginationControlsAndEnglishLabels()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var graph = CreateSampleGraph();
+        var options = new TopologyRenderingOptions
+        {
+            DefaultPageSize = 100
+        };
+
+        // Act
+        var html = renderer.RenderHtml(graph, options);
+
+        // Assert
+        html.Should().Contain("\"defaultPageSize\":100");
+        html.Should().Contain("id=\"btnPrevPage\"");
+        html.Should().Contain("id=\"btnNextPage\"");
+        html.Should().Contain("id=\"btnLoadMore100\"");
+        html.Should().Contain("id=\"btnShowAll\"");
+        html.Should().Contain("id=\"pageStatus\"");
+        html.Should().Contain("Inclusion / Exclusion Filters");
+        html.Should().Contain("Server Inspector");
+    }
+
+    [Fact]
     public void RenderHtml_WhenSpecialCharactersInTitle_EscapesHtmlCorrectly()
     {
         // Arrange
@@ -84,7 +110,7 @@ public sealed class TopologyHtmlRendererTests
         var graph = CreateSampleGraph();
 
         // Act
-        var html = renderer.RenderHtml(graph, "Audit <script>alert(1)</script> & Flux");
+        var html = renderer.RenderHtml(graph, "Audit <script>alert(1)</script> & Flows");
 
         // Assert
         html.Should().NotContain("<script>alert(1)</script>");

@@ -21,6 +21,9 @@ Framework partagé .NET de modélisation topologique, de filtrage déclaratif (i
   * `TopologyCsvParser` (`ITopologyCsvParser`) : Lecture asynchrone ou en mémoire de journaux CSV (dont `NetFlowAudit`) avec détection dynamique des colonnes.
 * **Rendu Cartographique HTML5 Autonome & Routage Anti-Croisement (`TopologyForge.Rendering`)** :
   * `TopologyHtmlRenderer` (`ITopologyHtmlRenderer`) & `TopologyRenderingOptions` :
+    * **Pagination intelligente par activité & Chargement par tranche (`DefaultPageSize = 100`)** :
+      * Classement prioritaire (serveurs audités locaux, degré de connexion et volume d'observations) avec préservation automatique des serveurs locaux reliés à la page courante.
+      * Barre de pagination intégrée : `◀ Prev`, `Next ▶`, `+100 Servers` et `Show All`.
     * **4 méthodes de tri des serveurs (`TopologyNodeSortMethod`)** :
       * `BarycentricSugiyama` : Heuristique barycentrique multicouche alignant face à face les serveurs interconnectés pour minimiser les croisements de flèches.
       * `ConnectionDegree` : Tri par densité de trafic (nombre de connexions décroissant).
