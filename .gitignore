@@ -1,0 +1,20 @@
+## Ignorés pour .NET et Visual Studio
+[Bb]in/
+[Oo]bj/
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.sonar-token
+
+## SonarQube & Couverture
+.sonarqube/
+TestResults/
+*.opencover.xml
+coverage/
+
+## Logs et caches
+*.log
+.dotnet/

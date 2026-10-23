@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TopologyForge.Tests/TopologyForge.Tests.csproj" />
+  <Project Path="TopologyForge/TopologyForge.csproj" />
+</Solution>
