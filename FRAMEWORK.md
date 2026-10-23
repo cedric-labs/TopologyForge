@@ -19,22 +19,28 @@ Framework partagé .NET de modélisation topologique, de filtrage déclaratif (i
   * `TopologyGraphBuilder` (`ITopologyGraphBuilder`) : Regroupe les flux par serveur, associe uniquement les ports de service non éphémères aux serveurs hébergeant le service (port local en écoute/entrant, port distant en sortant) et fusionne les liens redondants en cumulant les compteurs d'observations.
 * **Analyse CSV RFC 4180 (`TopologyForge.Parsers`)** :
   * `TopologyCsvParser` (`ITopologyCsvParser`) : Lecture asynchrone ou en mémoire de journaux CSV (dont `NetFlowAudit`) avec détection dynamique des colonnes.
-* **Rendu Cartographique HTML5 Autonome & Routage Anti-Croisement (`TopologyForge.Rendering`)** :
+* **Rendu Cartographique HTML5 Autonome & Routage Anti-Croisement en 5 Passes (`TopologyForge.Rendering`)** :
   * `TopologyHtmlRenderer` (`ITopologyHtmlRenderer`) & `TopologyRenderingOptions` :
     * **Pagination intelligente par activité & Chargement par tranche (`DefaultPageSize = 100`)** :
       * Classement prioritaire (serveurs audités locaux, degré de connexion et volume d'observations) avec préservation automatique des serveurs locaux reliés à la page courante.
       * Barre de pagination intégrée : `◀ Prev`, `Next ▶`, `+100 Servers` et `Show All`.
+    * **Pipeline anti-croisement en 5 passes** :
+      1. **Placement initial 360° en anneaux concentriques ou colonnes centrées en quinconce** autour des serveurs audités.
+      2. **Balayage alterné Barycentre / Médiane pondérée (8 passes)** pour aligner les nœuds interconnectés.
+      3. **Optimiseur 2-Opt exact (`optimizeNodePositions2Opt`)** guidé par le décompte géométrique réel des intersections de segments et des collisions flèche/boîte.
+      4. **Relaxation répulsive (`applyForceRepulsionPolish`)** ouvrant des couloirs de visibilité sans chevauchement de boîtes.
+      5. **Distribution angulaire uniforme des points d'attache sur les 4 bordures (`computeAllEdgeAnchors`) et routage par couloirs multi-obstacles (`findCorridorWaypoint`)** recalculés en temps réel y compris lors du déplacement manuel à la souris.
     * **4 méthodes de tri des serveurs (`TopologyNodeSortMethod`)** :
-      * `BarycentricSugiyama` : Heuristique barycentrique multicouche alignant face à face les serveurs interconnectés pour minimiser les croisements de flèches.
+      * `BarycentricSugiyama` : Heuristique barycentrique/médiane multi-passes + optimisation 2-Opt.
       * `ConnectionDegree` : Tri par densité de trafic (nombre de connexions décroissant).
       * `Alphabetical` : Tri alphabétique par nom d'hôte.
       * `SubnetIp` : Tri logique par sous-réseau et octets d'adresse IP.
     * **3 modes de routage des flèches (`TopologyEdgeRoutingMode`)** :
-      * `BezierCurved` : Courbes de Bézier cubiques avec détection et contournement automatique des boîtes de serveurs intermédiaires + éventail sur liens multiples.
+      * `BezierCurved` : Courbes de Bézier cubiques orientées selon les normales aux bordures avec contournement par couloirs + éventail sur liens multiples.
       * `OrthogonalCorridors` : Couloirs orthogonaux à 90° avec pistes décalées anti-chevauchement.
       * `DirectStraight` : Lignes directes de bordure à bordure avec écartement parallèle.
     * **Ancrage sur bordures & Pointes directionnelles (`IN` / `OUT`)** :
-      * Calcul géométrique d'intersection sur la bordure extérieure des boîtes serveurs (la pointe de flèche s'arrête exactement sur le bord du serveur cible).
+      * Répartition régulière et tri géométrique des points d'attache sur les 4 côtés de chaque serveur.
       * Distinction visuelle et chromatique des flux sortants (`OUT` en bleu cyan `#38bdf8`) et entrants (`IN` en vert émeraude `#10b981`).
     * **Profils et curseurs d'écartement (`TopologySpacingProfile`)** :
       * Profils `Compact`, `Balanced`, `Spacious` (adapté aux parcs > 100 serveurs) et curseurs temps réel d'écartement des serveurs (`0.65x` à `2.4x`) et d'écartement des flèches (`6px` à `46px`).

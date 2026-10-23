@@ -7,7 +7,7 @@ using TopologyForge.Models;
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Générateur de cartes topologiques HTML5 autonomes (Single-File, zéro dépendance externe) avec moteur de routage anti-croisement, pagination par tranche et pointes directionnelles IN/OUT.
+/// Générateur de cartes topologiques HTML5 autonomes (Single-File, zéro dépendance externe) avec moteur de routage anti-croisement multi-passes, pagination par tranche et pointes directionnelles IN/OUT.
 /// </summary>
 public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 {
@@ -65,7 +65,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         var payloadJson = SerializeGraphPayload(graph, options);
         var generatedAtFormatted = graph.GeneratedAtUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
 
-        var sb = new StringBuilder(49152);
+        var sb = new StringBuilder(65536);
         sb.AppendLine("<!DOCTYPE html>");
         sb.AppendLine("<html lang=\"en\">");
         sb.AppendLine("<head>");
@@ -637,6 +637,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   });
                 }
 
+                // Pass 2: Multi-pass alternating Barycenter & Weighted Median sweep
                 function sortNodes(nodes, edges, sortMethod) {
                   const copy = [...nodes];
                   const degreeOf = (n) => (n.inboundConnectionCount || 0) + (n.outboundConnectionCount || 0);
@@ -651,64 +652,237 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     return rankNodesByActivity(copy, edges);
                   }
 
-                  // Sugiyama 2-pass Barycentric Crossing Minimization
-                  const locals = copy.filter(n => n.isLocalAuditedServer).sort((a, b) => degreeOf(b) - degreeOf(a));
-                  const remotes = copy.filter(n => !n.isLocalAuditedServer);
+                  const locals = copy.filter(n => n.isLocalAuditedServer).sort((a, b) => degreeOf(b) - degreeOf(a) || a.hostName.localeCompare(b.hostName));
+                  const remotes = copy.filter(n => !n.isLocalAuditedServer).sort((a, b) => degreeOf(b) - degreeOf(a) || a.hostName.localeCompare(b.hostName));
 
-                  const localRank = new Map();
-                  locals.forEach((n, idx) => localRank.set(n.nodeId, idx));
+                  const adjacency = new Map();
+                  nodes.forEach(n => adjacency.set(n.nodeId, []));
+                  edges.forEach(e => {
+                    if (adjacency.has(e.sourceNodeId)) adjacency.get(e.sourceNodeId).push(e.targetNodeId);
+                    if (adjacency.has(e.targetNodeId)) adjacency.get(e.targetNodeId).push(e.sourceNodeId);
+                  });
 
-                  const computeRemoteBarycenter = (remoteNode) => {
-                    let sum = 0, count = 0;
-                    edges.forEach(e => {
-                      if (e.targetNodeId === remoteNode.nodeId && localRank.has(e.sourceNodeId)) {
-                        sum += localRank.get(e.sourceNodeId);
-                        count++;
-                      } else if (e.sourceNodeId === remoteNode.nodeId && localRank.has(e.targetNodeId)) {
-                        sum += localRank.get(e.targetNodeId);
-                        count++;
-                      }
-                    });
-                    return count > 0 ? sum / count : 9999;
+                  const computeScore = (nodeId, rankMap, useMedian) => {
+                    const neighbors = (adjacency.get(nodeId) || []).filter(id => rankMap.has(id)).map(id => rankMap.get(id)).sort((x, y) => x - y);
+                    if (neighbors.length === 0) return 9999;
+                    if (useMedian) {
+                      const mid = Math.floor(neighbors.length / 2);
+                      return neighbors.length % 2 === 1 ? neighbors[mid] : (neighbors[mid - 1] + neighbors[mid]) / 2;
+                    }
+                    return neighbors.reduce((s, v) => s + v, 0) / neighbors.length;
                   };
 
-                  remotes.sort((a, b) => {
-                    const ba = computeRemoteBarycenter(a);
-                    const bb = computeRemoteBarycenter(b);
-                    if (Math.abs(ba - bb) > 0.01) return ba - bb;
-                    return degreeOf(b) - degreeOf(a) || a.hostName.localeCompare(b.hostName);
-                  });
+                  for (let pass = 0; pass < 8; pass++) {
+                    const useMedian = (pass % 2 === 1);
+                    const localRank = new Map();
+                    locals.forEach((n, idx) => localRank.set(n.nodeId, idx));
 
-                  const remoteRank = new Map();
-                  remotes.forEach((n, idx) => remoteRank.set(n.nodeId, idx));
-                  locals.sort((a, b) => {
-                    let sumA = 0, cntA = 0, sumB = 0, cntB = 0;
-                    edges.forEach(e => {
-                      if (e.sourceNodeId === a.nodeId && remoteRank.has(e.targetNodeId)) { sumA += remoteRank.get(e.targetNodeId); cntA++; }
-                      if (e.targetNodeId === a.nodeId && remoteRank.has(e.sourceNodeId)) { sumA += remoteRank.get(e.sourceNodeId); cntA++; }
-                      if (e.sourceNodeId === b.nodeId && remoteRank.has(e.targetNodeId)) { sumB += remoteRank.get(e.targetNodeId); cntB++; }
-                      if (e.targetNodeId === b.nodeId && remoteRank.has(e.sourceNodeId)) { sumB += remoteRank.get(e.sourceNodeId); cntB++; }
+                    remotes.sort((a, b) => {
+                      const sa = computeScore(a.nodeId, localRank, useMedian);
+                      const sb = computeScore(b.nodeId, localRank, useMedian);
+                      if (Math.abs(sa - sb) > 0.001) return sa - sb;
+                      return degreeOf(b) - degreeOf(a) || a.hostName.localeCompare(b.hostName);
                     });
-                    const baryA = cntA > 0 ? sumA / cntA : 9999;
-                    const baryB = cntB > 0 ? sumB / cntB : 9999;
-                    return baryA - baryB || degreeOf(b) - degreeOf(a);
-                  });
+
+                    const remoteRank = new Map();
+                    remotes.forEach((n, idx) => remoteRank.set(n.nodeId, idx));
+
+                    locals.sort((a, b) => {
+                      const sa = computeScore(a.nodeId, remoteRank, useMedian);
+                      const sb = computeScore(b.nodeId, remoteRank, useMedian);
+                      if (Math.abs(sa - sb) > 0.001) return sa - sb;
+                      return degreeOf(b) - degreeOf(a) || a.hostName.localeCompare(b.hostName);
+                    });
+                  }
 
                   return [...locals, ...remotes];
                 }
 
+                function segmentsIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
+                  const ccw = (p1x, p1y, p2x, p2y, p3x, p3y) => (p3y - p1y) * (p2x - p1x) > (p2y - p1y) * (p3x - p1x);
+                  return (ccw(ax, ay, cx, cy, dx, dy) !== ccw(bx, by, cx, cy, dx, dy)) &&
+                         (ccw(ax, ay, bx, by, cx, cy) !== ccw(ax, ay, bx, by, dx, dy));
+                }
+
+                function segmentIntersectsBox(x1, y1, x2, y2, boxPos, pad) {
+                  const bx1 = boxPos.x - pad, by1 = boxPos.y - pad;
+                  const bx2 = boxPos.x + NODE_W + pad, by2 = boxPos.y + NODE_H + pad;
+                  if (Math.max(x1, x2) < bx1 || Math.min(x1, x2) > bx2 || Math.max(y1, y2) < by1 || Math.min(y1, y2) > by2) {
+                    return false;
+                  }
+                  const cx = boxPos.x + NODE_W / 2, cy = boxPos.y + NODE_H / 2;
+                  const lenSq = Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2) || 1;
+                  const t = Math.max(0, Math.min(1, ((cx - x1) * (x2 - x1) + (cy - y1) * (y2 - y1)) / lenSq));
+                  const px = x1 + t * (x2 - x1), py = y1 + t * (y2 - y1);
+                  return px >= bx1 && px <= bx2 && py >= by1 && py <= by2;
+                }
+
+                function computeLayoutCost(nodes, edges) {
+                  let crossings = 0;
+                  let boxCollisions = 0;
+                  let lengthPenalty = 0;
+
+                  const uniquePairs = [];
+                  const seenPairs = new Set();
+                  edges.forEach(e => {
+                    const key = [e.sourceNodeId, e.targetNodeId].sort().join('::');
+                    if (!seenPairs.has(key) && e.sourceNodeId !== e.targetNodeId) {
+                      seenPairs.add(key);
+                      uniquePairs.push({ u: e.sourceNodeId, v: e.targetNodeId });
+                    }
+                  });
+
+                  const segs = [];
+                  for (let i = 0; i < uniquePairs.length; i++) {
+                    const pair = uniquePairs[i];
+                    const p1 = nodePositions.get(pair.u);
+                    const p2 = nodePositions.get(pair.v);
+                    if (!p1 || !p2) continue;
+                    const x1 = p1.x + NODE_W / 2, y1 = p1.y + NODE_H / 2;
+                    const x2 = p2.x + NODE_W / 2, y2 = p2.y + NODE_H / 2;
+                    segs.push({ u: pair.u, v: pair.v, x1, y1, x2, y2 });
+                    lengthPenalty += Math.hypot(x2 - x1, y2 - y1) * 0.006;
+
+                    for (let k = 0; k < nodes.length; k++) {
+                      const n = nodes[k];
+                      if (n.nodeId === pair.u || n.nodeId === pair.v) continue;
+                      const nPos = nodePositions.get(n.nodeId);
+                      if (nPos && segmentIntersectsBox(x1, y1, x2, y2, nPos, 12)) {
+                        boxCollisions++;
+                      }
+                    }
+                  }
+
+                  for (let i = 0; i < segs.length; i++) {
+                    for (let j = i + 1; j < segs.length; j++) {
+                      const s1 = segs[i], s2 = segs[j];
+                      if (s1.u === s2.u || s1.u === s2.v || s1.v === s2.u || s1.v === s2.v) continue;
+                      if (segmentsIntersect(s1.x1, s1.y1, s1.x2, s1.y2, s2.x1, s2.y1, s2.x2, s2.y2)) {
+                        crossings++;
+                      }
+                    }
+                  }
+
+                  return boxCollisions * 120 + crossings * 45 + lengthPenalty;
+                }
+
+                // Pass 3: Exact 2-Opt Swap Optimizer guided by geometric crossing & occlusion cost
+                function optimizeNodePositions2Opt(nodes, edges) {
+                  if (nodes.length <= 2 || edges.length === 0) return;
+
+                  const swapGroups = [
+                    nodes.filter(n => !n.isLocalAuditedServer),
+                    nodes.filter(n => n.isLocalAuditedServer)
+                  ];
+
+                  let currentCost = computeLayoutCost(nodes, edges);
+                  const maxPasses = nodes.length <= 45 ? 18 : 8;
+
+                  for (let pass = 0; pass < maxPasses; pass++) {
+                    let improved = false;
+                    for (let g = 0; g < swapGroups.length; g++) {
+                      const group = swapGroups[g];
+                      if (group.length <= 1) continue;
+                      for (let i = 0; i < group.length - 1; i++) {
+                        for (let j = i + 1; j < group.length; j++) {
+                          const idA = group[i].nodeId, idB = group[j].nodeId;
+                          const posA = nodePositions.get(idA), posB = nodePositions.get(idB);
+                          if (!posA || !posB) continue;
+
+                          nodePositions.set(idA, posB);
+                          nodePositions.set(idB, posA);
+                          const candidateCost = computeLayoutCost(nodes, edges);
+
+                          if (candidateCost < currentCost - 0.05) {
+                            currentCost = candidateCost;
+                            improved = true;
+                          } else {
+                            nodePositions.set(idA, posA);
+                            nodePositions.set(idB, posB);
+                          }
+                        }
+                      }
+                    }
+                    if (!improved) break;
+                  }
+                }
+
+                // Pass 4: Force repulsion & edge-corridor clearance polish
+                function applyForceRepulsionPolish(nodes, edges, gapFactor) {
+                  if (nodes.length <= 1) return;
+                  const minSepX = Math.round((NODE_W + 48) * Math.max(0.85, gapFactor * 0.9));
+                  const minSepY = Math.round((NODE_H + 40) * Math.max(0.85, gapFactor * 0.9));
+
+                  for (let iter = 0; iter < 6; iter++) {
+                    // Push third-party boxes out of edge sightlines
+                    edges.forEach(e => {
+                      const p1 = nodePositions.get(e.sourceNodeId);
+                      const p2 = nodePositions.get(e.targetNodeId);
+                      if (!p1 || !p2) return;
+                      const x1 = p1.x + NODE_W / 2, y1 = p1.y + NODE_H / 2;
+                      const x2 = p2.x + NODE_W / 2, y2 = p2.y + NODE_H / 2;
+                      const dx = x2 - x1, dy = y2 - y1;
+                      const lenSq = dx * dx + dy * dy;
+                      if (lenSq < 1) return;
+
+                      nodes.forEach(n => {
+                        if (n.nodeId === e.sourceNodeId || n.nodeId === e.targetNodeId || n.isLocalAuditedServer) return;
+                        const pos = nodePositions.get(n.nodeId);
+                        if (!pos) return;
+                        const cx = pos.x + NODE_W / 2, cy = pos.y + NODE_H / 2;
+                        const t = ((cx - x1) * dx + (cy - y1) * dy) / lenSq;
+                        if (t <= 0.08 || t >= 0.92) return;
+                        const projX = x1 + t * dx, projY = y1 + t * dy;
+                        const distX = cx - projX, distY = cy - projY;
+                        if (Math.abs(distX) < NODE_W * 0.62 && Math.abs(distY) < NODE_H * 0.72) {
+                          const len = Math.hypot(dx, dy) || 1;
+                          const nx = -dy / len, ny = dx / len;
+                          const side = (distX * nx + distY * ny) >= 0 ? 1 : -1;
+                          pos.x = Math.round(pos.x + nx * side * 24);
+                          pos.y = Math.round(pos.y + ny * side * 24);
+                        }
+                      });
+                    });
+
+                    // Enforce box-to-box non-overlapping clearance
+                    for (let i = 0; i < nodes.length; i++) {
+                      for (let j = i + 1; j < nodes.length; j++) {
+                        const pA = nodePositions.get(nodes[i].nodeId);
+                        const pB = nodePositions.get(nodes[j].nodeId);
+                        if (!pA || !pB) continue;
+                        const dx = (pB.x + NODE_W / 2) - (pA.x + NODE_W / 2);
+                        const dy = (pB.y + NODE_H / 2) - (pA.y + NODE_H / 2);
+                        if (Math.abs(dx) < minSepX && Math.abs(dy) < minSepY) {
+                          const overlapX = minSepX - Math.abs(dx);
+                          const overlapY = minSepY - Math.abs(dy);
+                          if (overlapX < overlapY) {
+                            const pushX = (overlapX / 2 + 2) * (dx >= 0 ? 1 : -1);
+                            if (!nodes[i].isLocalAuditedServer) pA.x = Math.round(pA.x - pushX);
+                            if (!nodes[j].isLocalAuditedServer) pB.x = Math.round(pB.x + pushX);
+                          } else {
+                            const pushY = (overlapY / 2 + 2) * (dy >= 0 ? 1 : -1);
+                            if (!nodes[i].isLocalAuditedServer) pA.y = Math.round(pA.y - pushY);
+                            if (!nodes[j].isLocalAuditedServer) pB.y = Math.round(pB.y + pushY);
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+
+                // Pass 1 + Pipeline Orchestrator
                 function computeLayout(nodes, edges, layoutMode, sortMethod) {
                   nodePositions.clear();
                   const ordered = sortNodes(nodes, edges, sortMethod);
                   const gapFactor = parseFloat(nodeGapRange.value) || 1.0;
-                  const stepX = Math.round(360 * gapFactor);
-                  const stepY = Math.round(156 * gapFactor);
+                  const stepX = Math.round(350 * gapFactor);
+                  const stepY = Math.round(162 * gapFactor);
 
                   if (layoutMode === 'circular') {
                     const width = Math.max(960, svg.clientWidth || 1200);
                     const height = Math.max(680, svg.clientHeight || 800);
                     const cx = width / 2, cy = height / 2;
-                    const radius = Math.max(240, ordered.length * 36 * gapFactor);
+                    const radius = Math.max(250, ordered.length * 36 * gapFactor);
                     ordered.forEach((n, idx) => {
                       const angle = (2 * Math.PI * idx) / Math.max(1, ordered.length);
                       nodePositions.set(n.nodeId, {
@@ -716,6 +890,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                         y: Math.round(cy + radius * Math.sin(angle) - NODE_H / 2)
                       });
                     });
+                    optimizeNodePositions2Opt(ordered, edges);
                     return;
                   }
 
@@ -724,19 +899,71 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     ordered.forEach((n, idx) => {
                       const col = idx % cols;
                       const row = Math.floor(idx / cols);
-                      nodePositions.set(n.nodeId, { x: 60 + col * stepX, y: 60 + row * stepY });
+                      const staggerY = (col % 2) * Math.round(stepY * 0.42);
+                      nodePositions.set(n.nodeId, { x: 60 + col * stepX, y: 60 + row * stepY + staggerY });
                     });
+                    optimizeNodePositions2Opt(ordered, edges);
+                    applyForceRepulsionPolish(ordered, edges, gapFactor);
                     return;
                   }
 
                   const locals = ordered.filter(n => n.isLocalAuditedServer);
                   const remotes = ordered.filter(n => !n.isLocalAuditedServer);
-                  const maxPerColumn = Math.max(6, Math.min(18, Math.ceil(Math.sqrt(remotes.length) * 1.8)));
+
+                  // Pass 1A: 360-degree Concentric Sector Rings around Audited Hub(s) to use all 4 borders without column occlusion
+                  if (locals.length >= 1 && locals.length <= 3 && remotes.length > 0) {
+                    const width = Math.max(1100, svg.clientWidth || 1280);
+                    const height = Math.max(740, svg.clientHeight || 840);
+                    const hubCx = Math.round(width * 0.48);
+                    const hubCy = Math.round(height * 0.48);
+
+                    locals.forEach((n, idx) => {
+                      const offsetY = Math.round((idx - (locals.length - 1) / 2) * (NODE_H + 56) * gapFactor);
+                      nodePositions.set(n.nodeId, {
+                        x: Math.round(hubCx - NODE_W / 2),
+                        y: Math.round(hubCy + offsetY - NODE_H / 2)
+                      });
+                    });
+
+                    let placed = 0;
+                    let ringIdx = 0;
+                    while (placed < remotes.length) {
+                      const ringCapacity = 10 + ringIdx * 6;
+                      const slice = remotes.slice(placed, placed + ringCapacity);
+                      const rx = (390 + ringIdx * 330) * gapFactor;
+                      const ry = (255 + ringIdx * 210) * gapFactor;
+                      const angleOffset = (ringIdx % 2) * (Math.PI / Math.max(1, slice.length));
+
+                      slice.forEach((n, idx) => {
+                        const angle = angleOffset + (2 * Math.PI * idx) / Math.max(1, slice.length);
+                        nodePositions.set(n.nodeId, {
+                          x: Math.round(hubCx + rx * Math.cos(angle) - NODE_W / 2),
+                          y: Math.round(hubCy + ry * Math.sin(angle) - NODE_H / 2)
+                        });
+                      });
+
+                      placed += slice.length;
+                      ringIdx++;
+                    }
+
+                    optimizeNodePositions2Opt(ordered, edges);
+                    applyForceRepulsionPolish(ordered, edges, gapFactor);
+                    return;
+                  }
+
+                  // Pass 1B: Centered & Staggered Multi-Layer Bipartite Layout
+                  const maxPerColumn = Math.max(6, Math.min(16, Math.ceil(Math.sqrt(remotes.length) * 1.7)));
+                  const remoteRows = Math.min(maxPerColumn, Math.max(1, remotes.length));
+                  const totalRemoteHeight = (remoteRows - 1) * stepY;
+
+                  const localRows = Math.min(maxPerColumn, Math.max(1, locals.length));
+                  const totalLocalHeight = (localRows - 1) * stepY;
+                  const localStartY = 60 + Math.max(0, Math.round((totalRemoteHeight - totalLocalHeight) / 2));
 
                   locals.forEach((n, idx) => {
                     const col = Math.floor(idx / maxPerColumn);
                     const row = idx % maxPerColumn;
-                    nodePositions.set(n.nodeId, { x: 60 + col * stepX, y: 60 + row * stepY });
+                    nodePositions.set(n.nodeId, { x: 60 + col * stepX, y: localStartY + row * stepY });
                   });
 
                   const localCols = Math.max(1, Math.ceil(locals.length / maxPerColumn));
@@ -745,106 +972,158 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   remotes.forEach((n, idx) => {
                     const col = Math.floor(idx / maxPerColumn);
                     const row = idx % maxPerColumn;
-                    nodePositions.set(n.nodeId, { x: remoteStartX + col * stepX, y: 60 + row * stepY });
+                    const staggerY = (col % 2) * Math.round(stepY * 0.48);
+                    nodePositions.set(n.nodeId, { x: remoteStartX + col * stepX, y: 60 + row * stepY + staggerY });
                   });
+
+                  optimizeNodePositions2Opt(ordered, edges);
+                  applyForceRepulsionPolish(ordered, edges, gapFactor);
                 }
 
-                function computeBorderAnchor(fromPos, toPos, isTarget, slotOffset) {
-                  const cx1 = fromPos.x + NODE_W / 2, cy1 = fromPos.y + NODE_H / 2;
-                  const cx2 = toPos.x + NODE_W / 2, cy2 = toPos.y + NODE_H / 2;
-                  const dx = isTarget ? (cx1 - cx2) : (cx2 - cx1);
-                  const dy = isTarget ? (cy1 - cy2) : (cy2 - cy1);
-                  const basePos = isTarget ? toPos : fromPos;
-                  const centerX = basePos.x + NODE_W / 2;
-                  const centerY = basePos.y + NODE_H / 2;
-
+                // Pass 5A: Full-Border Angular Port Distribution (sorts & spaces anchor dots evenly per side)
+                function determineFacingSide(fromPos, toPos) {
+                  const dx = (toPos.x + NODE_W / 2) - (fromPos.x + NODE_W / 2);
+                  const dy = (toPos.y + NODE_H / 2) - (fromPos.y + NODE_H / 2);
                   const halfW = NODE_W / 2 + 2;
                   const halfH = NODE_H / 2 + 2;
-
-                  if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
-                    return { x: centerX + halfW, y: centerY, side: 'right' };
-                  }
-
-                  const scaleX = Math.abs(dx) > 0 ? halfW / Math.abs(dx) : 999999;
-                  const scaleY = Math.abs(dy) > 0 ? halfH / Math.abs(dy) : 999999;
-
+                  const scaleX = Math.abs(dx) > 0.001 ? halfW / Math.abs(dx) : 999999;
+                  const scaleY = Math.abs(dy) > 0.001 ? halfH / Math.abs(dy) : 999999;
                   if (scaleX < scaleY) {
-                    const side = dx > 0 ? 'right' : 'left';
-                    const clampedOffset = Math.max(-halfH + 12, Math.min(halfH - 12, slotOffset));
-                    return {
-                      x: centerX + (dx > 0 ? halfW : -halfW),
-                      y: centerY + dy * scaleX * 0.35 + clampedOffset,
-                      side
-                    };
-                  } else {
-                    const side = dy > 0 ? 'bottom' : 'top';
-                    const clampedOffset = Math.max(-halfW + 16, Math.min(halfW - 16, slotOffset));
-                    return {
-                      x: centerX + dx * scaleY * 0.35 + clampedOffset,
-                      y: centerY + (dy > 0 ? halfH : -halfH),
-                      side
-                    };
+                    return dx >= 0 ? 'right' : 'left';
                   }
+                  return dy >= 0 ? 'bottom' : 'top';
                 }
 
-                function findBlockingObstacle(p1, p2, sourceId, targetId, allNodes) {
-                  const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
-                  const minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
+                function computeAllEdgeAnchors(nodes, edges) {
+                  const sideBuckets = new Map();
+                  const addSlotRequest = (nodeId, side, edgeId, isTarget, otherPos) => {
+                    const key = `${nodeId}::${side}`;
+                    if (!sideBuckets.has(key)) sideBuckets.set(key, []);
+                    sideBuckets.get(key).push({
+                      edgeId,
+                      isTarget,
+                      otherCx: otherPos.x + NODE_W / 2,
+                      otherCy: otherPos.y + NODE_H / 2
+                    });
+                  };
 
-                  for (let i = 0; i < allNodes.length; i++) {
-                    const n = allNodes[i];
-                    if (n.nodeId === sourceId || n.nodeId === targetId) continue;
-                    const pos = nodePositions.get(n.nodeId);
-                    if (!pos) continue;
+                  edges.forEach(e => {
+                    const p1 = nodePositions.get(e.sourceNodeId);
+                    const p2 = nodePositions.get(e.targetNodeId);
+                    if (!p1 || !p2) return;
+                    const srcSide = determineFacingSide(p1, p2);
+                    const dstSide = determineFacingSide(p2, p1);
+                    addSlotRequest(e.sourceNodeId, srcSide, e.edgeId, false, p2);
+                    addSlotRequest(e.targetNodeId, dstSide, e.edgeId, true, p1);
+                  });
 
-                    const bx1 = pos.x - 10, by1 = pos.y - 10;
-                    const bx2 = pos.x + NODE_W + 10, by2 = pos.y + NODE_H + 10;
+                  const anchorResults = new Map();
+                  sideBuckets.forEach((items, key) => {
+                    const [nodeId, side] = key.split('::');
+                    const basePos = nodePositions.get(nodeId);
+                    if (!basePos) return;
 
-                    if (maxX < bx1 || minX > bx2 || maxY < by1 || minY > by2) continue;
+                    // Sort strictly along border axis so exiting/entering arrows never cross at the box border
+                    if (side === 'left' || side === 'right') {
+                      items.sort((a, b) => (a.otherCy - b.otherCy) || (a.otherCx - b.otherCx) || a.edgeId.localeCompare(b.edgeId));
+                    } else {
+                      items.sort((a, b) => (a.otherCx - b.otherCx) || (a.otherCy - b.otherCy) || a.edgeId.localeCompare(b.edgeId));
+                    }
 
-                    const boxCy = pos.y + NODE_H / 2;
-                    const boxCx = pos.x + NODE_W / 2;
-                    const t = Math.max(0, Math.min(1, ((boxCx - p1.x) * (p2.x - p1.x) + (boxCy - p1.y) * (p2.y - p1.y)) / (Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2) || 1)));
-                    const projX = p1.x + t * (p2.x - p1.x);
-                    const projY = p1.y + t * (p2.y - p1.y);
+                    const count = items.length;
+                    items.forEach((item, idx) => {
+                      let ax = basePos.x + NODE_W / 2;
+                      let ay = basePos.y + NODE_H / 2;
+                      if (side === 'left' || side === 'right') {
+                        const marginY = 14;
+                        const usableH = Math.max(12, NODE_H - marginY * 2);
+                        const step = usableH / (count + 1);
+                        ax = side === 'right' ? basePos.x + NODE_W + 2 : basePos.x - 2;
+                        ay = basePos.y + marginY + step * (idx + 1);
+                      } else {
+                        const marginX = 18;
+                        const usableW = Math.max(20, NODE_W - marginX * 2);
+                        const step = usableW / (count + 1);
+                        ax = basePos.x + marginX + step * (idx + 1);
+                        ay = side === 'bottom' ? basePos.y + NODE_H + 2 : basePos.y - 2;
+                      }
+                      const endpointKey = `${item.edgeId}::${item.isTarget ? 'dst' : 'src'}`;
+                      anchorResults.set(endpointKey, { x: Math.round(ax * 10) / 10, y: Math.round(ay * 10) / 10, side });
+                    });
+                  });
 
-                    if (projX >= bx1 && projX <= bx2 && projY >= by1 && projY <= by2) {
-                      return { pos, boxCx, boxCy };
+                  return anchorResults;
+                }
+
+                // Pass 5B: Multi-obstacle corridor waypoint finder
+                function findCorridorWaypoint(p1, p2, sourceId, targetId, allNodes, fanOffset) {
+                  const isPathBlocked = (ax, ay, bx, by) => {
+                    for (let i = 0; i < allNodes.length; i++) {
+                      const n = allNodes[i];
+                      if (n.nodeId === sourceId || n.nodeId === targetId) continue;
+                      const pos = nodePositions.get(n.nodeId);
+                      if (pos && segmentIntersectsBox(ax, ay, bx, by, pos, 10)) {
+                        return true;
+                      }
+                    }
+                    return false;
+                  };
+
+                  if (!isPathBlocked(p1.x, p1.y, p2.x, p2.y)) {
+                    return null;
+                  }
+
+                  const mx = (p1.x + p2.x) / 2;
+                  const my = (p1.y + p2.y) / 2;
+                  const dx = p2.x - p1.x, dy = p2.y - p1.y;
+                  const len = Math.hypot(dx, dy) || 1;
+                  const nx = -dy / len, ny = dx / len;
+
+                  const candidateOffsets = [95, -95, 165, -165, 240, -240, 320, -320];
+                  for (let i = 0; i < candidateOffsets.length; i++) {
+                    const offset = candidateOffsets[i] + fanOffset;
+                    const wx = mx + nx * offset;
+                    const wy = my + ny * offset;
+                    if (!isPathBlocked(p1.x, p1.y, wx, wy) && !isPathBlocked(wx, wy, p2.x, p2.y)) {
+                      return { x: wx, y: wy };
                     }
                   }
-                  return null;
+
+                  return { x: mx + nx * (150 + fanOffset), y: my + ny * (150 + fanOffset) };
                 }
 
-                function buildRoutedEdgePath(startAnchor, endAnchor, routingMode, fanOffset, obstacle) {
+                function sideNormalVector(side) {
+                  if (side === 'right') return { nx: 1, ny: 0 };
+                  if (side === 'left') return { nx: -1, ny: 0 };
+                  if (side === 'bottom') return { nx: 0, ny: 1 };
+                  return { nx: 0, ny: -1 };
+                }
+
+                function buildRoutedEdgePath(startAnchor, endAnchor, routingMode, fanOffset, waypoint) {
                   const x1 = startAnchor.x, y1 = startAnchor.y;
                   const x2 = endAnchor.x, y2 = endAnchor.y;
                   const dx = x2 - x1, dy = y2 - y1;
+                  const dist = Math.hypot(dx, dy) || 1;
+                  const perpX = -dy / dist, perpY = dx / dist;
 
                   if (routingMode === 'straight') {
-                    const len = Math.hypot(dx, dy) || 1;
-                    const nx = -dy / len, ny = dx / len;
-                    const mx = (x1 + x2) / 2 + nx * fanOffset;
-                    const my = (y1 + y2) / 2 + ny * fanOffset;
-                    if (Math.abs(fanOffset) < 1) {
+                    const mx = waypoint ? waypoint.x : (x1 + x2) / 2 + perpX * fanOffset;
+                    const my = waypoint ? waypoint.y : (y1 + y2) / 2 + perpY * fanOffset;
+                    if (!waypoint && Math.abs(fanOffset) < 1) {
                       return { d: `M ${x1} ${y1} L ${x2} ${y2}`, labelX: mx, labelY: my - 6 };
                     }
                     return { d: `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`, labelX: mx, labelY: my - 6 };
                   }
 
                   if (routingMode === 'orthogonal') {
-                    let midX = (x1 + x2) / 2 + fanOffset * 1.4;
-                    if (obstacle) {
-                      const detourY = (y1 + y2) / 2 <= obstacle.boxCy
-                        ? obstacle.pos.y - 28 - Math.abs(fanOffset)
-                        : obstacle.pos.y + NODE_H + 28 + Math.abs(fanOffset);
-                      const c1x = x1 + (dx >= 0 ? 28 : -28);
-                      const c2x = x2 - (dx >= 0 ? 28 : -28);
+                    if (waypoint) {
                       return {
-                        d: `M ${x1} ${y1} L ${c1x} ${y1} L ${c1x} ${detourY} L ${c2x} ${detourY} L ${c2x} ${y2} L ${x2} ${y2}`,
-                        labelX: (c1x + c2x) / 2,
-                        labelY: detourY - 6
+                        d: `M ${x1} ${y1} L ${waypoint.x} ${y1} L ${waypoint.x} ${y2} L ${x2} ${y2}`,
+                        labelX: waypoint.x,
+                        labelY: (y1 + y2) / 2 - 6
                       };
                     }
+                    const midX = (x1 + x2) / 2 + fanOffset * 1.4;
                     return {
                       d: `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`,
                       labelX: midX,
@@ -852,18 +1131,24 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     };
                   }
 
-                  let detourShiftY = fanOffset * 1.6;
-                  if (obstacle) {
-                    const bypassDir = ((y1 + y2) / 2 <= obstacle.boxCy) ? -1 : 1;
-                    detourShiftY += bypassDir * (NODE_H + 45);
+                  if (waypoint) {
+                    const bx = 0.25 * x1 + 0.5 * waypoint.x + 0.25 * x2;
+                    const by = 0.25 * y1 + 0.5 * waypoint.y + 0.25 * y2;
+                    return {
+                      d: `M ${x1} ${y1} Q ${waypoint.x} ${waypoint.y} ${x2} ${y2}`,
+                      labelX: bx,
+                      labelY: by - 6
+                    };
                   }
 
-                  const tension = Math.max(60, Math.abs(dx) * 0.42);
-                  const dirX = dx >= 0 ? 1 : -1;
-                  const cx1 = x1 + dirX * tension;
-                  const cy1 = y1 + detourShiftY;
-                  const cx2 = x2 - dirX * tension;
-                  const cy2 = y2 + detourShiftY;
+                  const n1 = sideNormalVector(startAnchor.side);
+                  const n2 = sideNormalVector(endAnchor.side);
+                  const tension = Math.max(48, Math.min(180, dist * 0.36));
+
+                  const cx1 = x1 + n1.nx * tension + perpX * fanOffset;
+                  const cy1 = y1 + n1.ny * tension + perpY * fanOffset;
+                  const cx2 = x2 + n2.nx * tension + perpX * fanOffset;
+                  const cy2 = y2 + n2.ny * tension + perpY * fanOffset;
 
                   const bx = 0.125 * x1 + 0.375 * cx1 + 0.375 * cx2 + 0.125 * x2;
                   const by = 0.125 * y1 + 0.375 * cy1 + 0.375 * cy2 + 0.125 * y2;
@@ -991,21 +1276,13 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   const fanSpacing = parseInt(edgeFanRange.value, 10) || 18;
 
                   const pairBuckets = new Map();
-                  const nodePortSlots = new Map();
-
                   edges.forEach(e => {
                     const pairKey = [e.sourceNodeId, e.targetNodeId].sort().join('::');
                     if (!pairBuckets.has(pairKey)) pairBuckets.set(pairKey, []);
                     pairBuckets.get(pairKey).push(e);
-
-                    const srcList = nodePortSlots.get(e.sourceNodeId) || [];
-                    srcList.push(e.edgeId);
-                    nodePortSlots.set(e.sourceNodeId, srcList);
-
-                    const dstList = nodePortSlots.get(e.targetNodeId) || [];
-                    dstList.push(e.edgeId);
-                    nodePortSlots.set(e.targetNodeId, dstList);
                   });
+
+                  const anchorMap = computeAllEdgeAnchors(nodes, edges);
 
                   const edgesFrag = document.createDocumentFragment();
                   const labelsFrag = document.createDocumentFragment();
@@ -1024,16 +1301,11 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     const siblingIdx = siblings.indexOf(e);
                     const fanOffset = (siblingIdx - (siblings.length - 1) / 2) * fanSpacing;
 
-                    const srcSlots = nodePortSlots.get(e.sourceNodeId) || [e.edgeId];
-                    const dstSlots = nodePortSlots.get(e.targetNodeId) || [e.edgeId];
-                    const srcSlotOffset = (srcSlots.indexOf(e.edgeId) - (srcSlots.length - 1) / 2) * 9;
-                    const dstSlotOffset = (dstSlots.indexOf(e.edgeId) - (dstSlots.length - 1) / 2) * 9;
+                    const startAnchor = anchorMap.get(`${e.edgeId}::src`) || { x: p1.x + NODE_W / 2, y: p1.y + NODE_H / 2, side: 'right' };
+                    const endAnchor = anchorMap.get(`${e.edgeId}::dst`) || { x: p2.x + NODE_W / 2, y: p2.y + NODE_H / 2, side: 'left' };
 
-                    const startAnchor = computeBorderAnchor(p1, p2, false, srcSlotOffset);
-                    const endAnchor = computeBorderAnchor(p1, p2, true, dstSlotOffset);
-
-                    const obstacle = findBlockingObstacle(startAnchor, endAnchor, e.sourceNodeId, e.targetNodeId, nodes);
-                    const route = buildRoutedEdgePath(startAnchor, endAnchor, routingMode, fanOffset, obstacle);
+                    const waypoint = findCorridorWaypoint(startAnchor, endAnchor, e.sourceNodeId, e.targetNodeId, nodes, fanOffset);
+                    const route = buildRoutedEdgePath(startAnchor, endAnchor, routingMode, fanOffset, waypoint);
 
                     const isInbound = e.direction === 'IN';
                     const strokeColor = isHighlighted ? '#f59e0b' : (isInbound ? '#10b981' : '#38bdf8');

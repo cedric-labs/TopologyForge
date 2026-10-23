@@ -182,4 +182,21 @@ public sealed class TopologyHtmlRendererTests
             }
         }
     }
+
+    [Fact]
+    public void RenderHtml_WhenGraphRendered_EmbedsMultiPassCrossingMinimizationAndAngularPortDistribution()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var graph = CreateSampleGraph();
+
+        // Act
+        var html = renderer.RenderHtml(graph, "Crossing Minimization Test");
+
+        // Assert
+        html.Should().Contain("optimizeNodePositions2Opt");
+        html.Should().Contain("applyForceRepulsionPolish");
+        html.Should().Contain("computeAllEdgeAnchors");
+        html.Should().Contain("findCorridorWaypoint");
+    }
 }
