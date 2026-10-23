@@ -40,6 +40,7 @@ public sealed class TopologyGraphBuilderTests
         edge.TargetNodeId.Should().Be(sqlNode.NodeId);
         edge.TargetPort.Should().Be(1433);
         edge.ObservationCount.Should().Be(25);
+        edge.FlowDirection.Should().Be(TopologyFlowDirection.Outbound);
     }
 
     [Fact]
@@ -69,6 +70,7 @@ public sealed class TopologyGraphBuilderTests
         graph.Edges[0].SourceNodeId.Should().Be(appNode.NodeId);
         graph.Edges[0].TargetNodeId.Should().Be(sqlNode.NodeId);
         graph.Edges[0].TargetPort.Should().Be(1433);
+        graph.Edges[0].FlowDirection.Should().Be(TopologyFlowDirection.Inbound);
     }
 
     [Fact]

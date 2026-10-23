@@ -101,6 +101,7 @@ public sealed class TopologyGraphBuilder(ITopologyFlowEvaluator flowEvaluator) :
                 processName: flow.ProcessName,
                 serviceTarget: flow.ServiceTarget,
                 observationCount: flow.ObservationCount,
+                flowDirection: TopologyFlowDirection.Outbound,
                 edgeAccumulators: edgeAccumulators);
         }
         else if (flow.Direction == TopologyFlowDirection.Inbound)
@@ -116,6 +117,7 @@ public sealed class TopologyGraphBuilder(ITopologyFlowEvaluator flowEvaluator) :
                 processName: flow.ProcessName,
                 serviceTarget: flow.ServiceTarget,
                 observationCount: flow.ObservationCount,
+                flowDirection: TopologyFlowDirection.Inbound,
                 edgeAccumulators: edgeAccumulators);
         }
     }
@@ -170,6 +172,7 @@ public sealed class TopologyGraphBuilder(ITopologyFlowEvaluator flowEvaluator) :
         string processName,
         string serviceTarget,
         long observationCount,
+        TopologyFlowDirection flowDirection,
         Dictionary<string, ServiceEdgeAccumulator> edgeAccumulators)
     {
         var edgeKey = $"{sourceNode.NodeId}->{targetNode.NodeId}:{targetPort.ToString(CultureInfo.InvariantCulture)}/{protocol}";
@@ -189,7 +192,8 @@ public sealed class TopologyGraphBuilder(ITopologyFlowEvaluator flowEvaluator) :
             protocol,
             processName,
             serviceTarget,
-            countToAdd);
+            countToAdd,
+            flowDirection);
 
         edgeAccumulators[edgeKey] = edge;
         sourceNode.OutboundConnectionCount++;
@@ -277,7 +281,8 @@ public sealed class TopologyGraphBuilder(ITopologyFlowEvaluator flowEvaluator) :
         TopologyTransportProtocol protocol,
         string processName,
         string serviceTarget,
-        long observationCount)
+        long observationCount,
+        TopologyFlowDirection flowDirection)
     {
         public string EdgeId { get; } = edgeId;
         public string SourceNodeId { get; } = sourceNodeId;
@@ -287,6 +292,7 @@ public sealed class TopologyGraphBuilder(ITopologyFlowEvaluator flowEvaluator) :
         public string ProcessName { get; private set; } = processName;
         public string ServiceTarget { get; private set; } = serviceTarget;
         public long ObservationCount { get; private set; } = observationCount;
+        public TopologyFlowDirection FlowDirection { get; } = flowDirection;
 
         public void AddObservations(long count, string processName, string serviceTarget)
         {
@@ -303,6 +309,6 @@ public sealed class TopologyGraphBuilder(ITopologyFlowEvaluator flowEvaluator) :
         }
 
         public TopologyServiceEdge ToServiceEdge() =>
-            new(EdgeId, SourceNodeId, TargetNodeId, TargetPort, Protocol, ProcessName, ServiceTarget, ObservationCount);
+            new(EdgeId, SourceNodeId, TargetNodeId, TargetPort, Protocol, ProcessName, ServiceTarget, ObservationCount, FlowDirection);
     }
 }

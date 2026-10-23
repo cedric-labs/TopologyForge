@@ -11,6 +11,7 @@ namespace TopologyForge.Models;
 /// <param name="ProcessName">Processus associé au flux.</param>
 /// <param name="ServiceTarget">Cible d'exécution associée au flux.</param>
 /// <param name="ObservationCount">Volume cumulé d'observations sur ce lien.</param>
+/// <param name="FlowDirection">Sens d'observation initial du flux (Outbound ou Inbound).</param>
 public sealed record TopologyServiceEdge(
     string EdgeId,
     string SourceNodeId,
@@ -19,4 +20,5 @@ public sealed record TopologyServiceEdge(
     TopologyTransportProtocol Protocol,
     string ProcessName,
     string ServiceTarget,
-    long ObservationCount);
+    long ObservationCount,
+    TopologyFlowDirection FlowDirection = TopologyFlowDirection.Outbound);
