@@ -101,6 +101,8 @@ public sealed class TopologyHtmlRendererTests
         html.Should().Contain("Inclusion / Exclusion Filters");
         html.Should().Contain("Server Inspector");
         html.Should().Contain("Reset Positions");
+        html.Should().Contain("id=\"btnApplyFilters\"");
+        html.Should().Contain("Apply Filters");
     }
 
     [Fact]

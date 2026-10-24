@@ -44,6 +44,9 @@ Framework partagé .NET de modélisation topologique, de filtrage déclaratif (i
       * Distinction visuelle et chromatique des flux sortants (`OUT` en bleu cyan `#38bdf8`) et entrants (`IN` en vert émeraude `#10b981`).
     * **Profils et curseurs d'écartement (`TopologySpacingProfile`)** :
       * Profils `Compact`, `Balanced`, `Spacious` (adapté aux parcs > 100 serveurs) et curseurs temps réel d'écartement des serveurs (`0.65x` à `2.4x`) et d'écartement des flèches (`6px` à `46px`).
+    * **Contrôles de filtrage ergonomiques & Bouton "Apply Filters"** :
+      * Bouton `Apply Filters` dédié et déclenchement par validation `[Enter]` sur les champs de recherche textuelle et de ports, supprimant les recalculs intempestifs frappe par frappe pour une fluidité maximale sur les parcs denses.
+      * Bouton `Reset` pour réinitialiser les filtres en un clic.
     * **Export Vectoriel SVG Autonome (`Export SVG`)** :
       * Bouton intégré dans la barre d'outils permettant d'extraire la vue courante (avec filtres, sélections et déplacements manuels) sous forme de fichier vectoriel autonome `network_topology_map.svg`.
       * Calcul automatique du cadre englobant (`viewBox`) avec marges équilibrées et fond sombre vectoriel intégré (`#0b0f19`) pour insertion directe dans Microsoft Word, PowerPoint, Visio, Draw.io ou Inkscape sans perte de netteté.

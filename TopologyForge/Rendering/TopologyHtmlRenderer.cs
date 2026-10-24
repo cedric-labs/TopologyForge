@@ -264,6 +264,16 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   font-size: 0.78rem;
                   transition: background 0.15s, border-color 0.15s;
                 }
+                button.btn-primary {
+                  background: rgba(14, 165, 233, 0.2);
+                  border-color: var(--accent-local);
+                  color: #38bdf8;
+                  font-weight: 600;
+                }
+                button.btn-primary:hover:not(:disabled) {
+                  background: var(--accent-local);
+                  color: #ffffff;
+                }
                 button:hover:not(:disabled) { border-color: var(--accent-local); background: #26354d; }
                 button:disabled { opacity: 0.45; cursor: not-allowed; }
                 .canvas-area {
@@ -431,10 +441,13 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("        </div>");
         sb.AppendLine("      </div>");
 
+        sb.AppendLine("      <div class=\"btn-row\" style=\"margin-top: 0.25rem;\">");
+        sb.AppendLine("        <button id=\"btnApplyFilters\" type=\"button\" class=\"btn-primary\" style=\"flex: 1;\">Apply Filters</button>");
+        sb.AppendLine("        <button id=\"btnClearFilters\" type=\"button\">Reset</button>");
+        sb.AppendLine("      </div>");
         sb.AppendLine("      <div class=\"btn-row\">");
         sb.AppendLine("        <button id=\"btnResetZoom\" type=\"button\">Center View</button>");
         sb.AppendLine("        <button id=\"btnRecomputeLayout\" type=\"button\">Reset Positions</button>");
-        sb.AppendLine("        <button id=\"btnClearFilters\" type=\"button\">Reset Filters</button>");
         sb.AppendLine("        <button id=\"btnExportSvg\" type=\"button\">Export SVG</button>");
         sb.AppendLine("      </div>");
 
@@ -514,6 +527,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 const excludePortsInput = document.getElementById('excludePortsInput');
                 const excludeHostsInput = document.getElementById('excludeHostsInput');
                 const directionSelect = document.getElementById('directionSelect');
+                const btnApplyFilters = document.getElementById('btnApplyFilters');
                 const inspectorContent = document.getElementById('inspectorContent');
 
                 const btnPrevPage = document.getElementById('btnPrevPage');
@@ -1415,15 +1429,23 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   nodesLayer.replaceChildren(nodesFrag);
                 }
 
+                function applyFilters() {
+                  currentPageIndex = 0;
+                  renderGraph(true);
+                }
+
+                btnApplyFilters.addEventListener('click', applyFilters);
+
                 [searchInput, includePortsInput, excludePortsInput, excludeHostsInput].forEach(el => {
-                  el.addEventListener('input', () => {
-                    currentPageIndex = 0;
-                    renderGraph(true);
+                  el.addEventListener('keydown', (ev) => {
+                    if (ev.key === 'Enter') {
+                      ev.preventDefault();
+                      applyFilters();
+                    }
                   });
                 });
                 directionSelect.addEventListener('change', () => {
-                  currentPageIndex = 0;
-                  renderGraph(true);
+                  applyFilters();
                 });
                 layoutSelect.addEventListener('change', () => renderGraph(true));
                 sortSelect.addEventListener('change', () => renderGraph(true));
