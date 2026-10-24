@@ -1287,7 +1287,6 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     if (incPorts.length > 0 || excPorts.length > 0 || dirFilter !== 'all') {
                       if (remainingPorts.length === 0 && !hasActiveEdge) return false;
                     }
-                    }
                     return true;
                   });
 
