@@ -210,16 +210,44 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   font-size: 0.78rem;
                 }
                 .kpi-badge strong { color: var(--accent-local); font-weight: 700; margin-left: 0.25rem; }
-                .workspace { display: flex; flex: 1; overflow: hidden; }
+                .workspace { display: flex; flex: 1; overflow: hidden; position: relative; }
                 .sidebar {
                   width: 350px;
                   background: var(--bg-panel);
                   border-right: 1px solid var(--border-color);
-                  padding: 0.85rem 1rem;
+                  padding: 0.65rem 0.85rem;
                   display: flex;
                   flex-direction: column;
-                  gap: 0.7rem;
+                  gap: 0.5rem;
                   overflow-y: auto;
+                  transition: width 0.2s ease, padding 0.2s ease;
+                  flex-shrink: 0;
+                  z-index: 10;
+                }
+                .sidebar.collapsed {
+                  width: 0;
+                  padding: 0;
+                  border-right: none;
+                  overflow: hidden;
+                }
+                .sidebar-toggle-btn {
+                  position: absolute;
+                  top: 10px;
+                  left: 10px;
+                  z-index: 25;
+                  background: rgba(17, 24, 39, 0.92);
+                  border: 1px solid var(--border-color);
+                  color: var(--text-primary);
+                  padding: 0.25rem 0.55rem;
+                  border-radius: 5px;
+                  cursor: pointer;
+                  font-size: 0.75rem;
+                  font-weight: 600;
+                  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                }
+                .sidebar-toggle-btn:hover {
+                  border-color: var(--accent-local);
+                  color: #38bdf8;
                 }
                 .section-title {
                   font-size: 0.72rem;
@@ -229,7 +257,44 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   font-weight: 700;
                   border-bottom: 1px solid #1e293b;
                   padding-bottom: 0.25rem;
-                  margin-top: 0.2rem;
+                  margin-top: 0.15rem;
+                  cursor: pointer;
+                  user-select: none;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                }
+                .section-title:hover { color: #38bdf8; }
+                .section-title::after {
+                  content: "▾";
+                  font-size: 0.75rem;
+                  transition: transform 0.2s ease;
+                }
+                .section-title.collapsed::after {
+                  transform: rotate(-90deg);
+                }
+                .section-body {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 0.45rem;
+                }
+                .section-body.collapsed { display: none; }
+                .cli-command-box {
+                  background: #0b0f19;
+                  border: 1px solid var(--border-color);
+                  border-radius: 5px;
+                  padding: 0.45rem 0.55rem;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 0.35rem;
+                }
+                .cli-command-code {
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                  font-size: 0.7rem;
+                  color: #6ee7b7;
+                  word-break: break-all;
+                  user-select: all;
+                  background: transparent;
                 }
                 .filter-group { display: flex; flex-direction: column; gap: 0.28rem; }
                 .filter-group label {
@@ -359,103 +424,119 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("  </header>");
 
         sb.AppendLine("  <div class=\"workspace\">");
-        sb.AppendLine("    <aside class=\"sidebar\">");
-        sb.AppendLine("      <div class=\"section-title\">1. Layout, Sorting &amp; Routing</div>");
-        sb.AppendLine("      <div class=\"grid-2\">");
-        sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"layoutSelect\">Layout</label>");
-        sb.AppendLine("          <select id=\"layoutSelect\">");
-        sb.AppendLine("            <option value=\"layered\">Hierarchical (Layered)</option>");
-        sb.AppendLine("            <option value=\"circular\">Concentric Ring</option>");
-        sb.AppendLine("            <option value=\"grid\">Multi-Column Grid</option>");
-        sb.AppendLine("          </select>");
+        sb.AppendLine("    <aside class=\"sidebar\" id=\"sidebarPanel\">");
+        sb.AppendLine("      <div class=\"section-title\" data-target=\"sectionLayout\">1. Layout, Sorting &amp; Routing</div>");
+        sb.AppendLine("      <div class=\"section-body\" id=\"sectionLayout\">");
+        sb.AppendLine("        <div class=\"grid-2\">");
+        sb.AppendLine("          <div class=\"filter-group\">");
+        sb.AppendLine("            <label for=\"layoutSelect\">Layout</label>");
+        sb.AppendLine("            <select id=\"layoutSelect\">");
+        sb.AppendLine("              <option value=\"layered\">Hierarchical (Layered)</option>");
+        sb.AppendLine("              <option value=\"circular\">Concentric Ring</option>");
+        sb.AppendLine("              <option value=\"grid\">Multi-Column Grid</option>");
+        sb.AppendLine("            </select>");
+        sb.AppendLine("          </div>");
+        sb.AppendLine("          <div class=\"filter-group\">");
+        sb.AppendLine("            <label for=\"sortSelect\">Sorting Method</label>");
+        sb.AppendLine("            <select id=\"sortSelect\">");
+        sb.AppendLine("              <option value=\"sugiyama\">Sugiyama (Anti-crossing)</option>");
+        sb.AppendLine("              <option value=\"degree\">Connection Degree</option>");
+        sb.AppendLine("              <option value=\"alpha\">Alphabetical (Hostname)</option>");
+        sb.AppendLine("              <option value=\"ip\">Subnet / IP Address</option>");
+        sb.AppendLine("            </select>");
+        sb.AppendLine("          </div>");
         sb.AppendLine("        </div>");
-        sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"sortSelect\">Sorting Method</label>");
-        sb.AppendLine("          <select id=\"sortSelect\">");
-        sb.AppendLine("            <option value=\"sugiyama\">Sugiyama (Anti-crossing)</option>");
-        sb.AppendLine("            <option value=\"degree\">Connection Degree</option>");
-        sb.AppendLine("            <option value=\"alpha\">Alphabetical (Hostname)</option>");
-        sb.AppendLine("            <option value=\"ip\">Subnet / IP Address</option>");
-        sb.AppendLine("          </select>");
+
+        sb.AppendLine("        <div class=\"grid-2\">");
+        sb.AppendLine("          <div class=\"filter-group\">");
+        sb.AppendLine("            <label for=\"routingSelect\">Arrow Routing</label>");
+        sb.AppendLine("            <select id=\"routingSelect\">");
+        sb.AppendLine("              <option value=\"bezier\">Curved Bezier (Obstacle bypass)</option>");
+        sb.AppendLine("              <option value=\"orthogonal\">Orthogonal Corridors (90°)</option>");
+        sb.AppendLine("              <option value=\"straight\">Direct (Border to border)</option>");
+        sb.AppendLine("            </select>");
+        sb.AppendLine("          </div>");
+        sb.AppendLine("          <div class=\"filter-group\">");
+        sb.AppendLine("            <label for=\"spacingSelect\">Spacing Profile</label>");
+        sb.AppendLine("            <select id=\"spacingSelect\">");
+        sb.AppendLine("              <option value=\"compact\">Compact (Dense)</option>");
+        sb.AppendLine("              <option value=\"balanced\">Balanced (Standard)</option>");
+        sb.AppendLine("              <option value=\"spacious\">Spacious (100+ servers)</option>");
+        sb.AppendLine("            </select>");
+        sb.AppendLine("          </div>");
+        sb.AppendLine("        </div>");
+
+        sb.AppendLine("        <div class=\"grid-2\">");
+        sb.AppendLine("          <div class=\"filter-group\">");
+        sb.AppendLine("            <label for=\"nodeGapRange\"><span>Server Gap</span><span id=\"nodeGapVal\">1.0x</span></label>");
+        sb.AppendLine("            <input id=\"nodeGapRange\" type=\"range\" min=\"0.65\" max=\"2.4\" step=\"0.05\" value=\"1.0\" />");
+        sb.AppendLine("          </div>");
+        sb.AppendLine("          <div class=\"filter-group\">");
+        sb.AppendLine("            <label for=\"edgeFanRange\"><span>Arrow Fan</span><span id=\"edgeFanVal\">18px</span></label>");
+        sb.AppendLine("            <input id=\"edgeFanRange\" type=\"range\" min=\"6\" max=\"46\" step=\"2\" value=\"18\" />");
+        sb.AppendLine("          </div>");
         sb.AppendLine("        </div>");
         sb.AppendLine("      </div>");
 
-        sb.AppendLine("      <div class=\"grid-2\">");
+        sb.AppendLine("      <div class=\"section-title\" data-target=\"sectionFilters\">2. Inclusion / Exclusion Filters</div>");
+        sb.AppendLine("      <div class=\"section-body\" id=\"sectionFilters\">");
         sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"routingSelect\">Arrow Routing</label>");
-        sb.AppendLine("          <select id=\"routingSelect\">");
-        sb.AppendLine("            <option value=\"bezier\">Curved Bezier (Obstacle bypass)</option>");
-        sb.AppendLine("            <option value=\"orthogonal\">Orthogonal Corridors (90°)</option>");
-        sb.AppendLine("            <option value=\"straight\">Direct (Border to border)</option>");
-        sb.AppendLine("          </select>");
+        sb.AppendLine("          <label for=\"searchInput\">Global Search (Server, IP, Port, Process)</label>");
+        sb.AppendLine("          <input id=\"searchInput\" type=\"text\" placeholder=\"e.g. SRV-SQL, 1433, nginx...\" />");
         sb.AppendLine("        </div>");
-        sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"spacingSelect\">Spacing Profile</label>");
-        sb.AppendLine("          <select id=\"spacingSelect\">");
-        sb.AppendLine("            <option value=\"compact\">Compact (Dense)</option>");
-        sb.AppendLine("            <option value=\"balanced\">Balanced (Standard)</option>");
-        sb.AppendLine("            <option value=\"spacious\">Spacious (100+ servers)</option>");
-        sb.AppendLine("          </select>");
+        sb.AppendLine("        <div class=\"grid-2\">");
+        sb.AppendLine("          <div class=\"filter-group\">");
+        sb.AppendLine("            <label for=\"includePortsInput\">Include ports</label>");
+        sb.AppendLine("            <input id=\"includePortsInput\" type=\"text\" placeholder=\"80, 443, 1433\" />");
+        sb.AppendLine("          </div>");
+        sb.AppendLine("          <div class=\"filter-group\">");
+        sb.AppendLine("            <label for=\"excludePortsInput\">Exclude ports</label>");
+        sb.AppendLine("            <input id=\"excludePortsInput\" type=\"text\" placeholder=\"53, 123, 135\" />");
+        sb.AppendLine("          </div>");
+        sb.AppendLine("        </div>");
+        sb.AppendLine("        <div class=\"grid-2\">");
+        sb.AppendLine("          <div class=\"filter-group\">");
+        sb.AppendLine("            <label for=\"excludeHostsInput\">Exclude servers/IP</label>");
+        sb.AppendLine("            <input id=\"excludeHostsInput\" type=\"text\" placeholder=\"SRV-MON, 10.99.\" />");
+        sb.AppendLine("          </div>");
+        sb.AppendLine("          <div class=\"filter-group\">");
+        sb.AppendLine("            <label for=\"directionSelect\">Flow Direction</label>");
+        sb.AppendLine("            <select id=\"directionSelect\">");
+        sb.AppendLine("              <option value=\"all\">All (IN &amp; OUT)</option>");
+        sb.AppendLine("              <option value=\"OUT\">Outbound (OUT)</option>");
+        sb.AppendLine("              <option value=\"IN\">Inbound (IN)</option>");
+        sb.AppendLine("            </select>");
+        sb.AppendLine("          </div>");
+        sb.AppendLine("        </div>");
+
+        sb.AppendLine("        <div class=\"btn-row\" style=\"margin-top: 0.15rem;\">");
+        sb.AppendLine("          <button id=\"btnApplyFilters\" type=\"button\" class=\"btn-primary\" style=\"flex: 1;\">Apply Filters</button>");
+        sb.AppendLine("          <button id=\"btnClearFilters\" type=\"button\">Reset</button>");
         sb.AppendLine("        </div>");
         sb.AppendLine("      </div>");
 
-        sb.AppendLine("      <div class=\"grid-2\">");
-        sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"nodeGapRange\"><span>Server Gap</span><span id=\"nodeGapVal\">1.0x</span></label>");
-        sb.AppendLine("          <input id=\"nodeGapRange\" type=\"range\" min=\"0.65\" max=\"2.4\" step=\"0.05\" value=\"1.0\" />");
-        sb.AppendLine("        </div>");
-        sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"edgeFanRange\"><span>Arrow Fan</span><span id=\"edgeFanVal\">18px</span></label>");
-        sb.AppendLine("          <input id=\"edgeFanRange\" type=\"range\" min=\"6\" max=\"46\" step=\"2\" value=\"18\" />");
-        sb.AppendLine("        </div>");
-        sb.AppendLine("      </div>");
-
-        sb.AppendLine("      <div class=\"section-title\">2. Inclusion / Exclusion Filters</div>");
-        sb.AppendLine("      <div class=\"filter-group\">");
-        sb.AppendLine("        <label for=\"searchInput\">Global Search (Server, IP, Port, Process)</label>");
-        sb.AppendLine("        <input id=\"searchInput\" type=\"text\" placeholder=\"e.g. SRV-SQL, 1433, nginx...\" />");
-        sb.AppendLine("      </div>");
-        sb.AppendLine("      <div class=\"grid-2\">");
-        sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"includePortsInput\">Include ports</label>");
-        sb.AppendLine("          <input id=\"includePortsInput\" type=\"text\" placeholder=\"80, 443, 1433\" />");
-        sb.AppendLine("        </div>");
-        sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"excludePortsInput\">Exclude ports</label>");
-        sb.AppendLine("          <input id=\"excludePortsInput\" type=\"text\" placeholder=\"53, 123, 135\" />");
-        sb.AppendLine("        </div>");
-        sb.AppendLine("      </div>");
-        sb.AppendLine("      <div class=\"grid-2\">");
-        sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"excludeHostsInput\">Exclude servers/IP</label>");
-        sb.AppendLine("          <input id=\"excludeHostsInput\" type=\"text\" placeholder=\"SRV-MON, 10.99.\" />");
-        sb.AppendLine("        </div>");
-        sb.AppendLine("        <div class=\"filter-group\">");
-        sb.AppendLine("          <label for=\"directionSelect\">Flow Direction</label>");
-        sb.AppendLine("          <select id=\"directionSelect\">");
-        sb.AppendLine("            <option value=\"all\">All (IN &amp; OUT)</option>");
-        sb.AppendLine("            <option value=\"OUT\">Outbound (OUT)</option>");
-        sb.AppendLine("            <option value=\"IN\">Inbound (IN)</option>");
-        sb.AppendLine("          </select>");
-        sb.AppendLine("        </div>");
-        sb.AppendLine("      </div>");
-
-        sb.AppendLine("      <div class=\"btn-row\" style=\"margin-top: 0.25rem;\">");
-        sb.AppendLine("        <button id=\"btnApplyFilters\" type=\"button\" class=\"btn-primary\" style=\"flex: 1;\">Apply Filters</button>");
-        sb.AppendLine("        <button id=\"btnClearFilters\" type=\"button\">Reset</button>");
-        sb.AppendLine("      </div>");
         sb.AppendLine("      <div class=\"btn-row\">");
         sb.AppendLine("        <button id=\"btnResetZoom\" type=\"button\">Center View</button>");
         sb.AppendLine("        <button id=\"btnRecomputeLayout\" type=\"button\">Reset Positions</button>");
         sb.AppendLine("        <button id=\"btnExportSvg\" type=\"button\">Export SVG</button>");
         sb.AppendLine("      </div>");
 
+        sb.AppendLine("      <div class=\"section-title\" data-target=\"sectionCli\">3. CLI Command (Reproduce Map)</div>");
+        sb.AppendLine("      <div class=\"section-body\" id=\"sectionCli\">");
+        sb.AppendLine("        <div class=\"cli-command-box\">");
+        sb.AppendLine("          <div id=\"cliCommandText\" class=\"cli-command-code\">NetFlowAudit.Cli --map-only</div>");
+        sb.AppendLine("          <button id=\"btnCopyCliCommand\" type=\"button\" class=\"btn-primary\" style=\"align-self: flex-start; padding: 0.25rem 0.5rem; font-size: 0.72rem;\">📋 Copy Command</button>");
+        sb.AppendLine("        </div>");
+        sb.AppendLine("      </div>");
+
         sb.AppendLine("      <div class=\"inspector\" id=\"inspectorPanel\">");
-        sb.AppendLine("        <div class=\"section-title\">3. Server Inspector (Drag / Click)</div>");
-        sb.AppendLine("        <div id=\"inspectorContent\">Click on a server to isolate its inbound (IN) and outbound (OUT) routes, or drag it to adjust its position.</div>");
+        sb.AppendLine("        <div class=\"section-title\" data-target=\"sectionInspector\">4. Server Inspector (Drag / Click)</div>");
+        sb.AppendLine("        <div class=\"section-body\" id=\"sectionInspector\">");
+        sb.AppendLine("          <div id=\"inspectorContent\">Click on a server to isolate its inbound (IN) and outbound (OUT) routes, or drag it to adjust its position.</div>");
+        sb.AppendLine("        </div>");
         sb.AppendLine("      </div>");
         sb.AppendLine("    </aside>");
+        sb.AppendLine("    <button id=\"btnToggleSidebar\" class=\"sidebar-toggle-btn\" type=\"button\" title=\"Toggle Sidebar (B)\">◀ Sidebar</button>");
 
         sb.AppendLine("    <main class=\"canvas-area\">");
         sb.AppendLine("      <svg id=\"topologySvg\">");
@@ -1429,9 +1510,78 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   nodesLayer.replaceChildren(nodesFrag);
                 }
 
+                function buildCliCommand() {
+                  const parts = ['NetFlowAudit.Cli', '--map-only'];
+                  const incPorts = (includePortsInput.value || '').trim();
+                  if (incPorts) parts.push(`--include-ports "${incPorts}"`);
+                  const excPorts = (excludePortsInput.value || '').trim();
+                  if (excPorts) parts.push(`--exclude-ports "${excPorts}"`);
+                  const excHosts = (excludeHostsInput.value || '').trim();
+                  if (excHosts) parts.push(`--exclude-hosts "${excHosts}"`);
+                  const q = (searchInput.value || '').trim();
+                  if (q) parts.push(`--include-hosts "*${q}*"`);
+                  if (directionSelect.value === 'OUT') parts.push('--direction OUT');
+                  else if (directionSelect.value === 'IN') parts.push('--direction IN');
+                  if (sortSelect.value && sortSelect.value !== 'sugiyama') parts.push(`--map-sort ${sortSelect.value}`);
+                  if (routingSelect.value && routingSelect.value !== 'bezier') parts.push(`--map-routing ${routingSelect.value}`);
+                  if (spacingSelect.value && spacingSelect.value !== 'balanced') parts.push(`--map-spacing ${spacingSelect.value}`);
+                  return parts.join(' ');
+                }
+
+                function updateCliCommandDisplay() {
+                  const cliEl = document.getElementById('cliCommandText');
+                  if (cliEl) cliEl.textContent = buildCliCommand();
+                }
+
+                document.querySelectorAll('.section-title').forEach(st => {
+                  st.addEventListener('click', () => {
+                    const targetId = st.getAttribute('data-target');
+                    if (!targetId) return;
+                    const body = document.getElementById(targetId);
+                    if (body) {
+                      body.classList.toggle('collapsed');
+                      st.classList.toggle('collapsed');
+                    }
+                  });
+                });
+
+                const btnToggleSidebar = document.getElementById('btnToggleSidebar');
+                const sidebarPanel = document.getElementById('sidebarPanel');
+                if (btnToggleSidebar && sidebarPanel) {
+                  btnToggleSidebar.addEventListener('click', () => {
+                    const isCollapsed = sidebarPanel.classList.toggle('collapsed');
+                    btnToggleSidebar.textContent = isCollapsed ? '▶ Sidebar' : '◀ Sidebar';
+                  });
+                }
+
+                const btnCopyCli = document.getElementById('btnCopyCliCommand');
+                if (btnCopyCli) {
+                  btnCopyCli.addEventListener('click', async () => {
+                    const cmd = buildCliCommand();
+                    try {
+                      await navigator.clipboard.writeText(cmd);
+                      const prev = btnCopyCli.textContent;
+                      btnCopyCli.textContent = '✔ Copied!';
+                      setTimeout(() => { btnCopyCli.textContent = prev; }, 2000);
+                    } catch (e) {
+                      prompt('Copy command:', cmd);
+                    }
+                  });
+                }
+
+                document.addEventListener('keydown', (ev) => {
+                  if (ev.target.tagName !== 'INPUT' && ev.target.tagName !== 'SELECT' && ev.key.toLowerCase() === 'b') {
+                    if (btnToggleSidebar && sidebarPanel) {
+                      const isCollapsed = sidebarPanel.classList.toggle('collapsed');
+                      btnToggleSidebar.textContent = isCollapsed ? '▶ Sidebar' : '◀ Sidebar';
+                    }
+                  }
+                });
+
                 function applyFilters() {
                   currentPageIndex = 0;
                   renderGraph(true);
+                  updateCliCommandDisplay();
                 }
 
                 btnApplyFilters.addEventListener('click', applyFilters);
@@ -1447,13 +1597,14 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 directionSelect.addEventListener('change', () => {
                   applyFilters();
                 });
-                layoutSelect.addEventListener('change', () => renderGraph(true));
-                sortSelect.addEventListener('change', () => renderGraph(true));
-                routingSelect.addEventListener('change', () => renderGraph(false));
+                layoutSelect.addEventListener('change', () => { renderGraph(true); updateCliCommandDisplay(); });
+                sortSelect.addEventListener('change', () => { renderGraph(true); updateCliCommandDisplay(); });
+                routingSelect.addEventListener('change', () => { renderGraph(false); updateCliCommandDisplay(); });
 
                 spacingSelect.addEventListener('change', () => {
                   applySpacingPreset(spacingSelect.value);
                   renderGraph(true);
+                  updateCliCommandDisplay();
                 });
 
                 nodeGapRange.addEventListener('input', () => {
@@ -1587,6 +1738,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
                 updateTransform();
                 renderGraph(true);
+                updateCliCommandDisplay();
               </script>
             """);
     }

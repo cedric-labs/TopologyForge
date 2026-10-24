@@ -47,6 +47,12 @@ Framework partagé .NET de modélisation topologique, de filtrage déclaratif (i
     * **Contrôles de filtrage ergonomiques & Bouton "Apply Filters"** :
       * Bouton `Apply Filters` dédié et déclenchement par validation `[Enter]` sur les champs de recherche textuelle et de ports, supprimant les recalculs intempestifs frappe par frappe pour une fluidité maximale sur les parcs denses.
       * Bouton `Reset` pour réinitialiser les filtres en un clic.
+    * **Barre latérale rétractable (`◀ Sidebar`), Sections accordéon & Élimination de l'ascenseur** :
+      * Bouton `◀ Sidebar` (ou touche `[B]`) permettant de masquer/afficher instantanément le panneau latéral pour allouer 100 % de l'écran au canevas SVG.
+      * Sections d'options cliquables en accordéon (`1. Layout`, `2. Filters`, `3. CLI Command`, `4. Inspector`), supprimant tout défilement vertical parasite.
+    * **Reproduction CLI instantanée (`CLI Command`)** :
+      * Encadré dynamique générant la ligne de commande exacte `NetFlowAudit.Cli --map-only ...` correspondant fidèlement aux filtres et algorithmes actuellement actifs dans la page.
+      * Bouton `📋 Copy Command` pour copier la syntaxe dans le presse-papier en un clic.
     * **Export Vectoriel SVG Autonome (`Export SVG`)** :
       * Bouton intégré dans la barre d'outils permettant d'extraire la vue courante (avec filtres, sélections et déplacements manuels) sous forme de fichier vectoriel autonome `network_topology_map.svg`.
       * Calcul automatique du cadre englobant (`viewBox`) avec marges équilibrées et fond sombre vectoriel intégré (`#0b0f19`) pour insertion directe dans Microsoft Word, PowerPoint, Visio, Draw.io ou Inkscape sans perte de netteté.

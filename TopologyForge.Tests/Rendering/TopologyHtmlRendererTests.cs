@@ -103,6 +103,12 @@ public sealed class TopologyHtmlRendererTests
         html.Should().Contain("Reset Positions");
         html.Should().Contain("id=\"btnApplyFilters\"");
         html.Should().Contain("Apply Filters");
+        html.Should().Contain("id=\"btnToggleSidebar\"");
+        html.Should().Contain("id=\"btnCopyCliCommand\"");
+        html.Should().Contain("id=\"cliCommandText\"");
+        html.Should().Contain("CLI Command (Reproduce Map)");
+        html.Should().Contain("data-target=\"sectionLayout\"");
+        html.Should().Contain("data-target=\"sectionFilters\"");
     }
 
     [Fact]
