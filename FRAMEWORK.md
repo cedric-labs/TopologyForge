@@ -56,3 +56,8 @@ Framework partagÃ© .NET de modÃ©lisation topologique, de filtrage dÃ©claratif (i
     * **Export Vectoriel SVG Autonome (`Export SVG`)** :
       * Bouton intÃ©grÃ© dans la barre d'outils permettant d'extraire la vue courante (avec filtres, sÃ©lections et dÃ©placements manuels) sous forme de fichier vectoriel autonome `network_topology_map.svg`.
       * Calcul automatique du cadre englobant (`viewBox`) avec marges Ã©quilibrÃ©es et fond sombre vectoriel intÃ©grÃ© (`#0b0f19`) pour insertion directe dans Microsoft Word, PowerPoint, Visio, Draw.io ou Inkscape sans perte de nettetÃ©.
+
+    * **Ergonomie du Tableau de Bord & Filtrage Dynamique Précis** :
+      * **Bouton Sidebar repositionné** : Intégré directement dans la barre d'en-tête KPI à gauche de l'indicateur *Servers*, libérant totalement les titres de sections sans aucun chevauchement.
+      * **Sidebar compacte sans ascenseur par défaut** : Échelle et paddings verticaux calibrés pour afficher 100 % des options d'un coup d'œil sans barre de défilement vertical.
+      * **Élimination des serveurs orphelins** : Lors de l'exclusion ou de l'inclusion de ports (ou de directions de flux), les serveurs ne conservant aucun port actif et aucune liaison connectée sont automatiquement masqués de la carte et du décompte KPI en temps réel.

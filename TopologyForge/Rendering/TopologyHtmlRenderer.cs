@@ -215,11 +215,12 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   width: 350px;
                   background: var(--bg-panel);
                   border-right: 1px solid var(--border-color);
-                  padding: 0.65rem 0.85rem;
+                  padding: 0.45rem 0.65rem;
                   display: flex;
                   flex-direction: column;
-                  gap: 0.5rem;
+                  gap: 0.32rem;
                   overflow-y: auto;
+                  scrollbar-width: thin;
                   transition: width 0.2s ease, padding 0.2s ease;
                   flex-shrink: 0;
                   z-index: 10;
@@ -231,33 +232,34 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   overflow: hidden;
                 }
                 .sidebar-toggle-btn {
-                  position: absolute;
-                  top: 10px;
-                  left: 10px;
-                  z-index: 25;
-                  background: rgba(17, 24, 39, 0.92);
+                  background: var(--bg-card);
                   border: 1px solid var(--border-color);
                   color: var(--text-primary);
-                  padding: 0.25rem 0.55rem;
-                  border-radius: 5px;
+                  padding: 0.26rem 0.65rem;
+                  border-radius: 6px;
                   cursor: pointer;
-                  font-size: 0.75rem;
+                  font-size: 0.76rem;
                   font-weight: 600;
-                  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 0.35rem;
+                  transition: all 0.15s ease;
+                  user-select: none;
                 }
                 .sidebar-toggle-btn:hover {
                   border-color: var(--accent-local);
                   color: #38bdf8;
+                  background: rgba(56, 189, 248, 0.08);
                 }
                 .section-title {
-                  font-size: 0.72rem;
+                  font-size: 0.68rem;
                   text-transform: uppercase;
                   letter-spacing: 0.06em;
                   color: var(--accent-local);
                   font-weight: 700;
                   border-bottom: 1px solid #1e293b;
-                  padding-bottom: 0.25rem;
-                  margin-top: 0.15rem;
+                  padding-bottom: 0.16rem;
+                  margin-top: 0.06rem;
                   cursor: pointer;
                   user-select: none;
                   display: flex;
@@ -267,7 +269,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 .section-title:hover { color: #38bdf8; }
                 .section-title::after {
                   content: "▾";
-                  font-size: 0.75rem;
+                  font-size: 0.72rem;
                   transition: transform 0.2s ease;
                 }
                 .section-title.collapsed::after {
@@ -276,29 +278,29 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 .section-body {
                   display: flex;
                   flex-direction: column;
-                  gap: 0.45rem;
+                  gap: 0.24rem;
                 }
                 .section-body.collapsed { display: none; }
                 .cli-command-box {
                   background: #0b0f19;
                   border: 1px solid var(--border-color);
                   border-radius: 5px;
-                  padding: 0.45rem 0.55rem;
+                  padding: 0.28rem 0.45rem;
                   display: flex;
                   flex-direction: column;
-                  gap: 0.35rem;
+                  gap: 0.22rem;
                 }
                 .cli-command-code {
                   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-                  font-size: 0.7rem;
+                  font-size: 0.66rem;
                   color: #6ee7b7;
                   word-break: break-all;
                   user-select: all;
                   background: transparent;
                 }
-                .filter-group { display: flex; flex-direction: column; gap: 0.28rem; }
+                .filter-group { display: flex; flex-direction: column; gap: 0.14rem; }
                 .filter-group label {
-                  font-size: 0.73rem;
+                  font-size: 0.68rem;
                   color: var(--text-muted);
                   font-weight: 600;
                   display: flex;
@@ -308,25 +310,26 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   background: var(--bg-card);
                   border: 1px solid var(--border-color);
                   color: var(--text-primary);
-                  padding: 0.4rem 0.55rem;
-                  border-radius: 5px;
-                  font-size: 0.82rem;
+                  padding: 0.22rem 0.45rem;
+                  border-radius: 4px;
+                  font-size: 0.75rem;
                 }
                 .filter-group input[type="range"] {
                   width: 100%;
                   accent-color: var(--accent-local);
                   cursor: pointer;
+                  height: 14px;
                 }
-                .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-                .btn-row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+                .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
+                .btn-row { display: flex; gap: 0.28rem; flex-wrap: wrap; }
                 button {
                   background: var(--bg-card);
                   border: 1px solid var(--border-color);
                   color: var(--text-primary);
-                  padding: 0.38rem 0.65rem;
-                  border-radius: 5px;
+                  padding: 0.24rem 0.5rem;
+                  border-radius: 4px;
                   cursor: pointer;
-                  font-size: 0.78rem;
+                  font-size: 0.73rem;
                   transition: background 0.15s, border-color 0.15s;
                 }
                 button.btn-primary {
@@ -416,6 +419,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.Append("      <span>Generated on ").Append(generatedAtFormatted).AppendLine(" • Self-contained offline topology map (TopologyForge)</span>");
         sb.AppendLine("    </div>");
         sb.AppendLine("    <div class=\"kpi-bar\">");
+        sb.AppendLine("      <button id=\"btnToggleSidebar\" class=\"sidebar-toggle-btn\" type=\"button\" title=\"Toggle Sidebar (B)\">◀ Sidebar</button>");
         sb.Append("      <div class=\"kpi-badge\">Servers<strong id=\"kpiNodes\">").Append(graph.Nodes.Count.ToString(CultureInfo.InvariantCulture)).AppendLine("</strong></div>");
         sb.Append("      <div class=\"kpi-badge\">Service Ports<strong id=\"kpiPorts\">").Append(totalPorts.ToString(CultureInfo.InvariantCulture)).AppendLine("</strong></div>");
         sb.Append("      <div class=\"kpi-badge\">Inter-Server Flows<strong id=\"kpiEdges\">").Append(graph.Edges.Count.ToString(CultureInfo.InvariantCulture)).AppendLine("</strong></div>");
@@ -536,7 +540,6 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("        </div>");
         sb.AppendLine("      </div>");
         sb.AppendLine("    </aside>");
-        sb.AppendLine("    <button id=\"btnToggleSidebar\" class=\"sidebar-toggle-btn\" type=\"button\" title=\"Toggle Sidebar (B)\">◀ Sidebar</button>");
 
         sb.AppendLine("    <main class=\"canvas-area\">");
         sb.AppendLine("      <svg id=\"topologySvg\">");
@@ -1277,10 +1280,13 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                       const portMatch = n.ports.some(p => String(p.port).includes(q) || (p.processName || '').toLowerCase().includes(q));
                       if (!hostStr.includes(q) && !portMatch) return false;
                     }
-                    if (incPorts.length > 0 || dirFilter !== 'all') {
-                      const hasPort = incPorts.length > 0 && n.ports.some(p => incPorts.includes(p.port));
-                      const hasEdge = filteredEdges.some(e => e.sourceNodeId === n.nodeId || e.targetNodeId === n.nodeId);
-                      if (!hasPort && !hasEdge) return false;
+                    const remainingPorts = n.ports.filter(p => !excPorts.includes(p.port) && (incPorts.length === 0 || incPorts.includes(p.port)));
+                    const hasActiveEdge = filteredEdges.some(e => e.sourceNodeId === n.nodeId || e.targetNodeId === n.nodeId);
+
+                    // When port or direction filters are applied, eliminate orphan servers with no remaining ports and no flows
+                    if (incPorts.length > 0 || excPorts.length > 0 || dirFilter !== 'all') {
+                      if (remainingPorts.length === 0 && !hasActiveEdge) return false;
+                    }
                     }
                     return true;
                   });
@@ -1317,6 +1323,10 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
                   const displayStart = totalFiltered === 0 ? 0 : startIdx + 1;
                   pageStatus.textContent = `Page ${currentPageIndex + 1} / ${totalPages} (${displayStart}–${endIdx} of ${totalFiltered} servers)`;
+                  const kpiNodesEl = document.getElementById('kpiNodes');
+                  if (kpiNodesEl) kpiNodesEl.textContent = totalFiltered;
+                  const kpiEdgesEl = document.getElementById('kpiEdges');
+                  if (kpiEdgesEl) kpiEdgesEl.textContent = activeEdges.length;
                   btnPrevPage.disabled = currentPageIndex <= 0;
                   btnNextPage.disabled = currentPageIndex >= totalPages - 1;
                   btnLoadMore100.disabled = currentPageSize >= totalFiltered;
@@ -1330,9 +1340,10 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     inspectorContent.innerHTML = 'Click on a server to isolate its inbound (IN) and outbound (OUT) routes, or drag it to adjust its position.';
                     return;
                   }
-                  const portsHtml = node.ports.length > 0
-                    ? node.ports.map(p => `<span class="port-pill">:${p.port}/${p.protocol}${p.processName ? ' (' + p.processName + ')' : ''}</span>`).join(' ')
-                    : '<span style="color:var(--text-muted)">No direct listening port</span>';
+                  const visiblePorts = node.ports.filter(p => !excPorts.includes(p.port) && (incPorts.length === 0 || incPorts.includes(p.port)));
+                  const portsHtml = visiblePorts.length > 0
+                    ? visiblePorts.map(p => `<span class="port-pill">:${p.port}/${p.protocol}${p.processName ? ' (' + p.processName + ')' : ''}</span>`).join(' ')
+                    : '<span style="color:var(--text-muted)">No active listening port</span>';
 
                   const outbound = edges.filter(e => e.sourceNodeId === node.nodeId);
                   const inbound = edges.filter(e => e.targetNodeId === node.nodeId);
@@ -1467,7 +1478,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     sub.textContent = `${n.ipAddress || 'IP N/A'} • ${n.isLocalAuditedServer ? 'Audited Server' : 'Remote Server'}`;
                     g.appendChild(sub);
 
-                    const portSummary = n.ports.slice(0, 5).map(p => `:${p.port}`).join(' ') + (n.ports.length > 5 ? ` +${n.ports.length - 5}` : '');
+                    const visiblePorts = n.ports.filter(p => !excPorts.includes(p.port) && (incPorts.length === 0 || incPorts.includes(p.port)));
+                    const portSummary = visiblePorts.slice(0, 5).map(p => `:${p.port}`).join(' ') + (visiblePorts.length > 5 ? ` +${visiblePorts.length - 5}` : '');
                     const portsTxt = document.createElementNS(SVG_NS, 'text');
                     portsTxt.setAttribute('x', '12');
                     portsTxt.setAttribute('y', '66');

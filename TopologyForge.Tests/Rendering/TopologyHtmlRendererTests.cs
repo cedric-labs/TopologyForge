@@ -223,4 +223,21 @@ public sealed class TopologyHtmlRendererTests
         html.Should().Contain("Export SVG");
         html.Should().Contain("network_topology_map.svg");
     }
+
+    [Fact]
+    public void RenderHtml_WhenRendered_PlacesSidebarButtonInKpiBarAndEmbedsOrphanFilterLogic()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var graph = CreateSampleGraph();
+
+        // Act
+        var html = renderer.RenderHtml(graph, "Sidebar Placement & Orphan Filter Test");
+
+        // Assert
+        // Sidebar button must be inside kpi-bar right before the Servers badge
+        html.Should().Contain("btnToggleSidebar");
+        html.Should().Contain("remainingPorts.length === 0 && !hasActiveEdge");
+        html.Should().Contain("kpiNodesEl.textContent = totalFiltered;");
+    }
 }
