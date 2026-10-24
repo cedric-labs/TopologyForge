@@ -199,4 +199,20 @@ public sealed class TopologyHtmlRendererTests
         html.Should().Contain("computeAllEdgeAnchors");
         html.Should().Contain("findCorridorWaypoint");
     }
+
+    [Fact]
+    public void RenderHtml_WhenRendered_ContainsExportSvgButtonAndHandler()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var graph = CreateSampleGraph();
+
+        // Act
+        var html = renderer.RenderHtml(graph, "SVG Export Test");
+
+        // Assert
+        html.Should().Contain("id=\"btnExportSvg\"");
+        html.Should().Contain("Export SVG");
+        html.Should().Contain("network_topology_map.svg");
+    }
 }

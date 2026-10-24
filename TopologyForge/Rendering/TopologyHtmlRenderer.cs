@@ -435,6 +435,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("        <button id=\"btnResetZoom\" type=\"button\">Center View</button>");
         sb.AppendLine("        <button id=\"btnRecomputeLayout\" type=\"button\">Reset Positions</button>");
         sb.AppendLine("        <button id=\"btnClearFilters\" type=\"button\">Reset Filters</button>");
+        sb.AppendLine("        <button id=\"btnExportSvg\" type=\"button\">Export SVG</button>");
         sb.AppendLine("      </div>");
 
         sb.AppendLine("      <div class=\"inspector\" id=\"inspectorPanel\">");
@@ -1486,6 +1487,81 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   renderInspector(null, [], new Map());
                   renderGraph(true);
                 });
+
+                document.getElementById('btnExportSvg').addEventListener('click', () => {
+                  exportCurrentSvg();
+                });
+
+                function exportCurrentSvg() {
+                  const svgEl = document.getElementById('topologySvg');
+                  const viewportEl = document.getElementById('viewportGroup');
+                  if (!svgEl || !viewportEl) return;
+
+                  const nodeEls = Array.from(document.querySelectorAll('#nodesLayer > g'));
+                  if (nodeEls.length === 0) {
+                    alert('No visible nodes to export.');
+                    return;
+                  }
+
+                  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                  nodeEls.forEach(g => {
+                    const transform = g.getAttribute('transform') || '';
+                    const match = /translate\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/.exec(transform);
+                    if (match) {
+                      const x = parseFloat(match[1]);
+                      const y = parseFloat(match[2]);
+                      minX = Math.min(minX, x);
+                      minY = Math.min(minY, y);
+                      maxX = Math.max(maxX, x + NODE_W);
+                      maxY = Math.max(maxY, y + NODE_H);
+                    }
+                  });
+
+                  if (!isFinite(minX) || !isFinite(minY)) {
+                    minX = 0; minY = 0; maxX = 1600; maxY = 1200;
+                  }
+
+                  const margin = 60;
+                  const cropX = Math.floor(minX - margin);
+                  const cropY = Math.floor(minY - margin);
+                  const cropW = Math.ceil((maxX - minX) + margin * 2);
+                  const cropH = Math.ceil((maxY - minY) + margin * 2);
+
+                  const clonedSvg = svgEl.cloneNode(true);
+                  clonedSvg.removeAttribute('id');
+                  clonedSvg.removeAttribute('class');
+                  clonedSvg.setAttribute('xmlns', SVG_NS);
+                  clonedSvg.setAttribute('viewBox', [cropX, cropY, cropW, cropH].join(' '));
+
+                  clonedSvg.setAttribute('width', String(cropW));
+                  clonedSvg.setAttribute('height', String(cropH));
+
+                  const clonedViewport = clonedSvg.querySelector('#viewportGroup');
+                  if (clonedViewport) {
+                    clonedViewport.removeAttribute('transform');
+                  }
+
+                  const bgRect = document.createElementNS(SVG_NS, 'rect');
+                  bgRect.setAttribute('x', String(cropX));
+                  bgRect.setAttribute('y', String(cropY));
+                  bgRect.setAttribute('width', String(cropW));
+                  bgRect.setAttribute('height', String(cropH));
+                  bgRect.setAttribute('fill', '#0b0f19');
+                  clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
+
+                  const serializer = new XMLSerializer();
+                  const svgSource = '<?xml version="1.0" encoding="UTF-8"?>\n' + serializer.serializeToString(clonedSvg);
+                  const blob = new Blob([svgSource], { type: 'image/svg+xml;charset=utf-8' });
+                  const blobUrl = URL.createObjectURL(blob);
+
+                  const downloadLink = document.createElement('a');
+                  downloadLink.href = blobUrl;
+                  downloadLink.download = 'network_topology_map.svg';
+                  document.body.appendChild(downloadLink);
+                  downloadLink.click();
+                  document.body.removeChild(downloadLink);
+                  URL.revokeObjectURL(blobUrl);
+                }
 
                 updateTransform();
                 renderGraph(true);
