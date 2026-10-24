@@ -8,6 +8,18 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>TopologyForge</PackageId>
+    <Version>1.0.1</Version>
+    <Authors>curvecoder</Authors>
+    <Company>curvecoder</Company>
+    <Description>Self-contained offline HTML5/SVG network topology engine and layout optimizer.</Description>
+    <RepositoryUrl>https://github.com/curvecoder/NetFlowAudit</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\FRAMEWORK.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
 
 </Project>
