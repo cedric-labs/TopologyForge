@@ -150,6 +150,26 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
 
         var edgeCount = await _mapPage.GetEdgeCountAsync();
         edgeCount.Should().Be(1); // Seul le flux IN sur le port 8080
+
+        var nodeCount = await _mapPage.GetNodeCountAsync();
+        nodeCount.Should().Be(2); // HOMELAB-PC et SRV-WEB-01 (les autres sans flux IN sont élagués)
+        (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("2");
+        (await _mapPage.KpiFlows.InnerTextAsync()).Should().Be("1");
+    }
+
+    [Fact]
+    public async Task SelectDirection_WhenFilteredToOutbound_HidesInboundEdgesAndPrunesNonOutboundNodes()
+    {
+        _mapPage.Should().NotBeNull();
+        await _mapPage!.SelectDirectionAsync("OUT");
+
+        var edgeCount = await _mapPage.GetEdgeCountAsync();
+        edgeCount.Should().Be(4); // 4 flux Outbound
+
+        var nodeCount = await _mapPage.GetNodeCountAsync();
+        nodeCount.Should().Be(5); // HOMELAB-PC + 4 serveurs distants connectés en sortie
+        (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("5");
+        (await _mapPage.KpiFlows.InnerTextAsync()).Should().Be("4");
     }
 
     [Fact]

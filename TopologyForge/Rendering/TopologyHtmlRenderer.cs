@@ -1280,13 +1280,13 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                       const portMatch = n.ports.some(p => String(p.port).includes(q) || (p.processName || '').toLowerCase().includes(q));
                       if (!hostStr.includes(q) && !portMatch) return false;
                     }
-                    const remainingPorts = n.ports.filter(p => !excPorts.includes(p.port) && (incPorts.length === 0 || incPorts.includes(p.port)));
                     const hasActiveEdge = filteredEdges.some(e => e.sourceNodeId === n.nodeId || e.targetNodeId === n.nodeId);
+                    if (!n.isLocalAuditedServer && !hasActiveEdge) return false;
 
-                    // When port or direction filters are applied, eliminate orphan servers with no remaining ports and no flows
-                    if (incPorts.length > 0 || excPorts.length > 0 || dirFilter !== 'all') {
-                      if (remainingPorts.length === 0 && !hasActiveEdge) return false;
-                    }
+                    const remainingPorts = n.ports.filter(p => !excPorts.includes(p.port) && (incPorts.length === 0 || incPorts.includes(p.port)));
+                    if (dirFilter === 'OUT' && !hasActiveEdge) return false;
+                    if (dirFilter === 'IN' && !hasActiveEdge && remainingPorts.length === 0) return false;
+                    if ((incPorts.length > 0 || excPorts.length > 0) && remainingPorts.length === 0 && !hasActiveEdge) return false;
                     return true;
                   });
 
