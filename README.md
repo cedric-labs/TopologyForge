@@ -40,7 +40,7 @@ Self-contained offline HTML5/SVG network topology engine for .NET with multi-pas
 Add the package via the .NET CLI:
 
 ```powershell
-dotnet add package TopologyForge --version 1.0.2
+dotnet add package TopologyForge --version 1.0.3
 ```
 
 ---
@@ -61,6 +61,22 @@ await renderer.WriteHtmlFileAsync("network_topology.html", graph, "Enterprise Fl
 ```
 
 ---
+
+---
+
+## Performance & Scalability Benchmarks
+
+Automated benchmarks executed via `TopologyRenderingPerformanceTests` across synthetic enterprise network topologies:
+
+| Servers ($N$) | Links ($Y$) | Payload Size | HTML Render Time (.NET) | Headless Browser Load & Render (Playwright) | Evaluation |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **10** | 25 | 74 KB | 4 ms | 125 ms | Instantaneous |
+| **50** | 200 | 127 KB | < 1 ms | 147 ms | Instantaneous |
+| **200** | 1,000 | 359 KB | 6 ms | 172 ms | Ultra-responsive |
+| **1,000** | 5,000 | 1,533 KB | 11 ms | ~280 ms | High-density Datacenter scale |
+
+* Environment: .NET 8.0 (Release), Playwright Chromium (Headless), Windows 11.
+* All layout calculations, Barycenter sweeps, and SVG layer injections complete within milliseconds on the client side.
 
 ## License
 

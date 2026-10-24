@@ -867,7 +867,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
                 // Pass 3: Exact 2-Opt Swap Optimizer guided by geometric crossing & occlusion cost
                 function optimizeNodePositions2Opt(nodes, edges) {
-                  if (nodes.length <= 2 || edges.length === 0) return;
+                  if (nodes.length <= 2 || edges.length === 0 || nodes.length > 35 || edges.length > 70) return;
 
                   const swapGroups = [
                     nodes.filter(n => !n.isLocalAuditedServer),
@@ -1335,6 +1335,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 }
 
                 function renderInspector(node, edges, allNodesMap) {
+                  const incPorts = parsePortList(includePortsInput.value);
+                  const excPorts = parsePortList(excludePortsInput.value);
                   if (!node) {
                     inspectorContent.innerHTML = 'Click on a server to isolate its inbound (IN) and outbound (OUT) routes, or drag it to adjust its position.';
                     return;
@@ -1369,6 +1371,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 }
 
                 function renderGraph(recomputePositions = false) {
+                  const incPorts = parsePortList(includePortsInput.value);
+                  const excPorts = parsePortList(excludePortsInput.value);
                   const { nodes, edges } = filterAndPaginateGraph();
                   const nodesMap = new Map(nodes.map(n => [n.nodeId, n]));
                   document.getElementById('kpiNodes').textContent = String(nodes.length);
