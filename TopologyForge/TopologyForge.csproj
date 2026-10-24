@@ -13,7 +13,7 @@
     <Authors>curvecoder</Authors>
     <Company>curvecoder</Company>
     <Description>Self-contained offline HTML5/SVG network topology engine and layout optimizer.</Description>
-    <RepositoryUrl>https://github.com/curvecoder/NetFlowAudit</RepositoryUrl>
+    <RepositoryUrl>https://github.com/curvecoder/TopologyForge</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
