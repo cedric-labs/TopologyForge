@@ -9,6 +9,30 @@ namespace TopologyForge.Parsers;
 /// </summary>
 public sealed class TopologyCsvParser : ITopologyCsvParser
 {
+    private static readonly Dictionary<string, int> DefaultNetFlowAuditColumnMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["FirstSeenUtc"] = 0,
+        ["LastSeenUtc"] = 1,
+        ["ObservationCount"] = 2,
+        ["ServerName"] = 3,
+        ["ServerOsVersion"] = 4,
+        ["ServerPrimaryIp"] = 5,
+        ["Protocol"] = 6,
+        ["Direction"] = 7,
+        ["TcpState"] = 8,
+        ["LocalIp"] = 9,
+        ["LocalPort"] = 10,
+        ["RemoteIp"] = 11,
+        ["RemotePort"] = 12,
+        ["RemoteHostName"] = 13,
+        ["ProcessId"] = 14,
+        ["ProcessName"] = 15,
+        ["ExecutablePath"] = 16,
+        ["CommandLine"] = 17,
+        ["TargetExecutable"] = 18,
+        ["UserName"] = 19
+    };
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<TopologyFlowRecord>> ParseFileAsync(
         string filePath,
@@ -39,25 +63,37 @@ public sealed class TopologyCsvParser : ITopologyCsvParser
         ArgumentNullException.ThrowIfNull(lines);
 
         using var enumerator = lines.GetEnumerator();
-        string? headerLine = null;
+        string? firstLine = null;
 
         while (enumerator.MoveNext())
         {
             if (!string.IsNullOrWhiteSpace(enumerator.Current))
             {
-                headerLine = enumerator.Current;
+                firstLine = enumerator.Current;
                 break;
             }
         }
 
-        if (headerLine is null)
+        if (firstLine is null)
         {
             return [];
         }
 
-        var headers = SplitCsvLine(headerLine, delimiter);
-        var columnMap = BuildColumnIndexMap(headers);
+        var firstLineFields = SplitCsvLine(firstLine, delimiter);
+        var columnMap = BuildColumnIndexMap(firstLineFields);
+        var isHeaderPresent = columnMap.ContainsKey("ServerName") || columnMap.ContainsKey("LocalPort");
+
         var records = new List<TopologyFlowRecord>();
+
+        if (!isHeaderPresent)
+        {
+            columnMap = DefaultNetFlowAuditColumnMap;
+            var firstRecord = ConvertFieldsToFlowRecord(firstLineFields, columnMap);
+            if (firstRecord is not null)
+            {
+                records.Add(firstRecord);
+            }
+        }
 
         while (enumerator.MoveNext())
         {

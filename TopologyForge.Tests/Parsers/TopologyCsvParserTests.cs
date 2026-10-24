@@ -101,4 +101,28 @@ public sealed class TopologyCsvParserTests
             }
         }
     }
+    [Fact]
+    public void ParseLines_WhenHeaderIsMissing_UsesStandardNetFlowAuditPositionalMapping()
+    {
+        // Arrange
+        var parser = new TopologyCsvParser();
+        var lines = new[]
+        {
+            "2026-10-24T07:01:34Z,2026-10-24T07:01:34Z,5,SRV-PROD-01,Windows,192.168.1.50,Tcp,Outbound,Established,192.168.1.50,50388,10.0.0.1,443,api.internal,1234,myproc,C:\\proc.exe,,,"
+        };
+
+        // Act
+        var records = parser.ParseLines(lines);
+
+        // Assert
+        records.Should().ContainSingle();
+        var record = records[0];
+        record.SourceServerName.Should().Be("SRV-PROD-01");
+        record.SourceIp.Should().Be("192.168.1.50");
+        record.RemoteServerName.Should().Be("api.internal");
+        record.RemoteIp.Should().Be("10.0.0.1");
+        record.RemotePort.Should().Be(443);
+        record.ObservationCount.Should().Be(5);
+        record.Direction.Should().Be(TopologyFlowDirection.Outbound);
+    }
 }
