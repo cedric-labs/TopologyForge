@@ -40,7 +40,7 @@ Self-contained offline HTML5/SVG network topology engine for .NET with multi-pas
 Add the package via the .NET CLI:
 
 ```powershell
-dotnet add package TopologyForge --version 1.0.3
+dotnet add package TopologyForge --version 1.0.4
 ```
 
 ---

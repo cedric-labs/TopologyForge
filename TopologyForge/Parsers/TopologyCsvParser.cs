@@ -22,7 +22,14 @@ public sealed class TopologyCsvParser : ITopologyCsvParser
             return [];
         }
 
-        var lines = await File.ReadAllLinesAsync(filePath, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        var lines = new List<string>();
+        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+        {
+            lines.Add(line);
+        }
+
         return ParseLines(lines, delimiter);
     }
 
