@@ -1353,27 +1353,51 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     subnetMap.get(sub).push(n);
                   });
 
-                  if (!isHorizontal) {
-                    let curClusterX = 60;
-                    const clusterTopY = 60 + stepY + 80;
+                  // Sort subnets: largest subnets first, then alphabetical
+                  const sortedSubnets = Array.from(subnetMap.entries()).sort((a, b) => {
+                    if (b[1].length !== a[1].length) return b[1].length - a[1].length;
+                    return a[0].localeCompare(b[0]);
+                  });
 
-                    subnetMap.forEach((subNodes) => {
-                      const colsInSub = subNodes.length > 8 ? 3 : (subNodes.length >= 3 ? 2 : 1);
+                  if (!isHorizontal) {
+                    // Strictly bound max columns across the screen so targets wrap cleanly in row bands
+                    const MAX_COLS = targets.length <= 4 ? Math.max(2, targets.length) : (targets.length <= 9 ? 3 : 4);
+                    
+                    let currentBandY = 60 + stepY + 80;
+                    let currentBandCol = 0;
+                    let maxRowsInCurrentBand = 0;
+                    let maxPlacedX = 60;
+
+                    sortedSubnets.forEach(([subnet, subNodes]) => {
+                      let colsInSub = subNodes.length <= 2 ? 1 : (subNodes.length > 8 ? 3 : 2);
+                      if (colsInSub > MAX_COLS) colsInSub = MAX_COLS;
+
+                      // Wrap to next horizontal band if this subnet exceeds remaining columns
+                      if (currentBandCol + colsInSub > MAX_COLS && currentBandCol > 0) {
+                        currentBandY += maxRowsInCurrentBand * stepY + 110;
+                        currentBandCol = 0;
+                        maxRowsInCurrentBand = 0;
+                      }
+
                       const rowsInSub = Math.ceil(subNodes.length / colsInSub);
+                      const subStartX = 60 + currentBandCol * stepX;
+                      const subStartY = currentBandY;
 
                       subNodes.forEach((n, idx) => {
                         const col = Math.floor(idx / rowsInSub);
                         const row = idx % rowsInSub;
-                        nodePositions.set(n.nodeId, {
-                          x: curClusterX + col * stepX,
-                          y: clusterTopY + row * stepY
-                        });
+                        const px = subStartX + col * stepX;
+                        const py = subStartY + row * stepY;
+                        nodePositions.set(n.nodeId, { x: px, y: py });
+                        maxPlacedX = Math.max(maxPlacedX, px + NODE_W);
                       });
 
-                      curClusterX += colsInSub * stepX + 90;
+                      currentBandCol += colsInSub;
+                      maxRowsInCurrentBand = Math.max(maxRowsInCurrentBand, rowsInSub);
                     });
 
-                    const totalChildrenWidth = curClusterX - 60 - 90;
+                    // Center root(s) horizontally above the children matrix
+                    const totalChildrenWidth = maxPlacedX - 60;
                     const totalRootsWidth = (roots.length - 1) * (stepX + 40) + NODE_W;
                     const rootStartX = Math.max(60, 60 + Math.round((totalChildrenWidth - totalRootsWidth) / 2));
                     roots.forEach((r, idx) => {
@@ -1383,26 +1407,40 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                       });
                     });
                   } else {
-                    const targetStartX = 60 + stepX + 110;
-                    let curClusterY = 60;
+                    const MAX_ROWS = targets.length <= 4 ? Math.max(2, targets.length) : (targets.length <= 12 ? 4 : 6);
 
-                    subnetMap.forEach((subNodes) => {
-                      const colsInSub = subNodes.length > 8 ? 3 : (subNodes.length >= 3 ? 2 : 1);
-                      const rowsInSub = Math.ceil(subNodes.length / colsInSub);
+                    let currentBandX = 60 + stepX + 110;
+                    let currentBandRow = 0;
+                    let maxColsInCurrentBand = 0;
+                    let maxPlacedY = 60;
+
+                    sortedSubnets.forEach(([subnet, subNodes]) => {
+                      let rowsInSub = subNodes.length <= 2 ? 1 : 2;
+                      const colsInSub = Math.ceil(subNodes.length / rowsInSub);
+
+                      if (currentBandRow + rowsInSub > MAX_ROWS && currentBandRow > 0) {
+                        currentBandX += maxColsInCurrentBand * stepX + 110;
+                        currentBandRow = 0;
+                        maxColsInCurrentBand = 0;
+                      }
+
+                      const subStartX = currentBandX;
+                      const subStartY = 60 + currentBandRow * stepY;
 
                       subNodes.forEach((n, idx) => {
-                        const col = Math.floor(idx / rowsInSub);
-                        const row = idx % rowsInSub;
-                        nodePositions.set(n.nodeId, {
-                          x: targetStartX + col * stepX,
-                          y: curClusterY + row * stepY
-                        });
+                        const col = idx % colsInSub;
+                        const row = Math.floor(idx / colsInSub);
+                        const px = subStartX + col * stepX;
+                        const py = subStartY + row * stepY;
+                        nodePositions.set(n.nodeId, { x: px, y: py });
+                        maxPlacedY = Math.max(maxPlacedY, py + NODE_H);
                       });
 
-                      curClusterY += rowsInSub * stepY + 90;
+                      currentBandRow += rowsInSub;
+                      maxColsInCurrentBand = Math.max(maxColsInCurrentBand, colsInSub);
                     });
 
-                    const totalChildrenHeight = curClusterY - 60 - 90;
+                    const totalChildrenHeight = maxPlacedY - 60;
                     const totalRootsHeight = (roots.length - 1) * (stepY + 30) + NODE_H;
                     const rootStartY = Math.max(60, 60 + Math.round((totalChildrenHeight - totalRootsHeight) / 2));
                     roots.forEach((r, idx) => {
@@ -1412,8 +1450,6 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                       });
                     });
                   }
-
-                  applyForceRepulsionPolish(ordered, edges, gapFactor);
                 }
 
                 // Pass 1 + Pipeline Orchestrator
@@ -1620,7 +1656,15 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 }
 
                 // Pass 5A: Full-Border Angular Port Distribution (sorts & spaces anchor dots evenly per side)
-                function determineFacingSide(fromPos, toPos) {
+                function determineFacingSide(fromPos, toPos, currentLayout) {
+                  if (currentLayout === 'tree') {
+                    if (toPos.y >= fromPos.y + NODE_H / 2) return 'bottom';
+                    if (toPos.y + NODE_H / 2 <= fromPos.y) return 'top';
+                  } else if (currentLayout === 'horizontal-tree') {
+                    if (toPos.x >= fromPos.x + NODE_W / 2) return 'right';
+                    if (toPos.x + NODE_W / 2 <= fromPos.x) return 'left';
+                  }
+
                   const dx = (toPos.x + NODE_W / 2) - (fromPos.x + NODE_W / 2);
                   const dy = (toPos.y + NODE_H / 2) - (fromPos.y + NODE_H / 2);
                   const halfW = NODE_W / 2 + 2;
@@ -1650,8 +1694,9 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     const p1 = nodePositions.get(e.sourceNodeId);
                     const p2 = nodePositions.get(e.targetNodeId);
                     if (!p1 || !p2) return;
-                    const srcSide = determineFacingSide(p1, p2);
-                    const dstSide = determineFacingSide(p2, p1);
+                    const curLayout = layoutSelect ? layoutSelect.value : 'layered';
+                    const srcSide = determineFacingSide(p1, p2, curLayout);
+                    const dstSide = determineFacingSide(p2, p1, curLayout);
                     addSlotRequest(e.sourceNodeId, srcSide, e.edgeId, false, p2);
                     addSlotRequest(e.targetNodeId, dstSide, e.edgeId, true, p1);
                   });
@@ -1760,6 +1805,14 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                         d: `M ${x1} ${y1} L ${waypoint.x} ${y1} L ${waypoint.x} ${y2} L ${x2} ${y2}`,
                         labelX: waypoint.x,
                         labelY: (y1 + y2) / 2 - 6
+                      };
+                    }
+                    if (startAnchor.side === 'bottom' || startAnchor.side === 'top') {
+                      const midY = (y1 + y2) / 2 + fanOffset * 1.4;
+                      return {
+                        d: `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`,
+                        labelX: (x1 + x2) / 2,
+                        labelY: midY - 6
                       };
                     }
                     const midX = (x1 + x2) / 2 + fanOffset * 1.4;
