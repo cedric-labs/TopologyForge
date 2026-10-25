@@ -90,6 +90,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
             TopologyLayoutMode.Circular => "circular",
             TopologyLayoutMode.Grid => "grid",
             TopologyLayoutMode.ForceDirectedOrganic => "organic",
+            TopologyLayoutMode.Tree => "tree",
+            TopologyLayoutMode.HorizontalTree => "horizontal-tree",
             _ => "layered"
         };
 
@@ -468,6 +470,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("            <label for=\"layoutSelect\">Layout</label>");
         sb.AppendLine("            <select id=\"layoutSelect\">");
         sb.AppendLine("              <option value=\"layered\">Hierarchical (Layered)</option>");
+        sb.AppendLine("              <option value=\"tree\">Tree (Top-Down Multi-Column)</option>");
+        sb.AppendLine("              <option value=\"horizontal-tree\">Horizontal Tree (Left ➔ Right)</option>");
         sb.AppendLine("              <option value=\"organic\">Force-Directed (Organic)</option>");
         sb.AppendLine("              <option value=\"circular\">Concentric Ring</option>");
         sb.AppendLine("              <option value=\"grid\">Multi-Column Grid</option>");
@@ -1309,6 +1313,109 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   optimizeNodePositions2Opt(nodes, edges);
                 }
 
+                function layoutTree(ordered, edges, gapFactor, isHorizontal) {
+                  const stepX = Math.round(350 * gapFactor);
+                  const stepY = Math.round(162 * gapFactor);
+
+                  const inDegree = new Map();
+                  const outDegree = new Map();
+                  ordered.forEach(n => { inDegree.set(n.nodeId, 0); outDegree.set(n.nodeId, 0); });
+                  edges.forEach(e => {
+                    outDegree.set(e.sourceNodeId, (outDegree.get(e.sourceNodeId) || 0) + 1);
+                    inDegree.set(e.targetNodeId, (inDegree.get(e.targetNodeId) || 0) + 1);
+                  });
+
+                  const roots = ordered.filter(n => n.isLocalAuditedServer);
+                  if (roots.length === 0) {
+                    const zeroIn = ordered.filter(n => (inDegree.get(n.nodeId) || 0) === 0 && (outDegree.get(n.nodeId) || 0) > 0);
+                    if (zeroIn.length > 0) {
+                      roots.push(...zeroIn.slice(0, 3));
+                    } else {
+                      const sortedByOut = [...ordered].sort((a, b) => (outDegree.get(b.nodeId) || 0) - (outDegree.get(a.nodeId) || 0));
+                      roots.push(sortedByOut[0]);
+                    }
+                  }
+
+                  const rootSet = new Set(roots.map(r => r.nodeId));
+                  const targets = ordered.filter(n => !rootSet.has(n.nodeId));
+
+                  if (targets.length === 0) {
+                    roots.forEach((r, idx) => {
+                      nodePositions.set(r.nodeId, isHorizontal ? { x: 60, y: 60 + idx * stepY } : { x: 60 + idx * stepX, y: 60 });
+                    });
+                    return;
+                  }
+
+                  const subnetMap = new Map();
+                  targets.forEach(n => {
+                    const sub = extractSubnetPrefix(n.ipAddress);
+                    if (!subnetMap.has(sub)) subnetMap.set(sub, []);
+                    subnetMap.get(sub).push(n);
+                  });
+
+                  if (!isHorizontal) {
+                    let curClusterX = 60;
+                    const clusterTopY = 60 + stepY + 80;
+
+                    subnetMap.forEach((subNodes) => {
+                      const colsInSub = subNodes.length > 8 ? 3 : (subNodes.length >= 3 ? 2 : 1);
+                      const rowsInSub = Math.ceil(subNodes.length / colsInSub);
+
+                      subNodes.forEach((n, idx) => {
+                        const col = Math.floor(idx / rowsInSub);
+                        const row = idx % rowsInSub;
+                        nodePositions.set(n.nodeId, {
+                          x: curClusterX + col * stepX,
+                          y: clusterTopY + row * stepY
+                        });
+                      });
+
+                      curClusterX += colsInSub * stepX + 90;
+                    });
+
+                    const totalChildrenWidth = curClusterX - 60 - 90;
+                    const totalRootsWidth = (roots.length - 1) * (stepX + 40) + NODE_W;
+                    const rootStartX = Math.max(60, 60 + Math.round((totalChildrenWidth - totalRootsWidth) / 2));
+                    roots.forEach((r, idx) => {
+                      nodePositions.set(r.nodeId, {
+                        x: rootStartX + idx * (stepX + 40),
+                        y: 60
+                      });
+                    });
+                  } else {
+                    const targetStartX = 60 + stepX + 110;
+                    let curClusterY = 60;
+
+                    subnetMap.forEach((subNodes) => {
+                      const colsInSub = subNodes.length > 8 ? 3 : (subNodes.length >= 3 ? 2 : 1);
+                      const rowsInSub = Math.ceil(subNodes.length / colsInSub);
+
+                      subNodes.forEach((n, idx) => {
+                        const col = Math.floor(idx / rowsInSub);
+                        const row = idx % rowsInSub;
+                        nodePositions.set(n.nodeId, {
+                          x: targetStartX + col * stepX,
+                          y: curClusterY + row * stepY
+                        });
+                      });
+
+                      curClusterY += rowsInSub * stepY + 90;
+                    });
+
+                    const totalChildrenHeight = curClusterY - 60 - 90;
+                    const totalRootsHeight = (roots.length - 1) * (stepY + 30) + NODE_H;
+                    const rootStartY = Math.max(60, 60 + Math.round((totalChildrenHeight - totalRootsHeight) / 2));
+                    roots.forEach((r, idx) => {
+                      nodePositions.set(r.nodeId, {
+                        x: 60,
+                        y: rootStartY + idx * (stepY + 30)
+                      });
+                    });
+                  }
+
+                  applyForceRepulsionPolish(ordered, edges, gapFactor);
+                }
+
                 // Pass 1 + Pipeline Orchestrator
                 function computeLayout(nodes, edges, layoutMode, sortMethod) {
                   nodePositions.clear();
@@ -1316,6 +1423,16 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   const gapFactor = parseFloat(nodeGapRange.value) || 1.0;
                   const stepX = Math.round(350 * gapFactor);
                   const stepY = Math.round(162 * gapFactor);
+
+                  if (layoutMode === 'tree') {
+                    layoutTree(ordered, edges, gapFactor, false);
+                    return;
+                  }
+
+                  if (layoutMode === 'horizontal-tree') {
+                    layoutTree(ordered, edges, gapFactor, true);
+                    return;
+                  }
 
                   if (layoutMode === 'organic') {
                     simulateForceDirectedLayout(ordered, edges, gapFactor);
@@ -1388,22 +1505,40 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                       subnetMap.get(sub).push(n);
                     });
 
-                    let curX = 60, curY = 60;
-                    subnetMap.forEach((subNodes, subnet) => {
-                      const subRows = Math.min(6, subNodes.length);
-                      subNodes.forEach((n, idx) => {
-                        const col = Math.floor(idx / 6);
-                        const row = idx % 6;
+                    const locals = ordered.filter(n => n.isLocalAuditedServer);
+                    let curX = 60;
+                    let startClusterY = 60;
+
+                    if (locals.length > 0) {
+                      locals.forEach((loc, idx) => {
+                        nodePositions.set(loc.nodeId, { x: 60 + idx * (stepX + 40), y: 60 });
+                      });
+                      startClusterY = 60 + stepY + 80;
+                    }
+
+                    let curY = startClusterY;
+                    subnetMap.forEach((subNodes) => {
+                      const unplacedNodes = subNodes.filter(n => !nodePositions.has(n.nodeId));
+                      if (unplacedNodes.length === 0) return;
+
+                      const colsInSub = unplacedNodes.length > 8 ? 3 : (unplacedNodes.length >= 3 ? 2 : 1);
+                      const rowsInSub = Math.ceil(unplacedNodes.length / colsInSub);
+
+                      unplacedNodes.forEach((n, idx) => {
+                        const col = Math.floor(idx / rowsInSub);
+                        const row = idx % rowsInSub;
                         nodePositions.set(n.nodeId, {
                           x: curX + col * stepX,
                           y: curY + row * stepY
                         });
                       });
-                      const subCols = Math.max(1, Math.ceil(subNodes.length / 6));
-                      curY += subRows * stepY + 110;
-                      if (curY > 1200) {
-                        curY = 60;
-                        curX += subCols * stepX + 110;
+
+                      const subWidth = colsInSub * stepX;
+                      const subHeight = rowsInSub * stepY;
+                      curY += subHeight + 110;
+                      if (curY > 1400) {
+                        curY = startClusterY;
+                        curX += subWidth + 110;
                       }
                     });
                     optimizeNodePositions2Opt(ordered, edges);

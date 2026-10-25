@@ -116,6 +116,42 @@ public sealed class TopologyHtmlRendererTests
     }
 
     [Fact]
+    public void RenderHtml_WhenTreeLayoutConfigured_SerializesTreeLayoutMode()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var graph = CreateSampleGraph();
+        var options = new TopologyRenderingOptions
+        {
+            DefaultLayoutMode = TopologyLayoutMode.Tree
+        };
+
+        // Act
+        var html = renderer.RenderHtml(graph, options);
+
+        // Assert
+        html.Should().Contain("\"defaultLayout\":\"tree\"");
+    }
+
+    [Fact]
+    public void RenderHtml_WhenHorizontalTreeLayoutConfigured_SerializesHorizontalTreeLayoutMode()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var graph = CreateSampleGraph();
+        var options = new TopologyRenderingOptions
+        {
+            DefaultLayoutMode = TopologyLayoutMode.HorizontalTree
+        };
+
+        // Act
+        var html = renderer.RenderHtml(graph, options);
+
+        // Assert
+        html.Should().Contain("\"defaultLayout\":\"horizontal-tree\"");
+    }
+
+    [Fact]
     public void RenderHtml_WhenRendered_ContainsEnhancedLayoutAndSortingOptions()
     {
         // Arrange
@@ -126,6 +162,8 @@ public sealed class TopologyHtmlRendererTests
         var html = renderer.RenderHtml(graph, "Enhanced Options Test");
 
         // Assert
+        html.Should().Contain("<option value=\"tree\">Tree (Top-Down Multi-Column)</option>");
+        html.Should().Contain("<option value=\"horizontal-tree\">Horizontal Tree (Left ➔ Right)</option>");
         html.Should().Contain("<option value=\"organic\">Force-Directed (Organic)</option>");
         html.Should().Contain("<option value=\"tiers\">Functional Tiers (Client ➔ App ➔ Infra)</option>");
         html.Should().Contain("<option value=\"subnet\">Subnet &amp; Security Zones</option>");
@@ -135,6 +173,7 @@ public sealed class TopologyHtmlRendererTests
         html.Should().Contain("simulateForceDirectedLayout");
         html.Should().Contain("classifyFunctionalTier");
         html.Should().Contain("computeSubnetZones");
+        html.Should().Contain("layoutTree");
     }
 
     [Fact]

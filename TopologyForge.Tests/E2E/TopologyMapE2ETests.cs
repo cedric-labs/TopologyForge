@@ -253,6 +253,32 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task LayoutSelect_WhenChangedToTree_PositionsNodesInTopDownHierarchy()
+    {
+        _mapPage.Should().NotBeNull();
+        await _mapPage!.SelectLayoutAsync("tree");
+
+        (await _mapPage.GetNodeCountAsync()).Should().Be(5);
+        (await _mapPage.GetEdgeCountAsync()).Should().Be(5);
+
+        var firstTransform = await _mapPage.Nodes.First.GetAttributeAsync("transform");
+        firstTransform.Should().Contain("translate(");
+    }
+
+    [Fact]
+    public async Task LayoutSelect_WhenChangedToHorizontalTree_PositionsNodesInLeftToRightFlow()
+    {
+        _mapPage.Should().NotBeNull();
+        await _mapPage!.SelectLayoutAsync("horizontal-tree");
+
+        (await _mapPage.GetNodeCountAsync()).Should().Be(5);
+        (await _mapPage.GetEdgeCountAsync()).Should().Be(5);
+
+        var firstTransform = await _mapPage.Nodes.First.GetAttributeAsync("transform");
+        firstTransform.Should().Contain("translate(");
+    }
+
+    [Fact]
     public async Task SortSelect_WhenChangedToTiers_ArrangesFunctionalArchitectureLayers()
     {
         _mapPage.Should().NotBeNull();

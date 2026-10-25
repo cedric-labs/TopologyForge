@@ -23,5 +23,15 @@ public enum TopologyLayoutMode
     /// <summary>
     /// Disposition organique dirigée par les forces physiques (attraction par ressorts et répulsion coulombienne).
     /// </summary>
-    ForceDirectedOrganic = 3
+    ForceDirectedOrganic = 3,
+
+    /// <summary>
+    /// Disposition arborescente descendante multi-colonnes (racines au sommet, cibles en colonnes compactes en dessous).
+    /// </summary>
+    Tree = 4,
+
+    /// <summary>
+    /// Disposition arborescente horizontale (racines à gauche, flux s'écoulant de gauche à droite).
+    /// </summary>
+    HorizontalTree = 5
 }
