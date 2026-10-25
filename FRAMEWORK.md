@@ -1,63 +1,84 @@
-# TopologyForge
+<p align="right">
+  <b>English</b> | <a href="FRAMEWORK.fr.md">Français</a>
+</p>
 
-Framework partagé .NET de modélisation topologique, de filtrage déclaratif (inclusions/exclusions) et de génération de cartographies réseau interactives autonomes (Single-File HTML hors-ligne sans dépendance externe).
+# TopologyForge — Framework Specification & AI Documentation
 
-## 🚀 Capacités Clés
+This document is the technical manifest intended for AI agents and software engineers. It outlines all capabilities, architectural components, and public contracts exposed by **TopologyForge**.
 
-* **Modélisation Topologique Immuable (`TopologyForge.Models`)** :
-  * `NetworkPortRange` : Value Object de plage de ports réseau validée (`0..65535`), avec plage éphémère IANA par défaut (`49152-65535`) et parsing d'expressions (`"80, 443, 8000-8080"`).
-  * `TopologyFlowRecord` : Enregistrement de flux ou d'écoute normalisé.
-  * `TopologyServerNode`, `ServerListenerDescriptor`, `TopologyServiceEdge` (avec `FlowDirection` entrant `IN` ou sortant `OUT`), `NetworkTopologyGraph` : Graphe consolidé des serveurs (locaux et distants), de leurs ports de service non éphémères et de leurs liens directionnels.
-* **Filtrage Multicritère d'Inclusion & Exclusion (`TopologyForge.Filtering`)** :
-  * `TopologyFilterOptions` & `TopologyFlowEvaluator` (`ITopologyFlowEvaluator`) :
-    * Exclusion automatique des ports éphémères clients (`49152-65535`).
-    * Inclusion et exclusion de ports ou plages de ports (`IncludedPorts`, `ExcludedPorts`).
-    * Inclusion et exclusion de serveurs par motifs génériques (`IncludedHostPatterns`, `ExcludedHostPatterns`).
-    * Inclusion et exclusion d'adresses IPv4/IPv6 ou sous-réseaux CIDR (`IncludedIpRanges`, `ExcludedIpRanges`) via `CidrSubnetMatcher`.
-    * Inclusion et exclusion de processus/cibles (`IncludedProcesses`, `ExcludedProcesses`) et de directions (`IncludeListeners`, `IncludeInboundFlows`, `IncludeOutboundFlows`).
-* **Agrégation & Déduplication (`TopologyForge.Builders`)** :
-  * `TopologyGraphBuilder` (`ITopologyGraphBuilder`) : Regroupe les flux par serveur, associe uniquement les ports de service non éphémères aux serveurs hébergeant le service (port local en écoute/entrant, port distant en sortant) et fusionne les liens redondants en cumulant les compteurs d'observations.
-* **Analyse CSV RFC 4180 (`TopologyForge.Parsers`)** :
-  * `TopologyCsvParser` (`ITopologyCsvParser`) : Lecture asynchrone ou en mémoire de journaux CSV (dont `NetFlowAudit`) avec détection dynamique des colonnes.
-* **Rendu Cartographique HTML5 Autonome & Routage Anti-Croisement en 5 Passes (`TopologyForge.Rendering`)** :
-  * `TopologyHtmlRenderer` (`ITopologyHtmlRenderer`) & `TopologyRenderingOptions` :
-    * **Pagination intelligente par activité & Chargement par tranche (`DefaultPageSize = 100`)** :
-      * Classement prioritaire (serveurs audités locaux, degré de connexion et volume d'observations) avec préservation automatique des serveurs locaux reliés à la page courante.
-      * Barre de pagination intégrée : `◀ Prev`, `Next ▶`, `+100 Servers` et `Show All`.
-    * **Pipeline anti-croisement en 5 passes** :
-      1. **Placement initial 360° en anneaux concentriques ou colonnes centrées en quinconce** autour des serveurs audités.
-      2. **Balayage alterné Barycentre / Médiane pondérée (8 passes)** pour aligner les nœuds interconnectés.
-      3. **Optimiseur 2-Opt exact (`optimizeNodePositions2Opt`)** guidé par le décompte géométrique réel des intersections de segments et des collisions flèche/boîte.
-      4. **Relaxation répulsive (`applyForceRepulsionPolish`)** ouvrant des couloirs de visibilité sans chevauchement de boîtes.
-      5. **Distribution angulaire uniforme des points d'attache sur les 4 bordures (`computeAllEdgeAnchors`) et routage par couloirs multi-obstacles (`findCorridorWaypoint`)** recalculés en temps réel y compris lors du déplacement manuel à la souris.
-    * **4 méthodes de tri des serveurs (`TopologyNodeSortMethod`)** :
-      * `BarycentricSugiyama` : Heuristique barycentrique/médiane multi-passes + optimisation 2-Opt.
-      * `ConnectionDegree` : Tri par densité de trafic (nombre de connexions décroissant).
-      * `Alphabetical` : Tri alphabétique par nom d'hôte.
-      * `SubnetIp` : Tri logique par sous-réseau et octets d'adresse IP.
-    * **3 modes de routage des flèches (`TopologyEdgeRoutingMode`)** :
-      * `BezierCurved` : Courbes de Bézier cubiques orientées selon les normales aux bordures avec contournement par couloirs + éventail sur liens multiples.
-      * `OrthogonalCorridors` : Couloirs orthogonaux à 90° avec pistes décalées anti-chevauchement.
-      * `DirectStraight` : Lignes directes de bordure à bordure avec écartement parallèle.
-    * **Ancrage sur bordures & Pointes directionnelles (`IN` / `OUT`)** :
-      * Répartition régulière et tri géométrique des points d'attache sur les 4 côtés de chaque serveur.
-      * Distinction visuelle et chromatique des flux sortants (`OUT` en bleu cyan `#38bdf8`) et entrants (`IN` en vert émeraude `#10b981`).
-    * **Profils et curseurs d'écartement (`TopologySpacingProfile`)** :
-      * Profils `Compact`, `Balanced`, `Spacious` (adapté aux parcs > 100 serveurs) et curseurs temps réel d'écartement des serveurs (`0.65x` à `2.4x`) et d'écartement des flèches (`6px` à `46px`).
-    * **Contrôles de filtrage ergonomiques & Bouton "Apply Filters"** :
-      * Bouton `Apply Filters` dédié et déclenchement par validation `[Enter]` sur les champs de recherche textuelle et de ports, supprimant les recalculs intempestifs frappe par frappe pour une fluidité maximale sur les parcs denses.
-      * Bouton `Reset` pour réinitialiser les filtres en un clic.
-    * **Barre latérale rétractable (`◀ Sidebar`), Sections accordéon & Élimination de l'ascenseur** :
-      * Bouton `◀ Sidebar` (ou touche `[B]`) permettant de masquer/afficher instantanément le panneau latéral pour allouer 100 % de l'écran au canevas SVG.
-      * Sections d'options cliquables en accordéon (`1. Layout`, `2. Filters`, `3. CLI Command`, `4. Inspector`), supprimant tout défilement vertical parasite.
-    * **Reproduction CLI instantanée (`CLI Command`)** :
-      * Encadré dynamique générant la ligne de commande exacte `NetFlowAudit.Cli --map-only ...` correspondant fidèlement aux filtres et algorithmes actuellement actifs dans la page.
-      * Bouton `📋 Copy Command` pour copier la syntaxe dans le presse-papier en un clic.
-    * **Export Vectoriel SVG Autonome (`Export SVG`)** :
-      * Bouton intégré dans la barre d'outils permettant d'extraire la vue courante (avec filtres, sélections et déplacements manuels) sous forme de fichier vectoriel autonome `network_topology_map.svg`.
-      * Calcul automatique du cadre englobant (`viewBox`) avec marges équilibrées et fond sombre vectoriel intégré (`#0b0f19`) pour insertion directe dans Microsoft Word, PowerPoint, Visio, Draw.io ou Inkscape sans perte de netteté.
+---
 
-    * **Ergonomie du Tableau de Bord & Filtrage Dynamique Pr�cis** :
-      * **Bouton Sidebar repositionn�** : Int�gr� directement dans la barre d'en-t�te KPI � gauche de l'indicateur *Servers*, lib�rant totalement les titres de sections sans aucun chevauchement.
-      * **Sidebar compacte sans ascenseur par d�faut** : �chelle et paddings verticaux calibr�s pour afficher 100 % des options d'un coup d'�il sans barre de d�filement vertical.
-      * **�limination des serveurs orphelins** : Lors de l'exclusion ou de l'inclusion de ports (ou de directions de flux), les serveurs ne conservant aucun port actif et aucune liaison connect�e sont automatiquement masqu�s de la carte et du d�compte KPI en temps r�el.
+## 🎯 Scope & Responsibility
+
+TopologyForge is a shared .NET library dedicated to **topological modeling, declarative multi-criteria filtering (inclusions/exclusions), and generating standalone, interactive HTML5/SVG network topology maps** (single-file offline execution with zero external CDN dependencies).
+
+---
+
+## 🚀 Key Capabilities
+
+* **Immutable Topological Modeling (`TopologyForge.Models`)**:
+  * `NetworkPortRange`: Validated port range Value Object (`0..65535`), with default IANA ephemeral ranges (`49152-65535`) and composite expression parsing (`"80, 443, 8000-8080"`).
+  * `TopologyFlowRecord`: Normalized socket or listener flow record.
+  * `TopologyServerNode`, `ServerListenerDescriptor`, `TopologyServiceEdge` (with `FlowDirection` inbound `IN` or outbound `OUT`), `NetworkTopologyGraph`: Consolidated graph of audited and remote servers, non-ephemeral service listeners, and directional communication edges.
+* **Declarative Inclusion & Exclusion Filtering (`TopologyForge.Filtering`)**:
+  * `TopologyFilterOptions` & `TopologyFlowEvaluator` (`ITopologyFlowEvaluator`):
+    * Automatic client ephemeral port pruning (`49152-65535`).
+    * Port and port-range inclusions and exclusions (`IncludedPorts`, `ExcludedPorts`).
+    * Hostname wildcard and regex matching (`IncludedHostPatterns`, `ExcludedHostPatterns`).
+    * IPv4/IPv6 address and CIDR subnet matching (`IncludedIpRanges`, `ExcludedIpRanges`) via `CidrSubnetMatcher`.
+    * Process and target executable matching (`IncludedProcesses`, `ExcludedProcesses`) and flow direction filters (`IncludeListeners`, `IncludeInboundFlows`, `IncludeOutboundFlows`).
+* **Aggregation & Graph Consolidation (`TopologyForge.Builders`)**:
+  * `TopologyGraphBuilder` (`ITopologyGraphBuilder`): Consolidates flows per server host, strictly binds non-ephemeral service ports to the host running the daemon (local port when listening/inbound, remote port when outbound), and merges redundant connections while accumulating flow observations.
+* **RFC 4180 CSV Parsing (`TopologyForge.Parsers`)**:
+  * `TopologyCsvParser` (`ITopologyCsvParser`): Streaming asynchronous or in-memory parsing of network flow logs (such as `NetFlowAudit`) with dynamic column header discovery.
+* **Standalone HTML5 Map Rendering & 5-Pass Crossing Minimization (`TopologyForge.Rendering`)**:
+  * `TopologyHtmlRenderer` (`ITopologyHtmlRenderer`) & `TopologyRenderingOptions`:
+    * **Activity-Based Pagination & Chunked Loading (`DefaultPageSize = 100`)**:
+      * Prioritized server ordering (locally audited nodes, connection degree, and observation density) with automatic preservation of connected hosts on the current page.
+      * Integrated pagination toolbar: `◀ Prev`, `Next ▶`, `+100 Servers`, and `Show All`.
+    * **5-Pass Crossing Minimization Engine**:
+      1. **Initial 360° concentric rings or staggered central columns** placed around locally audited nodes.
+      2. **Alternating 8-pass Barycenter / Weighted Median sweep** to pull interconnected nodes into alignment.
+      3. **Exact 2-Opt Optimizer (`optimizeNodePositions2Opt`)** minimizing true geometric edge intersections and arrow-to-box collisions.
+      4. **Repulsive Force Relaxation (`applyForceRepulsionPolish`)** carving unobstructed visibility corridors with zero box overlaps.
+      5. **Uniform 4-border anchor distribution (`computeAllEdgeAnchors`) and obstacle-aware corridor routing (`findCorridorWaypoint`)** recalculated dynamically in real-time, including during mouse dragging.
+    * **4 Server Sorting Strategies (`TopologyNodeSortMethod`)**:
+      * `BarycentricSugiyama`: Multi-pass barycenter/median heuristic with 2-Opt refinement.
+      * `ConnectionDegree`: Traffic density sorting by descending connection count.
+      * `Alphabetical`: Alphabetical ordering by hostname.
+      * `SubnetIp`: Hierarchical IP address octet sorting.
+    * **3 Edge Routing Algorithms (`TopologyEdgeRoutingMode`)**:
+      * `BezierCurved`: Cubic Bézier curves respecting boundary normal vectors with corridor detour and multi-edge fanout.
+      * `OrthogonalCorridors`: 90-degree orthogonal corridors with lane-offset anti-collision spacing.
+      * `DirectStraight`: Straight border-to-border vectors with parallel spacing.
+    * **Border Anchoring & Directional Terminals (`IN` / `OUT`)**:
+      * Equidistant border anchor distribution across all four sides of each server.
+      * High-contrast chromatic differentiation: outbound flows (`OUT` in cyan `#38bdf8`) vs. inbound flows (`IN` in emerald `#10b981`).
+    * **Spacing Profiles & Live Sliders (`TopologySpacingProfile`)**:
+      * Presets: `Compact`, `Balanced`, `Spacious` (tailored for estates > 100 servers) with real-time scaling sliders for node spacing (`0.65x` to `2.4x`) and edge separation (`6px` to `46px`).
+    * **Ergonomic Filter Controls & "Apply Filters" Button**:
+      * Dedicated `Apply Filters` trigger and `[Enter]` shortcut on text search and port fields to eliminate laggy keystroke recalculations on dense enterprise maps.
+      * Single-click `Reset` action.
+    * **Collapsible Sidebar (`◀ Sidebar`), Accordion Controls & Zero Scrollbar Drift**:
+      * Dedicated `◀ Sidebar` button (or `[B]` key) to instantly collapse/expand the control panel, granting 100% viewport space to the SVG canvas.
+      * Interactive accordion sections (`1. Layout`, `2. Filters`, `3. CLI Command`, `4. Inspector`), eliminating vertical window scrolling.
+    * **Live CLI Reproduction (`CLI Command`)**:
+      * Interactive code box reproducing the exact `NetFlowAudit.Cli --map-only ...` command mirroring current page filters and active algorithms.
+      * One-click `📋 Copy Command` clipboard button.
+    * **Standalone Vector SVG Export (`Export SVG`)**:
+      * One-click vector extraction exporting the active topology view (including custom user drag positions and active filters) into a standalone `network_topology_map.svg` file.
+      * Automatic bounding box (`viewBox`) calculation with balanced padding and embedded dark canvas background (`#0b0f19`) for seamless embedding in Word, PowerPoint, Visio, Draw.io, or Inkscape.
+    * **Dashboard Ergonomics & Orphan Pruning**:
+      * **Header-Aligned Sidebar Toggle**: Integrated into the top KPI banner directly beside *Servers*, avoiding any section heading overlap.
+      * **Auto-Pruning of Orphan Nodes**: Nodes losing all active links and listeners after filtering are automatically pruned from the canvas and live KPI metrics.
+
+---
+
+## 📋 Maintenance Protocol for AI Agents
+
+All enhancements to TopologyForge must comply with:
+1. **Backward Compatibility:** Preserve all existing public contracts. Use overloads or optional parameters.
+2. **Code Cleanliness:** Zero warnings (`<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`), zero pragmas/suppressions.
+3. **Testing Standards:** Test naming convention `TargetMethod_ScenarioOrCondition_ExpectedResult`.
+4. **Documentation:** Update both `FRAMEWORK.md` and `FRAMEWORK.fr.md` immediately upon introducing or modifying capabilities.
+5. **Validation:** Full pass of `./verify.ps1`.
