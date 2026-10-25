@@ -53,6 +53,8 @@ public sealed class TopologyMapPage(IPage page)
     // Canevas SVG & couches graphiques
     public ILocator SvgCanvas => Page.Locator("#topologySvg");
     public ILocator ViewportGroup => Page.Locator("#viewportGroup");
+    public ILocator ZonesLayer => Page.Locator("#zonesLayer");
+    public ILocator SubnetZones => Page.Locator("#zonesLayer > g.subnet-zone");
     public ILocator EdgesLayer => Page.Locator("#edgesLayer");
     public ILocator NodesLayer => Page.Locator("#nodesLayer");
     public ILocator LabelsLayer => Page.Locator("#labelsLayer");

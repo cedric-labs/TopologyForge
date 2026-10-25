@@ -42,11 +42,20 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
       3. **Exact 2-Opt Optimizer (`optimizeNodePositions2Opt`)** minimizing true geometric edge intersections and arrow-to-box collisions.
       4. **Repulsive Force Relaxation (`applyForceRepulsionPolish`)** carving unobstructed visibility corridors with zero box overlaps.
       5. **Uniform 4-border anchor distribution (`computeAllEdgeAnchors`) and obstacle-aware corridor routing (`findCorridorWaypoint`)** recalculated dynamically in real-time, including during mouse dragging.
-    * **4 Server Sorting Strategies (`TopologyNodeSortMethod`)**:
+    * **4 Layout Modes (`TopologyLayoutMode`)**:
+      * `Layered`: Concentric rings around audited hub(s) or tiered bipartite columns.
+      * `ForceDirectedOrganic`: Physical spring-electrical simulation (Hooke attraction weighted by flow observations + Coulomb repulsion + box clearance).
+      * `Circular`: Uniform 360-degree perimeter ring.
+      * `Grid`: Balanced multi-column matrix.
+    * **6 Server Sorting Strategies (`TopologyNodeSortMethod`)**:
       * `BarycentricSugiyama`: Multi-pass barycenter/median heuristic with 2-Opt refinement.
+      * `FunctionalTier`: 4-tier architectural stratification (Clients ➔ Gateways/Ingress ➔ Applications ➔ Databases/Infra).
+      * `SubnetCluster`: Contiguous spatial clustering by IP CIDR subnets with visual boundary enclosures.
       * `ConnectionDegree`: Traffic density sorting by descending connection count.
       * `Alphabetical`: Alphabetical ordering by hostname.
       * `SubnetIp`: Hierarchical IP address octet sorting.
+    * **Spatial Hash Grid Acceleration (`SpatialHashGrid`)**:
+      * 2D spatial grid partitioning segment-segment crossings and box-edge collisions into localized buckets, accelerating 2-Opt layout optimization on 150+ nodes.
     * **3 Edge Routing Algorithms (`TopologyEdgeRoutingMode`)**:
       * `BezierCurved`: Cubic Bézier curves respecting boundary normal vectors with corridor detour and multi-edge fanout.
       * `OrthogonalCorridors`: 90-degree orthogonal corridors with lane-offset anti-collision spacing.

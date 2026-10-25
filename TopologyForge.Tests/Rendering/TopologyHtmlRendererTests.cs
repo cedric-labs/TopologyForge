@@ -78,6 +78,65 @@ public sealed class TopologyHtmlRendererTests
     }
 
     [Fact]
+    public void RenderHtml_WhenOrganicLayoutAndFunctionalTierConfigured_SerializesExpectedDefaults()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var graph = CreateSampleGraph();
+        var options = new TopologyRenderingOptions
+        {
+            DefaultLayoutMode = TopologyLayoutMode.ForceDirectedOrganic,
+            DefaultSortMethod = TopologyNodeSortMethod.FunctionalTier
+        };
+
+        // Act
+        var html = renderer.RenderHtml(graph, options);
+
+        // Assert
+        html.Should().Contain("\"defaultLayout\":\"organic\"");
+        html.Should().Contain("\"defaultSort\":\"tiers\"");
+    }
+
+    [Fact]
+    public void RenderHtml_WhenSubnetClusterConfigured_SerializesSubnetSortMethod()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var graph = CreateSampleGraph();
+        var options = new TopologyRenderingOptions
+        {
+            DefaultSortMethod = TopologyNodeSortMethod.SubnetCluster
+        };
+
+        // Act
+        var html = renderer.RenderHtml(graph, options);
+
+        // Assert
+        html.Should().Contain("\"defaultSort\":\"subnet\"");
+    }
+
+    [Fact]
+    public void RenderHtml_WhenRendered_ContainsEnhancedLayoutAndSortingOptions()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var graph = CreateSampleGraph();
+
+        // Act
+        var html = renderer.RenderHtml(graph, "Enhanced Options Test");
+
+        // Assert
+        html.Should().Contain("<option value=\"organic\">Force-Directed (Organic)</option>");
+        html.Should().Contain("<option value=\"tiers\">Functional Tiers (Client ➔ App ➔ Infra)</option>");
+        html.Should().Contain("<option value=\"subnet\">Subnet &amp; Security Zones</option>");
+        html.Should().Contain("id=\"zonesLayer\"");
+        html.Should().Contain("SpatialHashGrid");
+        html.Should().Contain("simulateForceDirectedLayout");
+        html.Should().Contain("classifyFunctionalTier");
+        html.Should().Contain("computeSubnetZones");
+    }
+
+    [Fact]
     public void RenderHtml_WhenPaginationConfigured_EmbedsPaginationControlsAndEnglishLabels()
     {
         // Arrange

@@ -85,11 +85,21 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
     private static string SerializeGraphPayload(NetworkTopologyGraph graph, TopologyRenderingOptions options)
     {
+        var defaultLayout = options.DefaultLayoutMode switch
+        {
+            TopologyLayoutMode.Circular => "circular",
+            TopologyLayoutMode.Grid => "grid",
+            TopologyLayoutMode.ForceDirectedOrganic => "organic",
+            _ => "layered"
+        };
+
         var defaultSort = options.DefaultSortMethod switch
         {
             TopologyNodeSortMethod.ConnectionDegree => "degree",
             TopologyNodeSortMethod.Alphabetical => "alpha",
             TopologyNodeSortMethod.SubnetIp => "ip",
+            TopologyNodeSortMethod.FunctionalTier => "tiers",
+            TopologyNodeSortMethod.SubnetCluster => "subnet",
             _ => "sugiyama"
         };
 
@@ -114,6 +124,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
             GeneratedAtUtc = graph.GeneratedAtUtc.ToString("o", CultureInfo.InvariantCulture),
             graph.TotalProcessedFlows,
             graph.ExcludedFlowsCount,
+            DefaultLayout = defaultLayout,
             DefaultSort = defaultSort,
             DefaultRouting = defaultRouting,
             DefaultSpacing = defaultSpacing,
@@ -352,6 +363,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 }
                 #topologySvg { width: 100%; height: 100%; cursor: grab; user-select: none; }
                 #topologySvg:active { cursor: grabbing; }
+                .subnet-zone { pointer-events: none; }
+                .subnet-zone rect { transition: all 0.2s ease; }
                 .inspector {
                   border-top: 1px solid var(--border-color);
                   padding-top: 0.65rem;
@@ -436,6 +449,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("            <label for=\"layoutSelect\">Layout</label>");
         sb.AppendLine("            <select id=\"layoutSelect\">");
         sb.AppendLine("              <option value=\"layered\">Hierarchical (Layered)</option>");
+        sb.AppendLine("              <option value=\"organic\">Force-Directed (Organic)</option>");
         sb.AppendLine("              <option value=\"circular\">Concentric Ring</option>");
         sb.AppendLine("              <option value=\"grid\">Multi-Column Grid</option>");
         sb.AppendLine("            </select>");
@@ -444,6 +458,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("            <label for=\"sortSelect\">Sorting Method</label>");
         sb.AppendLine("            <select id=\"sortSelect\">");
         sb.AppendLine("              <option value=\"sugiyama\">Sugiyama (Anti-crossing)</option>");
+        sb.AppendLine("              <option value=\"tiers\">Functional Tiers (Client ➔ App ➔ Infra)</option>");
+        sb.AppendLine("              <option value=\"subnet\">Subnet &amp; Security Zones</option>");
         sb.AppendLine("              <option value=\"degree\">Connection Degree</option>");
         sb.AppendLine("              <option value=\"alpha\">Alphabetical (Hostname)</option>");
         sb.AppendLine("              <option value=\"ip\">Subnet / IP Address</option>");
@@ -561,6 +577,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("          </marker>");
         sb.AppendLine("        </defs>");
         sb.AppendLine("        <g id=\"viewportGroup\">");
+        sb.AppendLine("          <g id=\"zonesLayer\"></g>");
         sb.AppendLine("          <g id=\"edgesLayer\"></g>");
         sb.AppendLine("          <g id=\"labelsLayer\"></g>");
         sb.AppendLine("          <g id=\"nodesLayer\"></g>");
@@ -593,6 +610,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 const svg = document.getElementById('topologySvg');
                 const SVG_NS = svg.namespaceURI;
                 const viewport = document.getElementById('viewportGroup');
+                const zonesLayer = document.getElementById('zonesLayer');
                 const edgesLayer = document.getElementById('edgesLayer');
                 const labelsLayer = document.getElementById('labelsLayer');
                 const nodesLayer = document.getElementById('nodesLayer');
@@ -629,6 +647,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 let currentPageIndex = 0;
                 let currentPageSize = TOPOLOGY_DATA.defaultPageSize || 100;
 
+                if (TOPOLOGY_DATA.defaultLayout) layoutSelect.value = TOPOLOGY_DATA.defaultLayout;
                 if (TOPOLOGY_DATA.defaultSort) sortSelect.value = TOPOLOGY_DATA.defaultSort;
                 if (TOPOLOGY_DATA.defaultRouting) routingSelect.value = TOPOLOGY_DATA.defaultRouting;
                 if (TOPOLOGY_DATA.defaultSpacing) spacingSelect.value = TOPOLOGY_DATA.defaultSpacing;
@@ -736,7 +755,149 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   });
                 }
 
-                // Pass 2: Multi-pass alternating Barycenter & Weighted Median sweep
+                // Functional Tier Classifier (Clients -> Ingress -> Apps -> Infra/DB)
+                function classifyFunctionalTier(node) {
+                  const inCount = node.inboundConnectionCount || 0;
+                  const outCount = node.outboundConnectionCount || 0;
+                  const dbPorts = [1433, 1521, 3306, 5432, 6379, 27017, 9200, 445, 2049, 389, 636];
+                  const webPorts = [80, 443, 8080, 8443, 53];
+                  const ports = node.ports || [];
+                  const hasDbPort = ports.some(p => dbPorts.includes(p.port));
+                  const hasWebPort = ports.some(p => webPorts.includes(p.port));
+
+                  if (hasDbPort || (inCount > 0 && outCount === 0) || (inCount >= 4 && inCount > outCount * 2.5)) {
+                    return 3; // Databases, backend storage & infrastructure sinks
+                  }
+                  if ((outCount > 0 && inCount === 0) || (outCount >= 3 && outCount > inCount * 2.5 && !hasWebPort)) {
+                    return 0; // Pure clients / consumers
+                  }
+                  if (hasWebPort || (inCount > 0 && outCount > 0 && outCount >= inCount)) {
+                    return 1; // Ingress, web entrypoints & gateways
+                  }
+                  return 2; // Application services
+                }
+
+                // Subnet and Security Zone Helpers
+                function extractSubnetPrefix(ip) {
+                  if (!ip || typeof ip !== 'string') return 'External / Unknown';
+                  const trimmed = ip.trim();
+                  if (trimmed.startsWith('127.')) return '127.0.0.0/8 (Loopback)';
+                  const parts = trimmed.split('.');
+                  if (parts.length === 4 && parts.every(p => !isNaN(parseInt(p, 10)))) {
+                    return `${parts[0]}.${parts[1]}.${parts[2]}.0/24`;
+                  }
+                  return 'Unassigned Subnet';
+                }
+
+                function computeSubnetZones(nodes) {
+                  const subnetMap = new Map();
+                  nodes.forEach(n => {
+                    const subnet = extractSubnetPrefix(n.ipAddress);
+                    if (!subnetMap.has(subnet)) subnetMap.set(subnet, []);
+                    subnetMap.get(subnet).push(n);
+                  });
+
+                  const zones = [];
+                  subnetMap.forEach((subNodes, subnet) => {
+                    if (subNodes.length === 0) return;
+                    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                    subNodes.forEach(n => {
+                      const pos = nodePositions.get(n.nodeId);
+                      if (!pos) return;
+                      minX = Math.min(minX, pos.x);
+                      minY = Math.min(minY, pos.y);
+                      maxX = Math.max(maxX, pos.x + NODE_W);
+                      maxY = Math.max(maxY, pos.y + NODE_H);
+                    });
+                    if (isFinite(minX) && isFinite(minY)) {
+                      zones.push({
+                        subnet,
+                        nodeCount: subNodes.length,
+                        x: minX - 22,
+                        y: minY - 28,
+                        w: (maxX - minX) + 44,
+                        h: (maxY - minY) + 42
+                      });
+                    }
+                  });
+                  return zones;
+                }
+
+                // Spatial Hash Grid for fast candidate pruning in 2-Opt and collision detection
+                class SpatialHashGrid {
+                  constructor(cellSize = 250) {
+                    this.cellSize = cellSize;
+                    this.cells = new Map();
+                  }
+                  key(gx, gy) {
+                    return `${gx}:${gy}`;
+                  }
+                  insertBox(node, pos) {
+                    const minGx = Math.floor((pos.x - 12) / this.cellSize);
+                    const maxGx = Math.floor((pos.x + NODE_W + 12) / this.cellSize);
+                    const minGy = Math.floor((pos.y - 12) / this.cellSize);
+                    const maxGy = Math.floor((pos.y + NODE_H + 12) / this.cellSize);
+                    for (let gx = minGx; gx <= maxGx; gx++) {
+                      for (let gy = minGy; gy <= maxGy; gy++) {
+                        const k = this.key(gx, gy);
+                        let cell = this.cells.get(k);
+                        if (!cell) { cell = { boxes: [], segs: [] }; this.cells.set(k, cell); }
+                        cell.boxes.push(node);
+                      }
+                    }
+                  }
+                  insertSegment(seg) {
+                    const minGx = Math.floor(Math.min(seg.x1, seg.x2) / this.cellSize);
+                    const maxGx = Math.floor(Math.max(seg.x1, seg.x2) / this.cellSize);
+                    const minGy = Math.floor(Math.min(seg.y1, seg.y2) / this.cellSize);
+                    const maxGy = Math.floor(Math.max(seg.y1, seg.y2) / this.cellSize);
+                    for (let gx = minGx; gx <= maxGx; gx++) {
+                      for (let gy = minGy; gy <= maxGy; gy++) {
+                        const k = this.key(gx, gy);
+                        let cell = this.cells.get(k);
+                        if (!cell) { cell = { boxes: [], segs: [] }; this.cells.set(k, cell); }
+                        cell.segs.push(seg);
+                      }
+                    }
+                  }
+                  getCandidateBoxes(seg) {
+                    const minGx = Math.floor(Math.min(seg.x1, seg.x2) / this.cellSize);
+                    const maxGx = Math.floor(Math.max(seg.x1, seg.x2) / this.cellSize);
+                    const minGy = Math.floor(Math.min(seg.y1, seg.y2) / this.cellSize);
+                    const maxGy = Math.floor(Math.max(seg.y1, seg.y2) / this.cellSize);
+                    const set = new Set();
+                    for (let gx = minGx; gx <= maxGx; gx++) {
+                      for (let gy = minGy; gy <= maxGy; gy++) {
+                        const cell = this.cells.get(this.key(gx, gy));
+                        if (cell) {
+                          for (let i = 0; i < cell.boxes.length; i++) set.add(cell.boxes[i]);
+                        }
+                      }
+                    }
+                    return set;
+                  }
+                  getCandidateSegments(seg) {
+                    const minGx = Math.floor(Math.min(seg.x1, seg.x2) / this.cellSize);
+                    const maxGx = Math.floor(Math.max(seg.x1, seg.x2) / this.cellSize);
+                    const minGy = Math.floor(Math.min(seg.y1, seg.y2) / this.cellSize);
+                    const maxGy = Math.floor(Math.max(seg.y1, seg.y2) / this.cellSize);
+                    const set = new Set();
+                    for (let gx = minGx; gx <= maxGx; gx++) {
+                      for (let gy = minGy; gy <= maxGy; gy++) {
+                        const cell = this.cells.get(this.key(gx, gy));
+                        if (cell) {
+                          for (let i = 0; i < cell.segs.length; i++) {
+                            const other = cell.segs[i];
+                            if (other.index > seg.index) set.add(other);
+                          }
+                        }
+                      }
+                    }
+                    return set;
+                  }
+                }
+
+                // Pass 2: Multi-pass alternating Barycenter, Functional Tiers & Subnet Sweep
                 function sortNodes(nodes, edges, sortMethod) {
                   const copy = [...nodes];
                   const degreeOf = (n) => (n.inboundConnectionCount || 0) + (n.outboundConnectionCount || 0);
@@ -749,6 +910,35 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   }
                   if (sortMethod === 'degree') {
                     return rankNodesByActivity(copy, edges);
+                  }
+                  if (sortMethod === 'tiers') {
+                    const t0 = copy.filter(n => classifyFunctionalTier(n) === 0);
+                    const t1 = copy.filter(n => classifyFunctionalTier(n) === 1);
+                    const t2 = copy.filter(n => classifyFunctionalTier(n) === 2);
+                    const t3 = copy.filter(n => classifyFunctionalTier(n) === 3);
+                    const sortByDegree = (arr) => arr.sort((a, b) => degreeOf(b) - degreeOf(a) || a.hostName.localeCompare(b.hostName));
+                    return [...sortByDegree(t0), ...sortByDegree(t1), ...sortByDegree(t2), ...sortByDegree(t3)];
+                  }
+                  if (sortMethod === 'subnet') {
+                    const subnetMap = new Map();
+                    copy.forEach(n => {
+                      const sub = extractSubnetPrefix(n.ipAddress);
+                      if (!subnetMap.has(sub)) subnetMap.set(sub, []);
+                      subnetMap.get(sub).push(n);
+                    });
+                    const sortedSubnets = Array.from(subnetMap.keys()).sort((a, b) => {
+                      const aHasLocal = subnetMap.get(a).some(n => n.isLocalAuditedServer);
+                      const bHasLocal = subnetMap.get(b).some(n => n.isLocalAuditedServer);
+                      if (aHasLocal && !bHasLocal) return -1;
+                      if (!aHasLocal && bHasLocal) return 1;
+                      return a.localeCompare(b);
+                    });
+                    const res = [];
+                    sortedSubnets.forEach(sub => {
+                      const group = subnetMap.get(sub).sort((a, b) => ipToSortableNumber(a.ipAddress) - ipToSortableNumber(b.ipAddress) || a.hostName.localeCompare(b.hostName));
+                      res.push(...group);
+                    });
+                    return res;
                   }
 
                   const locals = copy.filter(n => n.isLocalAuditedServer).sort((a, b) => degreeOf(b) - degreeOf(a) || a.hostName.localeCompare(b.hostName));
@@ -831,6 +1021,12 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     }
                   });
 
+                  const grid = new SpatialHashGrid(260);
+                  nodes.forEach(n => {
+                    const pos = nodePositions.get(n.nodeId);
+                    if (pos) grid.insertBox(n, pos);
+                  });
+
                   const segs = [];
                   for (let i = 0; i < uniquePairs.length; i++) {
                     const pair = uniquePairs[i];
@@ -839,35 +1035,38 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     if (!p1 || !p2) continue;
                     const x1 = p1.x + NODE_W / 2, y1 = p1.y + NODE_H / 2;
                     const x2 = p2.x + NODE_W / 2, y2 = p2.y + NODE_H / 2;
-                    segs.push({ u: pair.u, v: pair.v, x1, y1, x2, y2 });
-                    lengthPenalty += Math.hypot(x2 - x1, y2 - y1) * 0.006;
+                    const seg = { index: i, u: pair.u, v: pair.v, x1, y1, x2, y2 };
+                    segs.push(seg);
+                    grid.insertSegment(seg);
+                    lengthPenalty += Math.hypot(x2 - x1, y2 - y1) * 0.005;
 
-                    for (let k = 0; k < nodes.length; k++) {
-                      const n = nodes[k];
-                      if (n.nodeId === pair.u || n.nodeId === pair.v) continue;
+                    const candidateBoxes = grid.getCandidateBoxes(seg);
+                    candidateBoxes.forEach(n => {
+                      if (n.nodeId === pair.u || n.nodeId === pair.v) return;
                       const nPos = nodePositions.get(n.nodeId);
                       if (nPos && segmentIntersectsBox(x1, y1, x2, y2, nPos, 12)) {
                         boxCollisions++;
                       }
-                    }
+                    });
                   }
 
                   for (let i = 0; i < segs.length; i++) {
-                    for (let j = i + 1; j < segs.length; j++) {
-                      const s1 = segs[i], s2 = segs[j];
-                      if (s1.u === s2.u || s1.u === s2.v || s1.v === s2.u || s1.v === s2.v) continue;
+                    const s1 = segs[i];
+                    const candidateSegs = grid.getCandidateSegments(s1);
+                    candidateSegs.forEach(s2 => {
+                      if (s1.u === s2.u || s1.u === s2.v || s1.v === s2.u || s1.v === s2.v) return;
                       if (segmentsIntersect(s1.x1, s1.y1, s1.x2, s1.y2, s2.x1, s2.y1, s2.x2, s2.y2)) {
                         crossings++;
                       }
-                    }
+                    });
                   }
 
                   return boxCollisions * 120 + crossings * 45 + lengthPenalty;
                 }
 
-                // Pass 3: Exact 2-Opt Swap Optimizer guided by geometric crossing & occlusion cost
+                // Pass 3: Exact 2-Opt Swap Optimizer accelerated by Spatial Hash Grid & Bounded Windowing
                 function optimizeNodePositions2Opt(nodes, edges) {
-                  if (nodes.length <= 2 || edges.length === 0 || nodes.length > 35 || edges.length > 70) return;
+                  if (nodes.length <= 2 || edges.length === 0 || nodes.length > 160) return;
 
                   const swapGroups = [
                     nodes.filter(n => !n.isLocalAuditedServer),
@@ -875,7 +1074,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   ];
 
                   let currentCost = computeLayoutCost(nodes, edges);
-                  const maxPasses = nodes.length <= 45 ? 18 : 8;
+                  const maxPasses = nodes.length <= 35 ? 12 : (nodes.length <= 70 ? 4 : 2);
+                  const maxWindow = nodes.length <= 35 ? nodes.length : (nodes.length <= 70 ? 12 : 6);
 
                   for (let pass = 0; pass < maxPasses; pass++) {
                     let improved = false;
@@ -883,7 +1083,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                       const group = swapGroups[g];
                       if (group.length <= 1) continue;
                       for (let i = 0; i < group.length - 1; i++) {
-                        for (let j = i + 1; j < group.length; j++) {
+                        const limitJ = Math.min(group.length, i + maxWindow);
+                        for (let j = i + 1; j < limitJ; j++) {
                           const idA = group[i].nodeId, idB = group[j].nodeId;
                           const posA = nodePositions.get(idA), posB = nodePositions.get(idB);
                           if (!posA || !posB) continue;
@@ -969,6 +1170,116 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   }
                 }
 
+                // Organic Force-Directed Layout Simulation (Hooke springs + Coulomb repulsion)
+                function simulateForceDirectedLayout(nodes, edges, gapFactor) {
+                  if (nodes.length === 0) return;
+                  const width = Math.max(1200, svg.clientWidth || 1400);
+                  const height = Math.max(800, svg.clientHeight || 900);
+                  const cx = width / 2, cy = height / 2;
+
+                  nodes.forEach((n, idx) => {
+                    if (n.isLocalAuditedServer) {
+                      nodePositions.set(n.nodeId, { x: cx - NODE_W / 2, y: cy - NODE_H / 2, vx: 0, vy: 0 });
+                    } else {
+                      const angle = (2 * Math.PI * idx) / Math.max(1, nodes.length);
+                      const r = 260 * gapFactor + Math.sqrt(idx) * 60 * gapFactor;
+                      nodePositions.set(n.nodeId, {
+                        x: Math.round(cx + r * Math.cos(angle) - NODE_W / 2),
+                        y: Math.round(cy + r * Math.sin(angle) - NODE_H / 2),
+                        vx: 0,
+                        vy: 0
+                      });
+                    }
+                  });
+
+                  const idealDist = Math.max(220, 260 * gapFactor);
+                  const kSpring = 0.042;
+                  const kRepulsion = 180000 * Math.pow(gapFactor, 1.5);
+                  const kGravity = 0.024;
+                  const iterations = 140;
+
+                  const edgeWeights = new Map();
+                  edges.forEach(e => {
+                    const key = [e.sourceNodeId, e.targetNodeId].sort().join('::');
+                    const count = (edgeWeights.get(key) || 0) + (e.observationCount || 1);
+                    edgeWeights.set(key, count);
+                  });
+
+                  const nodeLookup = new Map(nodes.map(n => [n.nodeId, n]));
+
+                  for (let step = 0; step < iterations; step++) {
+                    const temp = 1.0 - (step / iterations);
+
+                    for (let i = 0; i < nodes.length; i++) {
+                      const pA = nodePositions.get(nodes[i].nodeId);
+                      if (!pA) continue;
+                      const ax = pA.x + NODE_W / 2, ay = pA.y + NODE_H / 2;
+
+                      for (let j = i + 1; j < nodes.length; j++) {
+                        const pB = nodePositions.get(nodes[j].nodeId);
+                        if (!pB) continue;
+                        const bx = pB.x + NODE_W / 2, by = pB.y + NODE_H / 2;
+                        const dx = bx - ax, dy = by - ay;
+                        const distSq = dx * dx + dy * dy || 1;
+                        const dist = Math.sqrt(distSq);
+
+                        const force = kRepulsion / distSq;
+                        const fx = (dx / dist) * force;
+                        const fy = (dy / dist) * force;
+
+                        if (!nodes[i].isLocalAuditedServer) { pA.vx -= fx; pA.vy -= fy; }
+                        if (!nodes[j].isLocalAuditedServer) { pB.vx += fx; pB.vy += fy; }
+                      }
+
+                      if (!nodes[i].isLocalAuditedServer) {
+                        pA.vx += (cx - ax) * kGravity;
+                        pA.vy += (cy - ay) * kGravity;
+                      }
+                    }
+
+                    edgeWeights.forEach((weight, pairKey) => {
+                      const [idA, idB] = pairKey.split('::');
+                      const pA = nodePositions.get(idA);
+                      const pB = nodePositions.get(idB);
+                      if (!pA || !pB) return;
+
+                      const ax = pA.x + NODE_W / 2, ay = pA.y + NODE_H / 2;
+                      const bx = pB.x + NODE_W / 2, by = pB.y + NODE_H / 2;
+                      const dx = bx - ax, dy = by - ay;
+                      const dist = Math.hypot(dx, dy) || 1;
+
+                      const targetD = idealDist / Math.min(1.8, Math.log10(weight + 9));
+                      const displacement = dist - targetD;
+                      const force = displacement * kSpring;
+                      const fx = (dx / dist) * force;
+                      const fy = (dy / dist) * force;
+
+                      const nA = nodeLookup.get(idA);
+                      const nB = nodeLookup.get(idB);
+                      if (nA && !nA.isLocalAuditedServer) { pA.vx += fx; pA.vy += fy; }
+                      if (nB && !nB.isLocalAuditedServer) { pB.vx += fx; pB.vy += fy; }
+                    });
+
+                    const maxStep = 45 * temp;
+                    nodes.forEach(n => {
+                      if (n.isLocalAuditedServer) return;
+                      const p = nodePositions.get(n.nodeId);
+                      if (!p) return;
+                      const v = Math.hypot(p.vx, p.vy);
+                      if (v > 0.001) {
+                        const move = Math.min(v * 0.45, maxStep);
+                        p.x += Math.round((p.vx / v) * move);
+                        p.y += Math.round((p.vy / v) * move);
+                      }
+                      p.vx *= 0.5;
+                      p.vy *= 0.5;
+                    });
+                  }
+
+                  applyForceRepulsionPolish(nodes, edges, gapFactor);
+                  optimizeNodePositions2Opt(nodes, edges);
+                }
+
                 // Pass 1 + Pipeline Orchestrator
                 function computeLayout(nodes, edges, layoutMode, sortMethod) {
                   nodePositions.clear();
@@ -976,6 +1287,11 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   const gapFactor = parseFloat(nodeGapRange.value) || 1.0;
                   const stepX = Math.round(350 * gapFactor);
                   const stepY = Math.round(162 * gapFactor);
+
+                  if (layoutMode === 'organic') {
+                    simulateForceDirectedLayout(ordered, edges, gapFactor);
+                    return;
+                  }
 
                   if (layoutMode === 'circular') {
                     const width = Math.max(960, svg.clientWidth || 1200);
@@ -1000,6 +1316,66 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                       const row = Math.floor(idx / cols);
                       const staggerY = (col % 2) * Math.round(stepY * 0.42);
                       nodePositions.set(n.nodeId, { x: 60 + col * stepX, y: 60 + row * stepY + staggerY });
+                    });
+                    optimizeNodePositions2Opt(ordered, edges);
+                    applyForceRepulsionPolish(ordered, edges, gapFactor);
+                    return;
+                  }
+
+                  if (sortMethod === 'tiers') {
+                    const tierBuckets = [[], [], [], []];
+                    ordered.forEach(n => {
+                      const t = classifyFunctionalTier(n);
+                      tierBuckets[t].push(n);
+                    });
+
+                    let startX = 60;
+                    for (let t = 0; t < 4; t++) {
+                      const bucket = tierBuckets[t];
+                      if (bucket.length === 0) continue;
+                      const maxRows = Math.max(8, Math.ceil(Math.sqrt(bucket.length) * 1.8));
+                      bucket.forEach((n, idx) => {
+                        const col = Math.floor(idx / maxRows);
+                        const row = idx % maxRows;
+                        const staggerY = (col % 2) * Math.round(stepY * 0.42);
+                        nodePositions.set(n.nodeId, {
+                          x: startX + col * stepX,
+                          y: 70 + row * stepY + staggerY
+                        });
+                      });
+                      const colsInTier = Math.max(1, Math.ceil(bucket.length / maxRows));
+                      startX += colsInTier * stepX + 60;
+                    }
+                    optimizeNodePositions2Opt(ordered, edges);
+                    applyForceRepulsionPolish(ordered, edges, gapFactor);
+                    return;
+                  }
+
+                  if (sortMethod === 'subnet') {
+                    const subnetMap = new Map();
+                    ordered.forEach(n => {
+                      const sub = extractSubnetPrefix(n.ipAddress);
+                      if (!subnetMap.has(sub)) subnetMap.set(sub, []);
+                      subnetMap.get(sub).push(n);
+                    });
+
+                    let curX = 60, curY = 60;
+                    subnetMap.forEach((subNodes, subnet) => {
+                      const subRows = Math.min(6, subNodes.length);
+                      subNodes.forEach((n, idx) => {
+                        const col = Math.floor(idx / 6);
+                        const row = idx % 6;
+                        nodePositions.set(n.nodeId, {
+                          x: curX + col * stepX,
+                          y: curY + row * stepY
+                        });
+                      });
+                      const subCols = Math.max(1, Math.ceil(subNodes.length / 6));
+                      curY += subRows * stepY + 110;
+                      if (curY > 1200) {
+                        curY = 60;
+                        curX += subCols * stepX + 110;
+                      }
                     });
                     optimizeNodePositions2Opt(ordered, edges);
                     applyForceRepulsionPolish(ordered, edges, gapFactor);
@@ -1520,6 +1896,37 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     nodesFrag.appendChild(g);
                   });
 
+                  const zonesFrag = document.createDocumentFragment();
+                  if (sortSelect.value === 'subnet' || nodes.length <= 150) {
+                    const zones = computeSubnetZones(nodes);
+                    zones.forEach(z => {
+                      const g = document.createElementNS(SVG_NS, 'g');
+                      g.setAttribute('class', 'subnet-zone');
+                      const r = document.createElementNS(SVG_NS, 'rect');
+                      r.setAttribute('x', String(Math.round(z.x)));
+                      r.setAttribute('y', String(Math.round(z.y)));
+                      r.setAttribute('width', String(Math.round(z.w)));
+                      r.setAttribute('height', String(Math.round(z.h)));
+                      r.setAttribute('rx', '14');
+                      r.setAttribute('fill', 'rgba(15, 23, 42, 0.45)');
+                      r.setAttribute('stroke', '#334155');
+                      r.setAttribute('stroke-width', '1.2');
+                      r.setAttribute('stroke-dasharray', '5,5');
+                      g.appendChild(r);
+
+                      const txt = document.createElementNS(SVG_NS, 'text');
+                      txt.setAttribute('x', String(Math.round(z.x + 14)));
+                      txt.setAttribute('y', String(Math.round(z.y + 20)));
+                      txt.setAttribute('fill', '#94a3b8');
+                      txt.setAttribute('font-size', '11.5');
+                      txt.setAttribute('font-weight', '600');
+                      txt.textContent = `Zone: ${z.subnet} (${z.nodeCount} ${z.nodeCount > 1 ? 'servers' : 'server'})`;
+                      g.appendChild(txt);
+                      zonesFrag.appendChild(g);
+                    });
+                  }
+
+                  zonesLayer.replaceChildren(zonesFrag);
                   edgesLayer.replaceChildren(edgesFrag);
                   labelsLayer.replaceChildren(labelsFrag);
                   nodesLayer.replaceChildren(nodesFrag);
@@ -1537,6 +1944,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   if (q) parts.push(`--include-hosts "*${q}*"`);
                   if (directionSelect.value === 'OUT') parts.push('--direction OUT');
                   else if (directionSelect.value === 'IN') parts.push('--direction IN');
+                  if (layoutSelect.value && layoutSelect.value !== 'layered') parts.push(`--map-layout ${layoutSelect.value}`);
                   if (sortSelect.value && sortSelect.value !== 'sugiyama') parts.push(`--map-sort ${sortSelect.value}`);
                   if (routingSelect.value && routingSelect.value !== 'bezier') parts.push(`--map-routing ${routingSelect.value}`);
                   if (spacingSelect.value && spacingSelect.value !== 'balanced') parts.push(`--map-spacing ${spacingSelect.value}`);

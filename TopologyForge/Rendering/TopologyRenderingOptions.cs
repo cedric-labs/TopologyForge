@@ -1,7 +1,7 @@
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Options de rendu visuel, de tri, de routage de flèches, d'écartement et de pagination pour la cartographie HTML autonome.
+/// Options de rendu visuel, de tri, de disposition géométrique, de routage de flèches, d'écartement et de pagination pour la cartographie HTML autonome.
 /// </summary>
 public sealed record TopologyRenderingOptions
 {
@@ -9,6 +9,11 @@ public sealed record TopologyRenderingOptions
     /// Titre principal affiché dans l'en-tête de la cartographie.
     /// </summary>
     public string Title { get; init; } = "Network Flow & Server Topology Map";
+
+    /// <summary>
+    /// Disposition géométrique initiale des nœuds (Hiérarchique par défaut).
+    /// </summary>
+    public TopologyLayoutMode DefaultLayoutMode { get; init; } = TopologyLayoutMode.Layered;
 
     /// <summary>
     /// Méthode de tri initiale des serveurs (Sugiyama anti-croisement par défaut).

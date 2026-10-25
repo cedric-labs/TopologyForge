@@ -238,6 +238,41 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         download.SuggestedFilename.Should().Be("network_topology_map.svg");
     }
 
+    [Fact]
+    public async Task LayoutSelect_WhenChangedToOrganic_ComputesForceDirectedPositions()
+    {
+        _mapPage.Should().NotBeNull();
+        var initialTransform = await _mapPage!.Nodes.First.GetAttributeAsync("transform");
+
+        await _mapPage.SelectLayoutAsync("organic");
+        var organicTransform = await _mapPage.Nodes.First.GetAttributeAsync("transform");
+
+        organicTransform.Should().NotBeNull();
+        (await _mapPage.GetNodeCountAsync()).Should().Be(5);
+        (await _mapPage.GetEdgeCountAsync()).Should().Be(5);
+    }
+
+    [Fact]
+    public async Task SortSelect_WhenChangedToTiers_ArrangesFunctionalArchitectureLayers()
+    {
+        _mapPage.Should().NotBeNull();
+        await _mapPage!.SelectSortAsync("tiers");
+
+        var nodeCount = await _mapPage.GetNodeCountAsync();
+        nodeCount.Should().Be(5);
+        (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("5");
+    }
+
+    [Fact]
+    public async Task SortSelect_WhenChangedToSubnet_DisplaysSubnetZoneEnclosures()
+    {
+        _mapPage.Should().NotBeNull();
+        await _mapPage!.SelectSortAsync("subnet");
+
+        var zoneCount = await _mapPage.SubnetZones.CountAsync();
+        zoneCount.Should().BeGreaterThan(0);
+    }
+
     private static NetworkTopologyGraph CreateSampleTopologyGraph()
     {
         var localPorts = new List<ServerListenerDescriptor>

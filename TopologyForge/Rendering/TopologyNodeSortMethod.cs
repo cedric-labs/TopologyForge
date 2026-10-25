@@ -23,5 +23,15 @@ public enum TopologyNodeSortMethod
     /// <summary>
     /// Tri logique par sous-réseau et octets d'adresse IP.
     /// </summary>
-    SubnetIp = 3
+    SubnetIp = 3,
+
+    /// <summary>
+    /// Tri par tiers fonctionnels et couches d'architecture (Clients ➔ Passerelles/Ingress ➔ Applications ➔ Bases de données/Infra).
+    /// </summary>
+    FunctionalTier = 4,
+
+    /// <summary>
+    /// Regroupement par sous-réseau IP et zones de sécurité réseau contiguës.
+    /// </summary>
+    SubnetCluster = 5
 }
