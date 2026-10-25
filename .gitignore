@@ -18,3 +18,8 @@ coverage/
 ## Logs et caches
 *.log
 .dotnet/
+
+## Packages NuGet locaux
+nupkg/
+*.nupkg
+
