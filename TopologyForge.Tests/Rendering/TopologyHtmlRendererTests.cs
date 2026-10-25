@@ -129,6 +129,7 @@ public sealed class TopologyHtmlRendererTests
         html.Should().Contain("<option value=\"organic\">Force-Directed (Organic)</option>");
         html.Should().Contain("<option value=\"tiers\">Functional Tiers (Client ➔ App ➔ Infra)</option>");
         html.Should().Contain("<option value=\"subnet\">Subnet &amp; Security Zones</option>");
+        html.Should().Contain("id=\"showZonesCheck\"");
         html.Should().Contain("id=\"zonesLayer\"");
         html.Should().Contain("SpatialHashGrid");
         html.Should().Contain("simulateForceDirectedLayout");

@@ -23,6 +23,7 @@ public sealed class TopologyMapPage(IPage page)
     // SÃ©lecteurs d'affichage & layout
     public ILocator LayoutSelect => Page.Locator("#layoutSelect");
     public ILocator SortSelect => Page.Locator("#sortSelect");
+    public ILocator ShowZonesCheckbox => Page.Locator("#showZonesCheck");
     public ILocator RoutingSelect => Page.Locator("#routingSelect");
     public ILocator SpacingSelect => Page.Locator("#spacingSelect");
     public ILocator NodeGapRange => Page.Locator("#nodeGapRange");

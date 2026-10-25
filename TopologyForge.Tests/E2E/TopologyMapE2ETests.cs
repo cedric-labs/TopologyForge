@@ -267,10 +267,24 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     public async Task SortSelect_WhenChangedToSubnet_DisplaysSubnetZoneEnclosures()
     {
         _mapPage.Should().NotBeNull();
-        await _mapPage!.SelectSortAsync("subnet");
 
+        // Default layout (Sugiyama) has zones hidden initially
+        (await _mapPage!.ShowZonesCheckbox.IsCheckedAsync()).Should().BeFalse();
+        (await _mapPage.SubnetZones.CountAsync()).Should().Be(0);
+
+        // Selecting subnet sort automatically checks Show Subnet Zones and renders them
+        await _mapPage.SelectSortAsync("subnet");
+        (await _mapPage.ShowZonesCheckbox.IsCheckedAsync()).Should().BeTrue();
         var zoneCount = await _mapPage.SubnetZones.CountAsync();
         zoneCount.Should().BeGreaterThan(0);
+
+        // Unchecking manually hides the zones without full reload
+        await _mapPage.ShowZonesCheckbox.UncheckAsync();
+        (await _mapPage.SubnetZones.CountAsync()).Should().Be(0);
+
+        // Re-checking restores the zones
+        await _mapPage.ShowZonesCheckbox.CheckAsync();
+        (await _mapPage.SubnetZones.CountAsync()).Should().Be(zoneCount);
     }
 
     private static NetworkTopologyGraph CreateSampleTopologyGraph()

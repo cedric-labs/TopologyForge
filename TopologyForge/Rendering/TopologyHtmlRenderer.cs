@@ -331,6 +331,25 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   cursor: pointer;
                   height: 14px;
                 }
+                .filter-checkbox-group {
+                  display: flex;
+                  align-items: center;
+                  gap: 0.45rem;
+                  padding: 0.2rem 0;
+                }
+                .filter-checkbox-group input[type="checkbox"] {
+                  accent-color: var(--accent-local);
+                  cursor: pointer;
+                  width: 14px;
+                  height: 14px;
+                }
+                .filter-checkbox-group label {
+                  font-size: 0.72rem;
+                  color: var(--text-primary);
+                  cursor: pointer;
+                  user-select: none;
+                  font-weight: 500;
+                }
                 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
                 .btn-row { display: flex; gap: 0.28rem; flex-wrap: wrap; }
                 button {
@@ -465,6 +484,10 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("              <option value=\"ip\">Subnet / IP Address</option>");
         sb.AppendLine("            </select>");
         sb.AppendLine("          </div>");
+        sb.AppendLine("        </div>");
+        sb.AppendLine("        <div class=\"filter-checkbox-group\">");
+        sb.AppendLine("          <input type=\"checkbox\" id=\"showZonesCheck\">");
+        sb.AppendLine("          <label for=\"showZonesCheck\">Show Subnet Zones</label>");
         sb.AppendLine("        </div>");
 
         sb.AppendLine("        <div class=\"grid-2\">");
@@ -617,6 +640,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
                 const layoutSelect = document.getElementById('layoutSelect');
                 const sortSelect = document.getElementById('sortSelect');
+                const showZonesCheck = document.getElementById('showZonesCheck');
                 const routingSelect = document.getElementById('routingSelect');
                 const spacingSelect = document.getElementById('spacingSelect');
                 const nodeGapRange = document.getElementById('nodeGapRange');
@@ -648,7 +672,12 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 let currentPageSize = TOPOLOGY_DATA.defaultPageSize || 100;
 
                 if (TOPOLOGY_DATA.defaultLayout) layoutSelect.value = TOPOLOGY_DATA.defaultLayout;
-                if (TOPOLOGY_DATA.defaultSort) sortSelect.value = TOPOLOGY_DATA.defaultSort;
+                if (TOPOLOGY_DATA.defaultSort) {
+                  sortSelect.value = TOPOLOGY_DATA.defaultSort;
+                  if (sortSelect.value === 'subnet' && showZonesCheck) {
+                    showZonesCheck.checked = true;
+                  }
+                }
                 if (TOPOLOGY_DATA.defaultRouting) routingSelect.value = TOPOLOGY_DATA.defaultRouting;
                 if (TOPOLOGY_DATA.defaultSpacing) spacingSelect.value = TOPOLOGY_DATA.defaultSpacing;
 
@@ -1897,7 +1926,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   });
 
                   const zonesFrag = document.createDocumentFragment();
-                  if (sortSelect.value === 'subnet' || nodes.length <= 150) {
+                  if (showZonesCheck && showZonesCheck.checked) {
                     const zones = computeSubnetZones(nodes);
                     zones.forEach(z => {
                       const g = document.createElementNS(SVG_NS, 'g');
@@ -1908,19 +1937,33 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                       r.setAttribute('width', String(Math.round(z.w)));
                       r.setAttribute('height', String(Math.round(z.h)));
                       r.setAttribute('rx', '14');
-                      r.setAttribute('fill', 'rgba(15, 23, 42, 0.45)');
-                      r.setAttribute('stroke', '#334155');
-                      r.setAttribute('stroke-width', '1.2');
-                      r.setAttribute('stroke-dasharray', '5,5');
+                      r.setAttribute('fill', 'rgba(30, 41, 59, 0.55)');
+                      r.setAttribute('stroke', '#64748b');
+                      r.setAttribute('stroke-width', '1.8');
+                      r.setAttribute('stroke-dasharray', '6,4');
                       g.appendChild(r);
 
+                      const labelText = `Zone: ${z.subnet} (${z.nodeCount} ${z.nodeCount > 1 ? 'servers' : 'server'})`;
+                      const badgeWidth = Math.min(Math.max(130, labelText.length * 7.5 + 16), Math.max(60, z.w - 16));
+
+                      const badge = document.createElementNS(SVG_NS, 'rect');
+                      badge.setAttribute('x', String(Math.round(z.x + 8)));
+                      badge.setAttribute('y', String(Math.round(z.y + 6)));
+                      badge.setAttribute('width', String(Math.round(badgeWidth)));
+                      badge.setAttribute('height', '20');
+                      badge.setAttribute('rx', '4');
+                      badge.setAttribute('fill', '#1e293b');
+                      badge.setAttribute('stroke', '#475569');
+                      badge.setAttribute('stroke-width', '1');
+                      g.appendChild(badge);
+
                       const txt = document.createElementNS(SVG_NS, 'text');
-                      txt.setAttribute('x', String(Math.round(z.x + 14)));
+                      txt.setAttribute('x', String(Math.round(z.x + 15)));
                       txt.setAttribute('y', String(Math.round(z.y + 20)));
-                      txt.setAttribute('fill', '#94a3b8');
+                      txt.setAttribute('fill', '#f1f5f9');
                       txt.setAttribute('font-size', '11.5');
-                      txt.setAttribute('font-weight', '600');
-                      txt.textContent = `Zone: ${z.subnet} (${z.nodeCount} ${z.nodeCount > 1 ? 'servers' : 'server'})`;
+                      txt.setAttribute('font-weight', '700');
+                      txt.textContent = labelText;
                       g.appendChild(txt);
                       zonesFrag.appendChild(g);
                     });
@@ -2021,7 +2064,18 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   applyFilters();
                 });
                 layoutSelect.addEventListener('change', () => { renderGraph(true); updateCliCommandDisplay(); });
-                sortSelect.addEventListener('change', () => { renderGraph(true); updateCliCommandDisplay(); });
+                sortSelect.addEventListener('change', () => {
+                  if (sortSelect.value === 'subnet' && showZonesCheck) {
+                    showZonesCheck.checked = true;
+                  }
+                  renderGraph(true);
+                  updateCliCommandDisplay();
+                });
+                if (showZonesCheck) {
+                  showZonesCheck.addEventListener('change', () => {
+                    renderGraph(false);
+                  });
+                }
                 routingSelect.addEventListener('change', () => { renderGraph(false); updateCliCommandDisplay(); });
 
                 spacingSelect.addEventListener('change', () => {
