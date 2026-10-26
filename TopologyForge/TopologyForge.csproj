@@ -9,7 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>TopologyForge</PackageId>
-    <Version>1.3.0</Version>
+    <Version>1.4.0</Version>
     <Authors>curvecoder</Authors>
     <Company>curvecoder</Company>
     <Description>Self-contained offline HTML5/SVG network topology engine and layout optimizer.</Description>
