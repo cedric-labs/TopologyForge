@@ -34,4 +34,24 @@ public sealed record TopologyRenderingOptions
     /// Nombre initial de serveurs affichés par page (100 par défaut).
     /// </summary>
     public int DefaultPageSize { get; init; } = 100;
+
+    /// <summary>
+    /// Filtres d'inclusions de ports par défaut transmis à l'IHM web.
+    /// </summary>
+    public string InitialIncludePorts { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Filtres d'exclusions de ports par défaut transmis à l'IHM web.
+    /// </summary>
+    public string InitialExcludePorts { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Filtres d'exclusions de serveurs ou adresses IP transmis à l'IHM web.
+    /// </summary>
+    public string InitialExcludeHosts { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Filtre de direction des flux transmis à l'IHM web (all, OUT ou IN).
+    /// </summary>
+    public string InitialDirection { get; init; } = "all";
 }

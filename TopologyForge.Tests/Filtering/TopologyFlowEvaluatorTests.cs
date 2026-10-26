@@ -120,6 +120,40 @@ public sealed class TopologyFlowEvaluatorTests
     }
 
     [Fact]
+    public void ShouldInclude_WhenHostMatchesSubstringWithoutWildcard_ReturnsFalse()
+    {
+        var options = new TopologyFilterOptions
+        {
+            ExcludedHostPatterns = ["MON"]
+        };
+        var evaluator = new TopologyFlowEvaluator(options);
+        evaluator.ShouldInclude(CreateSampleFlow(sourceHost: "SRV-MON-01")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ShouldInclude_WhenRemoteHostIsEmpty_FallsBackToRemoteIpForHostPattern()
+    {
+        var options = new TopologyFilterOptions
+        {
+            ExcludedHostPatterns = ["10.0.99.*"]
+        };
+        var evaluator = new TopologyFlowEvaluator(options);
+        evaluator.ShouldInclude(CreateSampleFlow(remoteHost: string.Empty, remoteIp: "10.0.99.50")).Should().BeFalse();
+        evaluator.ShouldInclude(CreateSampleFlow(remoteHost: string.Empty, remoteIp: "10.0.1.50")).Should().BeTrue();
+    }
+
+    [Fact]
+    public void ShouldInclude_WhenExcludedHostMatchesRemoteIpDirectly_ReturnsFalse()
+    {
+        var options = new TopologyFilterOptions
+        {
+            ExcludedHostPatterns = ["10.0.2.20"]
+        };
+        var evaluator = new TopologyFlowEvaluator(options);
+        evaluator.ShouldInclude(CreateSampleFlow(remoteHost: "SRV-SQL-01", remoteIp: "10.0.2.20")).Should().BeFalse();
+    }
+
+    [Fact]
     public void ShouldInclude_WhenIncludedHostPatternsConfigured_RequiresHostMatch()
     {
         // Arrange

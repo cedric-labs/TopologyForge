@@ -131,6 +131,10 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
             DefaultRouting = defaultRouting,
             DefaultSpacing = defaultSpacing,
             DefaultPageSize = defaultPageSize,
+            InitialIncludePorts = options.InitialIncludePorts,
+            InitialExcludePorts = options.InitialExcludePorts,
+            InitialExcludeHosts = options.InitialExcludeHosts,
+            InitialDirection = string.IsNullOrWhiteSpace(options.InitialDirection) ? "all" : options.InitialDirection,
             Nodes = graph.Nodes.Select(n => new
             {
                 n.NodeId,
@@ -683,7 +687,14 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   }
                 }
                 if (TOPOLOGY_DATA.defaultRouting) routingSelect.value = TOPOLOGY_DATA.defaultRouting;
-                if (TOPOLOGY_DATA.defaultSpacing) spacingSelect.value = TOPOLOGY_DATA.defaultSpacing;
+                if (TOPOLOGY_DATA.defaultSpacing) {
+                  spacingSelect.value = TOPOLOGY_DATA.defaultSpacing;
+                  applySpacingPreset(TOPOLOGY_DATA.defaultSpacing);
+                }
+                if (TOPOLOGY_DATA.initialIncludePorts) includePortsInput.value = TOPOLOGY_DATA.initialIncludePorts;
+                if (TOPOLOGY_DATA.initialExcludePorts) excludePortsInput.value = TOPOLOGY_DATA.initialExcludePorts;
+                if (TOPOLOGY_DATA.initialExcludeHosts) excludeHostsInput.value = TOPOLOGY_DATA.initialExcludeHosts;
+                if (TOPOLOGY_DATA.initialDirection) directionSelect.value = TOPOLOGY_DATA.initialDirection;
 
                 function applySpacingPreset(profile) {
                   if (profile === 'compact') {
@@ -710,6 +721,20 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 function parseTextTokens(str) {
                   if (!str || !str.trim()) return [];
                   return str.split(/[,;]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+                }
+
+                function matchesPattern(text, pattern) {
+                  if (!pattern || !text) return false;
+                  const p = pattern.trim().toLowerCase();
+                  const t = text.trim().toLowerCase();
+                  if (p === '*' || p === '') return true;
+                  if (p.includes('*') || p.includes('?')) {
+                    const escaped = p.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+                                     .replace(/\*/g, '.*')
+                                     .replace(/\?/g, '.');
+                    return new RegExp('^' + escaped + '$', 'i').test(t);
+                  }
+                  return t.includes(p);
                 }
 
                 function ipToSortableNumber(ip) {
@@ -1867,11 +1892,12 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   });
 
                   const filteredNodes = TOPOLOGY_DATA.nodes.filter(n => {
-                    const hostStr = `${n.hostName} ${n.ipAddress}`.toLowerCase();
-                    if (excHosts.some(tok => hostStr.includes(tok))) return false;
+                    const hostStr = `${n.hostName} ${n.ipAddress}`;
+                    if (excHosts.some(tok => matchesPattern(n.hostName, tok) || matchesPattern(n.ipAddress, tok) || matchesPattern(hostStr, tok))) return false;
                     if (q) {
-                      const portMatch = n.ports.some(p => String(p.port).includes(q) || (p.processName || '').toLowerCase().includes(q));
-                      if (!hostStr.includes(q) && !portMatch) return false;
+                      const hostMatch = matchesPattern(n.hostName, q) || matchesPattern(n.ipAddress, q) || matchesPattern(hostStr, q);
+                      const portMatch = n.ports.some(p => String(p.port).includes(q) || matchesPattern(p.processName || '', q) || matchesPattern(p.serviceTarget || '', q));
+                      if (!hostMatch && !portMatch) return false;
                     }
                     const hasActiveEdge = filteredEdges.some(e => e.sourceNodeId === n.nodeId || e.targetNodeId === n.nodeId);
                     if (!n.isLocalAuditedServer && !hasActiveEdge) return false;

@@ -339,4 +339,31 @@ public sealed class TopologyHtmlRendererTests
         html.Should().Contain("remainingPorts.length === 0 && !hasActiveEdge");
         html.Should().Contain("kpiNodesEl.textContent = totalFiltered;");
     }
+
+    [Fact]
+    public void RenderHtml_WhenInitialFiltersAndWildcardsConfigured_EmbedsMatchesPatternAndInitialValues()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var graph = CreateSampleGraph();
+        var options = new TopologyRenderingOptions
+        {
+            InitialExcludeHosts = "*.local,SRV-MON-*",
+            InitialIncludePorts = "80,443",
+            InitialExcludePorts = "53",
+            InitialDirection = "OUT",
+            DefaultSpacingProfile = TopologySpacingProfile.Compact
+        };
+
+        // Act
+        var html = renderer.RenderHtml(graph, options);
+
+        // Assert
+        html.Should().Contain("matchesPattern");
+        html.Should().Contain("*.local,SRV-MON-*");
+        html.Should().Contain("80,443");
+        html.Should().Contain("53");
+        html.Should().Contain("OUT");
+        html.Should().Contain("applySpacingPreset(TOPOLOGY_DATA.defaultSpacing);");
+    }
 }

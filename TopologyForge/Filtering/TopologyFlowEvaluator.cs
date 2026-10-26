@@ -25,7 +25,7 @@ public sealed class TopologyFlowEvaluator(TopologyFilterOptions options) : ITopo
             return false;
         }
 
-        if (!IsHostAllowed(flow.SourceServerName, flow.RemoteServerName))
+        if (!IsHostAllowed(flow.SourceServerName, flow.RemoteServerName, flow.SourceIp, flow.RemoteIp))
         {
             return false;
         }
@@ -83,11 +83,16 @@ public sealed class TopologyFlowEvaluator(TopologyFilterOptions options) : ITopo
         return false;
     }
 
-    private bool IsHostAllowed(string sourceHost, string remoteHost)
+    private bool IsHostAllowed(string sourceHost, string remoteHost, string sourceIp, string remoteIp)
     {
+        var effectiveRemote = !string.IsNullOrWhiteSpace(remoteHost) ? remoteHost : remoteIp;
+        var effectiveSource = !string.IsNullOrWhiteSpace(sourceHost) ? sourceHost : sourceIp;
+
         if (_options.ExcludedHostPatterns.Count > 0 &&
-            (MatchesAnyPattern(sourceHost, _options.ExcludedHostPatterns) ||
-             MatchesAnyPattern(remoteHost, _options.ExcludedHostPatterns)))
+            (MatchesAnyPattern(effectiveSource, _options.ExcludedHostPatterns) ||
+             MatchesAnyPattern(effectiveRemote, _options.ExcludedHostPatterns) ||
+             MatchesAnyPattern(sourceIp, _options.ExcludedHostPatterns) ||
+             MatchesAnyPattern(remoteIp, _options.ExcludedHostPatterns)))
         {
             return false;
         }
@@ -97,8 +102,10 @@ public sealed class TopologyFlowEvaluator(TopologyFilterOptions options) : ITopo
             return true;
         }
 
-        return MatchesAnyPattern(sourceHost, _options.IncludedHostPatterns) ||
-               MatchesAnyPattern(remoteHost, _options.IncludedHostPatterns);
+        return MatchesAnyPattern(effectiveSource, _options.IncludedHostPatterns) ||
+               MatchesAnyPattern(effectiveRemote, _options.IncludedHostPatterns) ||
+               MatchesAnyPattern(sourceIp, _options.IncludedHostPatterns) ||
+               MatchesAnyPattern(remoteIp, _options.IncludedHostPatterns);
     }
 
     private bool IsIpAllowed(string sourceIp, string remoteIp, TopologyFlowDirection direction)
@@ -176,7 +183,7 @@ public sealed class TopologyFlowEvaluator(TopologyFilterOptions options) : ITopo
 
         if (!pattern.Contains('*', StringComparison.Ordinal))
         {
-            return input.Equals(pattern, StringComparison.OrdinalIgnoreCase);
+            return input.Contains(pattern, StringComparison.OrdinalIgnoreCase);
         }
 
         var parts = pattern.Split('*', StringSplitOptions.None);
