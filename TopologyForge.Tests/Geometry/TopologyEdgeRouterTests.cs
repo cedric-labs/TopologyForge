@@ -1,6 +1,6 @@
 namespace TopologyForge.Tests.Geometry;
 
-using FluentAssertions;
+using AwesomeAssertions;
 using TopologyForge.Export.Drawio.Model;
 using TopologyForge.Geometry;
 using Xunit;

@@ -1,6 +1,6 @@
 namespace TopologyForge.Tests.Export.Drawio;
 
-using FluentAssertions;
+using AwesomeAssertions;
 using TopologyForge.Export.Drawio;
 using TopologyForge.Export.Drawio.Model;
 using TopologyForge.Export.Drawio.Styling;
