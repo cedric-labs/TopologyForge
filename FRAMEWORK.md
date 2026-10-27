@@ -72,7 +72,7 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
       * Dedicated `◀ Sidebar` button (or `[B]` key) to instantly collapse/expand the control panel, granting 100% viewport space to the SVG canvas.
       * Interactive accordion sections (`1. Layout`, `2. Filters`, `3. CLI Command`, `4. Inspector`), eliminating vertical window scrolling.
     * **Live CLI Reproduction (`CLI Command`)**:
-      * Interactive code box reproducing the exact `NetFlowAudit.Cli --map-only ...` command mirroring current page filters and active algorithms.
+      * Interactive code box reproducing the command that renders the current view (filters, layout, sort, routing, spacing). Its syntax comes from `TopologyRenderingOptions.CliCommandFormat` (`TopologyCliCommandFormat`: `Prefix`, `LayoutOption`, `SortOption`, `RoutingOption`, `SpacingOption`); the default values produce the NetFlowAudit 1.x syntax `NetFlowAudit.Cli --map-only ... --map-layout ...`.
       * One-click `📋 Copy Command` clipboard button.
     * **Standalone Vector SVG Export (`Export SVG`)**:
       * One-click vector extraction exporting the active topology view (including custom user drag positions and active filters) into a standalone `network_topology_map.svg` file.

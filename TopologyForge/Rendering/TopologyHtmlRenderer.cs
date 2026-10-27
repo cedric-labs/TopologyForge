@@ -75,7 +75,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         AppendStyles(sb);
         sb.AppendLine("</head>");
         sb.AppendLine("<body>");
-        AppendBodyLayout(sb, safeTitle, generatedAtFormatted, graph);
+        AppendBodyLayout(sb, safeTitle, generatedAtFormatted, graph, EscapeHtmlText(options.CliCommandFormat.Prefix));
         AppendEmbeddedScript(sb, payloadJson);
         sb.AppendLine("</body>");
         sb.AppendLine("</html>");
@@ -135,6 +135,14 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
             InitialExcludePorts = options.InitialExcludePorts,
             InitialExcludeHosts = options.InitialExcludeHosts,
             InitialDirection = string.IsNullOrWhiteSpace(options.InitialDirection) ? "all" : options.InitialDirection,
+            CliCommand = new
+            {
+                options.CliCommandFormat.Prefix,
+                options.CliCommandFormat.LayoutOption,
+                options.CliCommandFormat.SortOption,
+                options.CliCommandFormat.RoutingOption,
+                options.CliCommandFormat.SpacingOption
+            },
             Nodes = graph.Nodes.Select(n => new
             {
                 n.NodeId,
@@ -448,7 +456,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
             """);
     }
 
-    private static void AppendBodyLayout(StringBuilder sb, string safeTitle, string generatedAtFormatted, NetworkTopologyGraph graph)
+    private static void AppendBodyLayout(StringBuilder sb, string safeTitle, string generatedAtFormatted, NetworkTopologyGraph graph, string safeCliPrefix)
     {
         var totalPorts = graph.Nodes.Sum(n => n.ListeningPorts.Count);
         sb.AppendLine("  <header>");
@@ -575,7 +583,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("      <div class=\"section-title\" data-target=\"sectionCli\">3. CLI Command (Reproduce Map)</div>");
         sb.AppendLine("      <div class=\"section-body\" id=\"sectionCli\">");
         sb.AppendLine("        <div class=\"cli-command-box\">");
-        sb.AppendLine("          <div id=\"cliCommandText\" class=\"cli-command-code\">NetFlowAudit.Cli --map-only</div>");
+        sb.Append("          <div id=\"cliCommandText\" class=\"cli-command-code\">").Append(safeCliPrefix).AppendLine("</div>");
         sb.AppendLine("          <button id=\"btnCopyCliCommand\" type=\"button\" class=\"btn-primary\" style=\"align-self: flex-start; padding: 0.25rem 0.5rem; font-size: 0.72rem;\">📋 Copy Command</button>");
         sb.AppendLine("        </div>");
         sb.AppendLine("      </div>");
@@ -2190,7 +2198,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 }
 
                 function buildCliCommand() {
-                  const parts = ['NetFlowAudit.Cli', '--map-only'];
+                  const cli = TOPOLOGY_DATA.cliCommand;
+                  const parts = [cli.prefix];
                   const incPorts = (includePortsInput.value || '').trim();
                   if (incPorts) parts.push(`--include-ports "${incPorts}"`);
                   const excPorts = (excludePortsInput.value || '').trim();
@@ -2201,10 +2210,10 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   if (q) parts.push(`--include-hosts "*${q}*"`);
                   if (directionSelect.value === 'OUT') parts.push('--direction OUT');
                   else if (directionSelect.value === 'IN') parts.push('--direction IN');
-                  if (layoutSelect.value && layoutSelect.value !== 'layered') parts.push(`--map-layout ${layoutSelect.value}`);
-                  if (sortSelect.value && sortSelect.value !== 'sugiyama') parts.push(`--map-sort ${sortSelect.value}`);
-                  if (routingSelect.value && routingSelect.value !== 'bezier') parts.push(`--map-routing ${routingSelect.value}`);
-                  if (spacingSelect.value && spacingSelect.value !== 'balanced') parts.push(`--map-spacing ${spacingSelect.value}`);
+                  if (layoutSelect.value && layoutSelect.value !== 'layered') parts.push(`${cli.layoutOption} ${layoutSelect.value}`);
+                  if (sortSelect.value && sortSelect.value !== 'sugiyama') parts.push(`${cli.sortOption} ${sortSelect.value}`);
+                  if (routingSelect.value && routingSelect.value !== 'bezier') parts.push(`${cli.routingOption} ${routingSelect.value}`);
+                  if (spacingSelect.value && spacingSelect.value !== 'balanced') parts.push(`${cli.spacingOption} ${spacingSelect.value}`);
                   return parts.join(' ');
                 }
 

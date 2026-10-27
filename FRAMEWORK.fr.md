@@ -72,7 +72,7 @@ TopologyForge est le framework partagé .NET de **modélisation topologique, de 
       * Bouton `◀ Sidebar` (ou touche `[B]`) permettant de masquer/afficher instantanément le panneau latéral pour allouer 100 % de l'écran au canevas SVG.
       * Sections d'options cliquables en accordéon (`1. Layout`, `2. Filters`, `3. CLI Command`, `4. Inspector`), supprimant tout défilement vertical parasite.
     * **Reproduction CLI instantanée (`CLI Command`)** :
-      * Encadré dynamique générant la ligne de commande exacte `NetFlowAudit.Cli --map-only ...` correspondant fidèlement aux filtres et algorithmes actuellement actifs dans la page.
+      * Encadré affichant la commande qui reproduit la vue courante (filtres, disposition, tri, routage, écartement). Sa syntaxe vient de `TopologyRenderingOptions.CliCommandFormat` (`TopologyCliCommandFormat` : `Prefix`, `LayoutOption`, `SortOption`, `RoutingOption`, `SpacingOption`) ; les valeurs par défaut produisent la syntaxe NetFlowAudit 1.x `NetFlowAudit.Cli --map-only ... --map-layout ...`.
       * Bouton `📋 Copy Command` pour copier la syntaxe dans le presse-papier en un clic.
     * **Export Vectoriel SVG Autonome (`Export SVG`)** :
       * Bouton intégré dans la barre d'outils permettant d'extraire la vue courante (avec filtres, sélections et déplacements manuels) sous forme de fichier vectoriel autonome `network_topology_map.svg`.

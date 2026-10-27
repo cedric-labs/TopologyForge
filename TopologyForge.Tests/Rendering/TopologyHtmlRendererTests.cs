@@ -21,6 +21,51 @@ public sealed class TopologyHtmlRendererTests
     }
 
     [Fact]
+    public void RenderHtml_WhenNoCliCommandFormatGiven_KeepsTheLegacyCommandSyntax()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+
+        // Act
+        var html = renderer.RenderHtml(CreateSampleGraph(), new TopologyRenderingOptions());
+
+        // Assert
+        html.Should().Contain("\"prefix\":\"NetFlowAudit.Cli --map-only\"");
+        html.Should().Contain("\"layoutOption\":\"--map-layout\"");
+        html.Should().Contain("\"sortOption\":\"--map-sort\"");
+        html.Should().Contain("\"routingOption\":\"--map-routing\"");
+        html.Should().Contain("\"spacingOption\":\"--map-spacing\"");
+    }
+
+    [Fact]
+    public void RenderHtml_WhenCliCommandFormatGiven_BuildsTheCopiedCommandFromIt()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var options = new TopologyRenderingOptions
+        {
+            CliCommandFormat = new TopologyCliCommandFormat
+            {
+                Prefix = "netflowaudit map",
+                LayoutOption = "--layout",
+                SortOption = "--sort",
+                RoutingOption = "--routing",
+                SpacingOption = "--spacing"
+            }
+        };
+
+        // Act
+        var html = renderer.RenderHtml(CreateSampleGraph(), options);
+
+        // Assert
+        html.Should().Contain("\"prefix\":\"netflowaudit map\"");
+        html.Should().Contain("\"layoutOption\":\"--layout\"");
+        html.Should().Contain(">netflowaudit map</div>");
+        html.Should().NotContain("'--map-only'");
+        html.Should().NotContain("`--map-layout ");
+    }
+
+    [Fact]
     public void RenderHtml_WhenGraphProvided_GeneratesSelfContainedOfflineHtmlWithNodesAndPorts()
     {
         // Arrange

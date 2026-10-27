@@ -54,4 +54,9 @@ public sealed record TopologyRenderingOptions
     /// Filtre de direction des flux transmis à l'IHM web (all, OUT ou IN).
     /// </summary>
     public string InitialDirection { get; init; } = "all";
+
+    /// <summary>
+    /// Syntaxe de la commande proposée à la copie dans la section « CLI Command » (syntaxe NetFlowAudit 1.x par défaut).
+    /// </summary>
+    public TopologyCliCommandFormat CliCommandFormat { get; init; } = new();
 }
