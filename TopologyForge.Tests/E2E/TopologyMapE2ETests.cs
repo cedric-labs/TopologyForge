@@ -604,6 +604,47 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         FindOverlappingBoxes(labelBoxes).Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData("bezier")]
+    [InlineData("orthogonal")]
+    [InlineData("straight")]
+    public async Task RenderGraph_WhenStackedAuditedServersAreLinked_KeepsArrowLabelsOffServerBoxes(string routing)
+    {
+        _mapPage.Should().NotBeNull();
+
+        // En mise en page layered, les serveurs audités sont empilés dans une même colonne : les flux qui les relient
+        // ont leur milieu près des boîtes voisines, qui sont dessinées par-dessus les étiquettes et les masquent.
+        List<TopologyServerNode> nodes =
+        [
+            Audited("desktop", "192.168.1.10"),
+            Audited("pve-01", "192.168.1.20"),
+            Audited("nas", "192.168.1.30"),
+            Audited("pihole", "192.168.1.2"),
+            Remote("homeassistant", "192.168.1.40"),
+            Remote("proxy", "192.168.1.50")
+        ];
+        List<TopologyServiceEdge> edges =
+        [
+            Flow("E1", "desktop", "pve-01"),
+            Flow("E2", "desktop", "nas"),
+            Flow("E3", "pve-01", "nas"),
+            Flow("E4", "nas", "pihole"),
+            Flow("E5", "desktop", "pihole"),
+            Flow("E6", "pve-01", "homeassistant"),
+            Flow("E7", "nas", "proxy"),
+            Flow("E8", "pihole", "proxy")
+        ];
+        await OpenGraphAsync(new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0), new TopologyRenderingOptions());
+
+        await _mapPage!.SelectLayoutAsync("layered");
+        await _mapPage.SelectRoutingAsync(routing);
+
+        var labelBoxes = await _mapPage.GetEdgeLabelBoxesAsync();
+        var nodeBoxes = await _mapPage.GetNodeBoxesAsync();
+        labelBoxes.Should().HaveCount(edges.Count);
+        FindCrossingBoxes(labelBoxes, nodeBoxes).Should().BeEmpty();
+    }
+
     [Fact]
     public async Task PlaceEdgeLabels_WhenNoFreeRowRemains_KeepsTheLabelOnItsArrow()
     {
@@ -636,6 +677,11 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
 
         return overlaps;
     }
+
+    private static List<string> FindCrossingBoxes(double[][] firstBoxes, double[][] secondBoxes) =>
+        [.. firstBoxes.SelectMany(a => secondBoxes
+            .Where(b => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3])
+            .Select(b => $"[{string.Join(", ", a)}] ∩ [{string.Join(", ", b)}]"))];
 
     private static TopologyServerNode Audited(string name, string ipAddress) => new(name, name, ipAddress, true, [], 0, 1);
 

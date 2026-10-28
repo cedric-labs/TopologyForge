@@ -62,7 +62,7 @@ TopologyForge est le framework partagé .NET de **modélisation topologique, de 
       * `OrthogonalCorridors` : Couloirs orthogonaux à 90° avec pistes décalées anti-chevauchement ; un détour autour d'une boîte passe par la ligne ou la colonne du point de passage, selon le sens du détour.
       * `DirectStraight` : Lignes directes de bordure à bordure avec écartement parallèle.
     * **Placement des étiquettes de flèches (`placeEdgeLabels`)** :
-      * Chaque étiquette `IN` / `OUT :port/protocole` se place au milieu de sa flèche ; si la place est prise, elle monte ou descend d'une ligne à la fois (12 décalages au plus) jusqu'à ne plus chevaucher une autre étiquette. Les étiquettes du serveur sélectionné sont placées en premier.
+      * Chaque étiquette `IN` / `OUT :port/protocole` se place au milieu de sa flèche ; si la place est prise, elle monte ou descend d'une ligne à la fois (12 décalages au plus) jusqu'à ne chevaucher ni une autre étiquette ni une boîte de serveur (dessinées au-dessus des étiquettes, elles les masqueraient). Les étiquettes du serveur sélectionné sont placées en premier.
     * **Ancrage sur bordures & Pointes directionnelles (`IN` / `OUT`)** :
       * Répartition régulière et tri géométrique des points d'attache sur les 4 côtés de chaque serveur.
       * Distinction visuelle et chromatique des flux sortants (`OUT` en bleu cyan `#38bdf8`) et entrants (`IN` en vert émeraude `#10b981`).

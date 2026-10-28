@@ -1332,17 +1332,36 @@ function edgeLabelBoxesOverlap(a, b) {
   return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 }
 
+// La marge absorbe l'écart entre la boîte estimée d'une étiquette et celle que le navigateur rend réellement.
+const NODE_LABEL_CLEARANCE = 2;
+
+// Les boîtes de serveurs sont dessinées au-dessus des étiquettes : une étiquette posée sur l'une d'elles serait masquée.
+function nodeLabelObstacles(nodes) {
+  return nodes
+    .map(n => nodePositions.get(n.nodeId))
+    .filter(pos => pos)
+    .map(pos => ({
+      left: pos.x - NODE_LABEL_CLEARANCE,
+      right: pos.x + NODE_W + NODE_LABEL_CLEARANCE,
+      top: pos.y - NODE_LABEL_CLEARANCE,
+      bottom: pos.y + NODE_H + NODE_LABEL_CLEARANCE
+    }));
+}
+
 // Chaque étiquette garde le milieu de sa flèche si la place est libre ; sinon elle monte ou descend d'une ligne à la fois,
-// en alternant, jusqu'à la première position sans chevauchement. Au-delà de EDGE_LABEL_MAX_SHIFTS, elle reste sur sa flèche :
-// sur une carte très dense, une étiquette superposée vaut mieux qu'une étiquette éloignée de son flux.
-function placeEdgeLabels(labels) {
+// en alternant, jusqu'à la première position qui ne touche ni une autre étiquette ni un obstacle. Au-delà de
+// EDGE_LABEL_MAX_SHIFTS, elle reste sur sa flèche : sur une carte très dense, une étiquette superposée vaut mieux
+// qu'une étiquette éloignée de son flux.
+function placeEdgeLabels(labels, obstacles = []) {
   const placed = [];
   return labels.map(label => {
     for (let step = 0; step <= EDGE_LABEL_MAX_SHIFTS; step++) {
       const direction = step % 2 === 0 ? 1 : -1;
       const y = label.y + direction * Math.ceil(step / 2) * EDGE_LABEL_HEIGHT;
       const box = edgeLabelBox(label.x, y, label.text);
-      if (!placed.some(other => edgeLabelBoxesOverlap(box, other))) {
+      const isFree = !placed.some(other => edgeLabelBoxesOverlap(box, other))
+        && !obstacles.some(obstacle => edgeLabelBoxesOverlap(box, obstacle));
+      if (isFree) {
         placed.push(box);
         return { x: label.x, y };
       }
@@ -1552,7 +1571,7 @@ function renderGraph(recomputePositions = false) {
 
   // Les étiquettes du serveur sélectionné sont placées en premier pour rester au milieu de leurs flèches.
   pendingLabels.sort((a, b) => Number(b.isHighlighted) - Number(a.isHighlighted));
-  const labelPositions = placeEdgeLabels(pendingLabels);
+  const labelPositions = placeEdgeLabels(pendingLabels, nodeLabelObstacles(nodes));
   pendingLabels.forEach((pending, index) => {
     const label = document.createElementNS(SVG_NS, 'text');
     label.setAttribute('x', String(Math.round(labelPositions[index].x)));

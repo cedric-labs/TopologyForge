@@ -187,6 +187,13 @@ public sealed class TopologyMapPage(IPage page)
             "layer => Array.from(layer.querySelectorAll(':scope > text')).map(t => { const b = t.getBBox(); return [b.x, b.y, b.width, b.height]; })");
 
     /// <summary>
+    /// Rectangles [x, y, largeur, hauteur] des boîtes de serveurs affichées.
+    /// </summary>
+    public Task<double[][]> GetNodeBoxesAsync() =>
+        NodesLayer.EvaluateAsync<double[][]>(
+            "layer => Array.from(layer.querySelectorAll(':scope > g')).map(g => { const m = /translate\\(([-\\d.]+),\\s*([-\\d.]+)\\)/.exec(g.getAttribute('transform')); const r = g.querySelector('rect'); return [Number(m[1]), Number(m[2]), Number(r.getAttribute('width')), Number(r.getAttribute('height'))]; })");
+
+    /// <summary>
     /// Ordonnées que la page attribue à <paramref name="count"/> étiquettes identiques demandées au même point (x, y).
     /// </summary>
     public Task<double[]> PlaceIdenticalEdgeLabelsAsync(int count, double x, double y) =>
