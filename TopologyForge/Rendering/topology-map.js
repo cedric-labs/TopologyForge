@@ -31,6 +31,14 @@ const btnShowAll = document.getElementById('btnShowAll');
 const pageStatus = document.getElementById('pageStatus');
 
 const NODE_W = 236, NODE_H = 106;
+// Deux boîtes empilées gardent entre elles la hauteur de trois lignes d'étiquettes, quel que soit l'espacement :
+// deux étiquettes voisines doivent pouvoir s'y superposer, sinon l'une d'elles ne trouve aucune place libre
+// et finit masquée par une boîte.
+const STACKED_NODE_MIN_GAP = 42;
+
+function rowStep(gapFactor) {
+  return Math.max(Math.round(162 * gapFactor), NODE_H + STACKED_NODE_MIN_GAP);
+}
 let panX = 50, panY = 50, scale = 1.0;
 let isPanning = false, startPanX = 0, startPanY = 0;
 let draggingNodeId = null, dragOffsetX = 0, dragOffsetY = 0, hasDragged = false;
@@ -577,7 +585,7 @@ function optimizeNodePositions2Opt(nodes, edges, swapGroupKey = () => '') {
 function applyForceRepulsionPolish(nodes, edges, gapFactor) {
   if (nodes.length <= 1) return;
   const minSepX = Math.round((NODE_W + 48) * Math.max(0.85, gapFactor * 0.9));
-  const minSepY = Math.round((NODE_H + 40) * Math.max(0.85, gapFactor * 0.9));
+  const minSepY = Math.max(Math.round((NODE_H + 40) * Math.max(0.85, gapFactor * 0.9)), NODE_H + STACKED_NODE_MIN_GAP);
 
   for (let iter = 0; iter < 6; iter++) {
     // Push third-party boxes out of edge sightlines
@@ -759,7 +767,7 @@ function simulateForceDirectedLayout(nodes, edges, gapFactor) {
 
 function layoutTree(ordered, edges, gapFactor, isHorizontal) {
   const stepX = Math.round(350 * gapFactor);
-  const stepY = Math.round(162 * gapFactor);
+  const stepY = rowStep(gapFactor);
 
   const inDegree = new Map();
   const outDegree = new Map();
@@ -904,7 +912,7 @@ function computeLayout(nodes, edges, layoutMode, sortMethod) {
   const ordered = sortNodes(nodes, edges, sortMethod);
   const gapFactor = Number.parseFloat(nodeGapRange.value) || 1.0;
   const stepX = Math.round(350 * gapFactor);
-  const stepY = Math.round(162 * gapFactor);
+  const stepY = rowStep(gapFactor);
 
   if (layoutMode === 'tree') {
     layoutTree(ordered, edges, gapFactor, false);
@@ -1319,7 +1327,10 @@ function buildRoutedEdgePath(startAnchor, endAnchor, routingMode, fanOffset, way
 
 const EDGE_LABEL_CHAR_WIDTH = 6.2;
 const EDGE_LABEL_HEIGHT = 14;
-const EDGE_LABEL_MAX_SHIFTS = 12;
+// Les décalages avancent d'une demi-ligne pour qu'une étiquette trouve sa place dans l'écart entre deux boîtes empilées,
+// quelle que soit l'ordonnée du milieu de sa flèche ; 24 demi-lignes gardent la portée de 6 lignes de chaque côté.
+const EDGE_LABEL_SHIFT = EDGE_LABEL_HEIGHT / 2;
+const EDGE_LABEL_MAX_SHIFTS = 24;
 
 // Les étiquettes sont placées avant d'être insérées dans le DOM : leur largeur est estimée d'après le nombre de caractères
 // (≈ 5,5 px mesurés à 10,5 px, majorés pour le gras) plutôt que mesurée par getBBox, qui forcerait une mise en page par étiquette.
@@ -1348,7 +1359,7 @@ function nodeLabelObstacles(nodes) {
     }));
 }
 
-// Chaque étiquette garde le milieu de sa flèche si la place est libre ; sinon elle monte ou descend d'une ligne à la fois,
+// Chaque étiquette garde le milieu de sa flèche si la place est libre ; sinon elle monte ou descend d'une demi-ligne à la fois,
 // en alternant, jusqu'à la première position qui ne touche ni une autre étiquette ni un obstacle. Au-delà de
 // EDGE_LABEL_MAX_SHIFTS, elle reste sur sa flèche : sur une carte très dense, une étiquette superposée vaut mieux
 // qu'une étiquette éloignée de son flux.
@@ -1357,7 +1368,7 @@ function placeEdgeLabels(labels, obstacles = []) {
   return labels.map(label => {
     for (let step = 0; step <= EDGE_LABEL_MAX_SHIFTS; step++) {
       const direction = step % 2 === 0 ? 1 : -1;
-      const y = label.y + direction * Math.ceil(step / 2) * EDGE_LABEL_HEIGHT;
+      const y = label.y + direction * Math.ceil(step / 2) * EDGE_LABEL_SHIFT;
       const box = edgeLabelBox(label.x, y, label.text);
       const isFree = !placed.some(other => edgeLabelBoxesOverlap(box, other))
         && !obstacles.some(obstacle => edgeLabelBoxesOverlap(box, obstacle));

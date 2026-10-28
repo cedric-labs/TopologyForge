@@ -62,7 +62,8 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
       * `OrthogonalCorridors`: 90-degree orthogonal corridors with lane-offset anti-collision spacing; a detour around a blocking box runs through the waypoint row or column, whichever the detour follows.
       * `DirectStraight`: Straight border-to-border vectors with parallel spacing.
     * **Arrow Label Placement (`placeEdgeLabels`)**:
-      * Each `IN` / `OUT :port/protocol` label sits at the middle of its arrow; when that spot is taken, it moves up or down one row at a time (up to 12 shifts) until it overlaps neither another label nor a server box (server boxes are drawn above labels and would hide them). Labels of the selected server are placed first.
+      * Each `IN` / `OUT :port/protocol` label sits at the middle of its arrow; when that spot is taken, it moves up or down half a row at a time (up to 24 shifts, six rows on each side) until it overlaps neither another label nor a server box (server boxes are drawn above labels and would hide them). Labels of the selected server are placed first.
+      * Every layout keeps at least 42 px (three label rows) between two stacked server boxes, even with the `Compact` spacing profile, so that labels of the arrows linking them have room.
     * **Border Anchoring & Directional Terminals (`IN` / `OUT`)**:
       * Equidistant border anchor distribution across all four sides of each server.
       * High-contrast chromatic differentiation: outbound flows (`OUT` in cyan `#38bdf8`) vs. inbound flows (`IN` in emerald `#10b981`).

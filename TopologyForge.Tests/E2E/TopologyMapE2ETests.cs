@@ -605,15 +605,19 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("bezier")]
-    [InlineData("orthogonal")]
-    [InlineData("straight")]
-    public async Task RenderGraph_WhenStackedAuditedServersAreLinked_KeepsArrowLabelsOffServerBoxes(string routing)
+    [InlineData("bezier", TopologySpacingProfile.Balanced)]
+    [InlineData("orthogonal", TopologySpacingProfile.Balanced)]
+    [InlineData("straight", TopologySpacingProfile.Balanced)]
+    [InlineData("bezier", TopologySpacingProfile.Compact)]
+    [InlineData("orthogonal", TopologySpacingProfile.Compact)]
+    [InlineData("straight", TopologySpacingProfile.Compact)]
+    public async Task RenderGraph_WhenStackedAuditedServersAreLinked_KeepsArrowLabelsOffServerBoxes(string routing, TopologySpacingProfile spacing)
     {
         _mapPage.Should().NotBeNull();
 
         // En mise en page layered, les serveurs audités sont empilés dans une même colonne : les flux qui les relient
         // ont leur milieu près des boîtes voisines, qui sont dessinées par-dessus les étiquettes et les masquent.
+        // En espacement compact, l'écart entre deux boîtes empilées doit encore laisser passer une étiquette.
         List<TopologyServerNode> nodes =
         [
             Audited("desktop", "192.168.1.10"),
@@ -634,7 +638,9 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
             Flow("E7", "nas", "proxy"),
             Flow("E8", "pihole", "proxy")
         ];
-        await OpenGraphAsync(new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0), new TopologyRenderingOptions());
+        await OpenGraphAsync(
+            new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0),
+            new TopologyRenderingOptions { DefaultSpacingProfile = spacing });
 
         await _mapPage!.SelectLayoutAsync("layered");
         await _mapPage.SelectRoutingAsync(routing);
