@@ -30,7 +30,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         });
         _page.PageError += (_, message) => _pageErrors.Add(message);
         _mapPage = new TopologyMapPage(_page);
-        await OpenGraphAsync(CreateSampleTopologyGraph(), new TopologyRenderingOptions { Title = "E2E Enterprise Network Map" });
+        await OpenGraphAsync(CreateSampleTopologyGraph(), new TopologyRenderingOptions { Title = "E2E Home Lab Map" });
     }
 
     private async Task OpenGraphAsync(NetworkTopologyGraph graph, TopologyRenderingOptions options)
@@ -66,7 +66,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
         (await _mapPage!.TitleHeading.IsVisibleAsync()).Should().BeTrue();
-        (await _mapPage.TitleHeading.InnerTextAsync()).Should().Contain("E2E Enterprise Network Map");
+        (await _mapPage.TitleHeading.InnerTextAsync()).Should().Contain("E2E Home Lab Map");
 
         (await _mapPage.SidebarPanel.IsVisibleAsync()).Should().BeTrue();
         (await _mapPage.SvgCanvas.IsVisibleAsync()).Should().BeTrue();
@@ -110,7 +110,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         _mapPage.Should().NotBeNull();
         (await _mapPage!.GetNodeCountAsync()).Should().Be(5);
 
-        // Exclure le port 873 (SRV-BACKUP-01 n'a que ce port et ce flux)
+        // Exclure le port 873 (nas n'a que ce port et ce flux)
         await _mapPage.FilterByPortsAsync(excludePorts: "873");
 
         var nodeCountAfter = await _mapPage.GetNodeCountAsync();
@@ -126,12 +126,12 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     public async Task FilterByPorts_WhenPortIncluded_IsolatesTargetPortNodesAndEdges()
     {
         _mapPage.Should().NotBeNull();
-        await _mapPage!.FilterByPortsAsync(includePorts: "1433");
+        await _mapPage!.FilterByPortsAsync(includePorts: "8123");
 
         var nodeCountAfter = await _mapPage.GetNodeCountAsync();
         var edgeCountAfter = await _mapPage.GetEdgeCountAsync();
 
-        // Seuls HOMELAB-PC et SRV-SQL-01 participent au port 1433
+        // Seuls desktop et homeassistant participent au port 8123
         nodeCountAfter.Should().Be(2);
         edgeCountAfter.Should().Be(1);
         (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("2");
@@ -142,9 +142,9 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     public async Task Search_WhenServerNameMatched_ShowsServerWithItsNeighboursAndFlows()
     {
         _mapPage.Should().NotBeNull();
-        await _mapPage!.SearchAsync("SRV-AUTH");
+        await _mapPage!.SearchAsync("sso");
 
-        // SRV-AUTH-01 et son seul voisin HOMELAB-PC, reliés par le flux E4
+        // sso et son seul voisin desktop, reliés par le flux E4
         (await _mapPage.GetNodeCountAsync()).Should().Be(2);
         (await _mapPage.GetEdgeCountAsync()).Should().Be(1);
         (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("2");
@@ -155,7 +155,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // « curl » n'apparaît que sur l'arête sortante E2 (HOMELAB-PC → SRV-WEB-01)
+        // « curl » n'apparaît que sur l'arête sortante E2 (desktop → proxy)
         await _mapPage!.SearchAsync("curl");
 
         (await _mapPage.GetNodeCountAsync()).Should().Be(2);
@@ -180,9 +180,9 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     public async Task FilterByPorts_WhenIncludedPortRangeGiven_KeepsEveryPortInTheRange()
     {
         _mapPage.Should().NotBeNull();
-        await _mapPage!.FilterByPortsAsync(includePorts: "1400-1500");
+        await _mapPage!.FilterByPortsAsync(includePorts: "8100-8200");
 
-        // 1433 est dans la plage : HOMELAB-PC → SRV-SQL-01
+        // 8123 est dans la plage : desktop → homeassistant
         (await _mapPage.GetNodeCountAsync()).Should().Be(2);
         (await _mapPage.GetEdgeCountAsync()).Should().Be(1);
     }
@@ -193,7 +193,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         _mapPage.Should().NotBeNull();
         await _mapPage!.FilterByPortsAsync(excludePorts: "800-900");
 
-        // 873 est dans la plage : SRV-BACKUP-01 disparaît
+        // 873 est dans la plage : nas disparaît
         (await _mapPage.GetNodeCountAsync()).Should().Be(4);
         (await _mapPage.GetEdgeCountAsync()).Should().Be(4);
     }
@@ -204,9 +204,9 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         _mapPage.Should().NotBeNull();
         (await _mapPage!.KpiPorts.InnerTextAsync()).Should().Be("5");
 
-        await _mapPage.FilterByPortsAsync(includePorts: "1433");
+        await _mapPage.FilterByPortsAsync(includePorts: "8123");
 
-        // Seul le port d'écoute 1433 de SRV-SQL-01 reste visible
+        // Seul le port d'écoute 8123 de homeassistant reste visible
         (await _mapPage.KpiPorts.InnerTextAsync()).Should().Be("1");
     }
 
@@ -226,7 +226,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // E2 (HOMELAB-PC → SRV-WEB-01) et E3 (SRV-WEB-01 → HOMELAB-PC) partagent la même paire de serveurs :
+        // E2 (desktop → proxy) et E3 (proxy → desktop) partagent la même paire de serveurs :
         // l'éventail doit courber les deux flèches de part et d'autre, donc les écarter davantage que leurs cordes.
         var chordDistance = await _mapPage!.GetEdgeChordMidpointDistanceAsync("E2", "E3");
 
@@ -268,7 +268,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         edgeCount.Should().Be(1); // Seul le flux IN sur le port 8080
 
         var nodeCount = await _mapPage.GetNodeCountAsync();
-        nodeCount.Should().Be(2); // HOMELAB-PC et SRV-WEB-01 (les autres sans flux IN sont élagués)
+        nodeCount.Should().Be(2); // desktop et proxy (les autres sans flux IN sont élagués)
         (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("2");
         (await _mapPage.KpiFlows.InnerTextAsync()).Should().Be("1");
     }
@@ -283,7 +283,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         edgeCount.Should().Be(4); // 4 flux Outbound
 
         var nodeCount = await _mapPage.GetNodeCountAsync();
-        nodeCount.Should().Be(5); // HOMELAB-PC + 4 serveurs distants connectés en sortie
+        nodeCount.Should().Be(5); // desktop + 4 serveurs distants connectés en sortie
         (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("5");
         (await _mapPage.KpiFlows.InnerTextAsync()).Should().Be("4");
     }
@@ -292,7 +292,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     public async Task BtnClearFilters_WhenClicked_RestoresInitialState()
     {
         _mapPage.Should().NotBeNull();
-        await _mapPage!.FilterByPortsAsync(includePorts: "1433");
+        await _mapPage!.FilterByPortsAsync(includePorts: "8123");
         (await _mapPage.GetNodeCountAsync()).Should().Be(2);
 
         await _mapPage.ClearFiltersAsync();
@@ -304,12 +304,12 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     public async Task BtnClearFilters_WhenClicked_RemovesFiltersFromTheDisplayedCliCommand()
     {
         _mapPage.Should().NotBeNull();
-        await _mapPage!.FilterByPortsAsync(includePorts: "1433");
-        (await _mapPage.CliCommandText.InnerTextAsync()).Should().Contain("1433");
+        await _mapPage!.FilterByPortsAsync(includePorts: "8123");
+        (await _mapPage.CliCommandText.InnerTextAsync()).Should().Contain("8123");
 
         await _mapPage.ClearFiltersAsync();
 
-        (await _mapPage.CliCommandText.InnerTextAsync()).Should().NotContain("1433");
+        (await _mapPage.CliCommandText.InnerTextAsync()).Should().NotContain("8123");
     }
 
     [Fact]
@@ -320,7 +320,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
 
         var content = await _mapPage.InspectorContent.InnerTextAsync();
         content.Should().NotContain("Click on a server to isolate");
-        content.Should().MatchRegex(@"(HOMELAB-PC|SRV-)");
+        content.Should().MatchRegex(@"(desktop|homeassistant|proxy|sso|nas)");
     }
 
     [Fact]
@@ -575,20 +575,20 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
 
         var nodes = new List<TopologyServerNode>
         {
-            new("HOMELAB-PC", "HOMELAB-PC", "192.168.1.10", true, localPorts, 1, 4),
-            new("SRV-SQL-01", "SRV-SQL-01", "10.0.1.20", false, [new(1433, TopologyTransportProtocol.Tcp, "sqlservr", "Database")], 1, 0),
-            new("SRV-WEB-01", "SRV-WEB-01", "10.0.1.30", false, [new(443, TopologyTransportProtocol.Tcp, "nginx", "Reverse Proxy")], 1, 1),
-            new("SRV-AUTH-01", "SRV-AUTH-01", "10.0.1.40", false, [new(8443, TopologyTransportProtocol.Tcp, "identity", "Keycloak")], 1, 0),
-            new("SRV-BACKUP-01", "SRV-BACKUP-01", "10.0.1.50", false, [new(873, TopologyTransportProtocol.Tcp, "rsync", "Backup Daemon")], 1, 0)
+            new("desktop", "desktop", "192.168.1.10", true, localPorts, 1, 4),
+            new("homeassistant", "homeassistant", "192.168.20.20", false, [new(8123, TopologyTransportProtocol.Tcp, "hass", "Home Assistant")], 1, 0),
+            new("proxy", "proxy", "192.168.20.30", false, [new(443, TopologyTransportProtocol.Tcp, "nginx", "Reverse Proxy")], 1, 1),
+            new("sso", "sso", "192.168.20.40", false, [new(9091, TopologyTransportProtocol.Tcp, "authelia", "Authelia")], 1, 0),
+            new("nas", "nas", "192.168.20.50", false, [new(873, TopologyTransportProtocol.Tcp, "rsync", "Backup Daemon")], 1, 0)
         };
 
         var edges = new List<TopologyServiceEdge>
         {
-            new("E1", "HOMELAB-PC", "SRV-SQL-01", 1433, TopologyTransportProtocol.Tcp, "app", "sqlservr", 15, TopologyFlowDirection.Outbound),
-            new("E2", "HOMELAB-PC", "SRV-WEB-01", 443, TopologyTransportProtocol.Tcp, "curl", "nginx", 25, TopologyFlowDirection.Outbound),
-            new("E3", "SRV-WEB-01", "HOMELAB-PC", 8080, TopologyTransportProtocol.Tcp, "nginx", "kestrel", 40, TopologyFlowDirection.Inbound),
-            new("E4", "HOMELAB-PC", "SRV-AUTH-01", 8443, TopologyTransportProtocol.Tcp, "app", "identity", 8, TopologyFlowDirection.Outbound),
-            new("E5", "HOMELAB-PC", "SRV-BACKUP-01", 873, TopologyTransportProtocol.Tcp, "agent", "rsync", 5, TopologyFlowDirection.Outbound)
+            new("E1", "desktop", "homeassistant", 8123, TopologyTransportProtocol.Tcp, "firefox", "hass", 15, TopologyFlowDirection.Outbound),
+            new("E2", "desktop", "proxy", 443, TopologyTransportProtocol.Tcp, "curl", "nginx", 25, TopologyFlowDirection.Outbound),
+            new("E3", "proxy", "desktop", 8080, TopologyTransportProtocol.Tcp, "nginx", "kestrel", 40, TopologyFlowDirection.Inbound),
+            new("E4", "desktop", "sso", 9091, TopologyTransportProtocol.Tcp, "firefox", "authelia", 8, TopologyFlowDirection.Outbound),
+            new("E5", "desktop", "nas", 873, TopologyTransportProtocol.Tcp, "agent", "rsync", 5, TopologyFlowDirection.Outbound)
         };
 
         return new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, 93, 0);
