@@ -67,7 +67,10 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
       * Presets: `Compact`, `Balanced`, `Spacious` (tailored for estates > 100 servers) with real-time scaling sliders for node spacing (`0.65x` to `2.4x`) and edge separation (`6px` to `46px`).
     * **Ergonomic Filter Controls & "Apply Filters" Button**:
       * Dedicated `Apply Filters` trigger and `[Enter]` shortcut on text search and port fields to eliminate laggy keystroke recalculations on dense enterprise maps.
-      * Single-click `Reset` action.
+      * Text search keeps the matching servers together with their direct neighbours and the flows between them; it also matches the port, process and service target of each flow, so an outbound client process can be found.
+      * Port fields accept single ports and ranges (`"443, 8000-8080"`), like `NetworkPortRange`.
+      * Header counters (servers, service ports, flows) report the whole filtered result, across all pages.
+      * Single-click `Reset` action, which also refreshes the displayed CLI command.
     * **Collapsible Sidebar (`◀ Sidebar`), Accordion Controls & Zero Scrollbar Drift**:
       * Dedicated `◀ Sidebar` button (or `[B]` key) to instantly collapse/expand the control panel, granting 100% viewport space to the SVG canvas.
       * Interactive accordion sections (`1. Layout`, `2. Filters`, `3. CLI Command`, `4. Inspector`), eliminating vertical window scrolling.

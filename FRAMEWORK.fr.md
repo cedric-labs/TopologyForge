@@ -67,7 +67,10 @@ TopologyForge est le framework partagé .NET de **modélisation topologique, de 
       * Profils `Compact`, `Balanced`, `Spacious` (adapté aux parcs > 100 serveurs) et curseurs temps réel d'écartement des serveurs (`0.65x` à `2.4x`) et d'écartement des flèches (`6px` à `46px`).
     * **Contrôles de filtrage ergonomiques & Bouton "Apply Filters"** :
       * Bouton `Apply Filters` dédié et déclenchement par validation `[Enter]` sur les champs de recherche textuelle et de ports, supprimant les recalculs intempestifs frappe par frappe pour une fluidité maximale sur les parcs denses.
-      * Bouton `Reset` pour réinitialiser les filtres en un clic.
+      * La recherche textuelle garde les serveurs trouvés avec leurs voisins directs et les flux qui les relient ; elle porte aussi sur le port, le processus et la cible de service de chaque flux, ce qui permet de retrouver un processus client sortant.
+      * Les champs de ports acceptent des ports isolés et des plages (`"443, 8000-8080"`), comme `NetworkPortRange`.
+      * Les compteurs d'en-tête (serveurs, ports de service, flux) portent sur tout le résultat filtré, toutes pages confondues.
+      * Bouton `Reset` pour réinitialiser les filtres en un clic, qui met aussi à jour la commande CLI affichée.
     * **Barre latérale rétractable (`◀ Sidebar`), Sections accordéon & Élimination de l'ascenseur** :
       * Bouton `◀ Sidebar` (ou touche `[B]`) permettant de masquer/afficher instantanément le panneau latéral pour allouer 100 % de l'écran au canevas SVG.
       * Sections d'options cliquables en accordéon (`1. Layout`, `2. Filters`, `3. CLI Command`, `4. Inspector`), supprimant tout défilement vertical parasite.

@@ -20,6 +20,43 @@ public sealed class TopologyHtmlRendererTests
         ]);
     }
 
+    [Theory]
+    [InlineData("</script><script>window.__pwned=1</script>")]
+    [InlineData("</script ><script>window.__pwned=1</script >")]
+    [InlineData("</SCRIPT x><!--")]
+    public void RenderHtml_WhenHostNameContainsScriptMarkup_KeepsItInsideTheEmbeddedPayload(string hostName)
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var graph = new NetworkTopologyGraph(
+            DateTimeOffset.UtcNow,
+            [new TopologyServerNode("N1", hostName, "10.0.0.1", true, [], 0, 0)],
+            [],
+            0,
+            0);
+        var expectedScriptEndTags = CountIgnoringCase(renderer.RenderHtml(CreateSampleGraph(), new TopologyRenderingOptions()), "</script");
+
+        // Act
+        var html = renderer.RenderHtml(graph, new TopologyRenderingOptions());
+
+        // Assert
+        CountIgnoringCase(html, "</script").Should().Be(expectedScriptEndTags);
+        html.Should().NotContain("<!--");
+    }
+
+    private static int CountIgnoringCase(string text, string value)
+    {
+        var count = 0;
+        var index = text.IndexOf(value, StringComparison.OrdinalIgnoreCase);
+        while (index >= 0)
+        {
+            count++;
+            index = text.IndexOf(value, index + value.Length, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return count;
+    }
+
     [Fact]
     public void RenderHtml_WhenNoCliCommandFormatGiven_KeepsTheLegacyCommandSyntax()
     {
@@ -382,7 +419,7 @@ public sealed class TopologyHtmlRendererTests
         // Sidebar button must be inside kpi-bar right before the Servers badge
         html.Should().Contain("btnToggleSidebar");
         html.Should().Contain("remainingPorts.length === 0 && !hasActiveEdge");
-        html.Should().Contain("kpiNodesEl.textContent = totalFiltered;");
+        html.Should().Contain("getElementById('kpiNodes').textContent = String(totalFiltered);");
     }
 
     [Fact]

@@ -15,23 +15,28 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     private IBrowser? _browser;
     private IPage? _page;
     private TopologyMapPage? _mapPage;
-    private string _tempHtmlPath = string.Empty;
+    private readonly List<string> _tempHtmlPaths = [];
+    private readonly List<string> _pageErrors = [];
 
     public async Task InitializeAsync()
     {
-        _tempHtmlPath = Path.Combine(Path.GetTempPath(), $"topology_e2e_{Guid.NewGuid():N}.html");
-        var graph = CreateSampleTopologyGraph();
-        var renderer = new TopologyHtmlRenderer();
-        await renderer.WriteHtmlFileAsync(_tempHtmlPath, graph, "E2E Enterprise Network Map");
-
         _playwright = await Playwright.CreateAsync();
         _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
         _page = await _browser.NewPageAsync(new BrowserNewPageOptions
         {
             ViewportSize = new ViewportSize { Width = 1600, Height = 1000 }
         });
+        _page.PageError += (_, message) => _pageErrors.Add(message);
         _mapPage = new TopologyMapPage(_page);
-        await _mapPage.NavigateToFileAsync(_tempHtmlPath);
+        await OpenGraphAsync(CreateSampleTopologyGraph(), new TopologyRenderingOptions { Title = "E2E Enterprise Network Map" });
+    }
+
+    private async Task OpenGraphAsync(NetworkTopologyGraph graph, TopologyRenderingOptions options)
+    {
+        var htmlPath = Path.Combine(Path.GetTempPath(), $"topology_e2e_{Guid.NewGuid():N}.html");
+        _tempHtmlPaths.Add(htmlPath);
+        await new TopologyHtmlRenderer().WriteHtmlFileAsync(htmlPath, graph, options);
+        await _mapPage!.NavigateToFileAsync(htmlPath);
     }
 
     public async Task DisposeAsync()
@@ -48,9 +53,9 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
 
         _playwright?.Dispose();
 
-        if (File.Exists(_tempHtmlPath))
+        foreach (var htmlPath in _tempHtmlPaths.Where(File.Exists))
         {
-            File.Delete(_tempHtmlPath);
+            File.Delete(htmlPath);
         }
     }
 
@@ -132,14 +137,123 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Search_WhenServerNameMatched_IsolatesTargetServer()
+    public async Task Search_WhenServerNameMatched_ShowsServerWithItsNeighboursAndFlows()
     {
         _mapPage.Should().NotBeNull();
         await _mapPage!.SearchAsync("SRV-AUTH");
 
-        var nodeCount = await _mapPage.GetNodeCountAsync();
-        nodeCount.Should().Be(1);
-        (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("1");
+        // SRV-AUTH-01 et son seul voisin HOMELAB-PC, reliés par le flux E4
+        (await _mapPage.GetNodeCountAsync()).Should().Be(2);
+        (await _mapPage.GetEdgeCountAsync()).Should().Be(1);
+        (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("2");
+    }
+
+    [Fact]
+    public async Task Search_WhenOutboundProcessNameMatched_ShowsTheFlowAndItsEndpoints()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // « curl » n'apparaît que sur l'arête sortante E2 (HOMELAB-PC → SRV-WEB-01)
+        await _mapPage!.SearchAsync("curl");
+
+        (await _mapPage.GetNodeCountAsync()).Should().Be(2);
+        (await _mapPage.GetEdgeCountAsync()).Should().Be(1);
+        (await _mapPage.EdgeById("E2").CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Search_WhenNothingMatchesInTreeLayout_ClearsTheMapWithoutScriptError()
+    {
+        _mapPage.Should().NotBeNull();
+        await _mapPage!.SelectLayoutAsync("tree");
+
+        await _mapPage.SearchAsync("no-such-server");
+
+        (await _mapPage.GetNodeCountAsync()).Should().Be(0);
+        (await _mapPage.GetEdgeCountAsync()).Should().Be(0);
+        _pageErrors.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task FilterByPorts_WhenIncludedPortRangeGiven_KeepsEveryPortInTheRange()
+    {
+        _mapPage.Should().NotBeNull();
+        await _mapPage!.FilterByPortsAsync(includePorts: "1400-1500");
+
+        // 1433 est dans la plage : HOMELAB-PC → SRV-SQL-01
+        (await _mapPage.GetNodeCountAsync()).Should().Be(2);
+        (await _mapPage.GetEdgeCountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task FilterByPorts_WhenExcludedPortRangeGiven_RemovesEveryPortInTheRange()
+    {
+        _mapPage.Should().NotBeNull();
+        await _mapPage!.FilterByPortsAsync(excludePorts: "800-900");
+
+        // 873 est dans la plage : SRV-BACKUP-01 disparaît
+        (await _mapPage.GetNodeCountAsync()).Should().Be(4);
+        (await _mapPage.GetEdgeCountAsync()).Should().Be(4);
+    }
+
+    [Fact]
+    public async Task FilterByPorts_WhenPortIncluded_RecountsVisibleServicePorts()
+    {
+        _mapPage.Should().NotBeNull();
+        (await _mapPage!.KpiPorts.InnerTextAsync()).Should().Be("5");
+
+        await _mapPage.FilterByPortsAsync(includePorts: "1433");
+
+        // Seul le port d'écoute 1433 de SRV-SQL-01 reste visible
+        (await _mapPage.KpiPorts.InnerTextAsync()).Should().Be("1");
+    }
+
+    [Fact]
+    public async Task KpiServers_WhenResultsSpanSeveralPages_ShowsTheFilteredTotal()
+    {
+        _mapPage.Should().NotBeNull();
+        await OpenGraphAsync(CreateSampleTopologyGraph(), new TopologyRenderingOptions { DefaultPageSize = 2 });
+
+        (await _mapPage!.GetNodeCountAsync()).Should().Be(2);
+        (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("5");
+        (await _mapPage.KpiFlows.InnerTextAsync()).Should().Be("5");
+    }
+
+    [Fact]
+    public async Task RenderGraph_WhenTwoServersExchangeFlowsBothWays_DrawsTheTwoArrowsApart()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // E2 (HOMELAB-PC → SRV-WEB-01) et E3 (SRV-WEB-01 → HOMELAB-PC) partagent la même paire de serveurs :
+        // l'éventail doit courber les deux flèches de part et d'autre, donc les écarter davantage que leurs cordes.
+        var chordDistance = await _mapPage!.GetEdgeChordMidpointDistanceAsync("E2", "E3");
+
+        var curveDistance = await _mapPage.GetEdgeMidpointDistanceAsync("E2", "E3");
+
+        curveDistance.Should().BeGreaterThan(chordDistance + 5);
+    }
+
+    [Fact]
+    public async Task Inspector_WhenNamesContainMarkup_DisplaysThemAsText()
+    {
+        _mapPage.Should().NotBeNull();
+        const string hostilePayload = "<img src=x onerror=\"window.__xss=1\">";
+        var graph = new NetworkTopologyGraph(
+            DateTimeOffset.UtcNow,
+            [
+                new("LOCAL-01", "LOCAL-01", "192.168.1.10", true, [], 0, 1),
+                new("REMOTE-01", hostilePayload, "10.0.1.20", false, [new(443, TopologyTransportProtocol.Tcp, hostilePayload, "")], 1, 0)
+            ],
+            [new("E1", "LOCAL-01", "REMOTE-01", 443, TopologyTransportProtocol.Tcp, hostilePayload, "", 3, TopologyFlowDirection.Outbound)],
+            3,
+            0);
+        await OpenGraphAsync(graph, new TopologyRenderingOptions());
+
+        await _mapPage!.ClickNodeByHostNameAsync("LOCAL-01");
+
+        (await _mapPage.GetInspectorImageCountAsync()).Should().Be(0);
+        (await _mapPage.InspectorContent.InnerTextAsync()).Should().Contain(hostilePayload);
+        (await _mapPage.IsGlobalDefinedAsync("__xss")).Should().BeFalse();
     }
 
     [Fact]
@@ -182,6 +296,18 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         await _mapPage.ClearFiltersAsync();
         (await _mapPage.GetNodeCountAsync()).Should().Be(5);
         (await _mapPage.GetEdgeCountAsync()).Should().Be(5);
+    }
+
+    [Fact]
+    public async Task BtnClearFilters_WhenClicked_RemovesFiltersFromTheDisplayedCliCommand()
+    {
+        _mapPage.Should().NotBeNull();
+        await _mapPage!.FilterByPortsAsync(includePorts: "1433");
+        (await _mapPage.CliCommandText.InnerTextAsync()).Should().Contain("1433");
+
+        await _mapPage.ClearFiltersAsync();
+
+        (await _mapPage.CliCommandText.InnerTextAsync()).Should().NotContain("1433");
     }
 
     [Fact]

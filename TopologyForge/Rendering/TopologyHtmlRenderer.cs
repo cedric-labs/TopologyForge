@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Unicode;
 using TopologyForge.Models;
 
 namespace TopologyForge.Rendering;
@@ -14,7 +15,10 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        // Le JSON est inséré tel quel dans un bloc <script> : l'encodeur doit échapper <, > et & pour qu'un nom DNS
+        // inverse ou un nom de processus contenant « </script » ou « <!-- » ne puisse pas fermer le bloc.
+        // Toutes les plages Unicode restent lisibles (noms d'hôtes accentués).
+        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
         WriteIndented = false
     };
 
@@ -173,8 +177,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
             }).ToList()
         };
 
-        var json = JsonSerializer.Serialize(dto, JsonOptions);
-        return json.Replace("</script>", "<\\/script>", StringComparison.OrdinalIgnoreCase);
+        return JsonSerializer.Serialize(dto, JsonOptions);
     }
 
     private static string EscapeHtmlText(string input) =>
@@ -721,9 +724,35 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
                 applySpacingPreset(spacingSelect.value);
 
+                // Accepte les ports isolés et les plages « 8000-8080 », comme l'option CLI qui alimente les filtres initiaux.
                 function parsePortList(str) {
                   if (!str || !str.trim()) return [];
-                  return str.split(/[,;\s]+/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n > 0);
+                  return str.split(/[,;\s]+/).map(token => {
+                    const bounds = token.split('-').map(b => parseInt(b.trim(), 10));
+                    if (bounds.length === 1) return { from: bounds[0], to: bounds[0] };
+                    if (bounds.length === 2) return { from: Math.min(bounds[0], bounds[1]), to: Math.max(bounds[0], bounds[1]) };
+                    return null;
+                  }).filter(r => r && !isNaN(r.from) && !isNaN(r.to) && r.from > 0);
+                }
+
+                // Les noms d'hôtes (DNS inverse) et de processus viennent de l'extérieur : tout ce qui part dans innerHTML passe ici.
+                function escapeHtml(value) {
+                  return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+                }
+
+                function buildPortFilter() {
+                  const included = parsePortList(includePortsInput.value);
+                  const excluded = parsePortList(excludePortsInput.value);
+                  const inRanges = (ranges, port) => ranges.some(r => port >= r.from && port <= r.to);
+                  return {
+                    isActive: included.length > 0 || excluded.length > 0,
+                    allows: port => !inRanges(excluded, port) && (included.length === 0 || inRanges(included, port))
+                  };
                 }
 
                 function parseTextTokens(str) {
@@ -1488,6 +1517,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 // Pass 1 + Pipeline Orchestrator
                 function computeLayout(nodes, edges, layoutMode, sortMethod) {
                   nodePositions.clear();
+                  // Un filtre sans résultat ne laisse rien à placer ; les dispositions en arbre supposent au moins une racine.
+                  if (nodes.length === 0) return;
                   const ordered = sortNodes(nodes, edges, sortMethod);
                   const gapFactor = parseFloat(nodeGapRange.value) || 1.0;
                   const stepX = Math.round(350 * gapFactor);
@@ -1887,33 +1918,42 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
                 function filterAndPaginateGraph() {
                   const q = (searchInput.value || '').trim().toLowerCase();
-                  const incPorts = parsePortList(includePortsInput.value);
-                  const excPorts = parsePortList(excludePortsInput.value);
+                  const portFilter = buildPortFilter();
                   const excHosts = parseTextTokens(excludeHostsInput.value);
                   const dirFilter = directionSelect.value;
 
-                  const filteredEdges = TOPOLOGY_DATA.edges.filter(e => {
+                  const directionAndPortEdges = TOPOLOGY_DATA.edges.filter(e => {
                     if (dirFilter !== 'all' && e.direction !== dirFilter) return false;
-                    if (incPorts.length > 0 && !incPorts.includes(e.targetPort)) return false;
-                    if (excPorts.includes(e.targetPort)) return false;
+                    if (!portFilter.allows(e.targetPort)) return false;
                     return true;
                   });
+
+                  // Une recherche garde les serveurs trouvés avec leurs voisins directs et les flux qui les relient :
+                  // sans les voisins, aucune flèche ne resterait affichée. Le processus client d'un flux sortant n'est
+                  // porté que par l'arête, d'où la recherche aussi sur les arêtes.
+                  const nodeMatchesQuery = n =>
+                    matchesPattern(n.hostName, q) || matchesPattern(n.ipAddress, q) || matchesPattern(`${n.hostName} ${n.ipAddress}`, q)
+                    || n.ports.some(p => String(p.port).includes(q) || matchesPattern(p.processName || '', q) || matchesPattern(p.serviceTarget || '', q));
+                  const edgeMatchesQuery = e =>
+                    String(e.targetPort).includes(q) || matchesPattern(e.processName || '', q) || matchesPattern(e.serviceTarget || '', q);
+                  const matchedNodeIds = new Set(q ? TOPOLOGY_DATA.nodes.filter(nodeMatchesQuery).map(n => n.nodeId) : []);
+                  const filteredEdges = q
+                    ? directionAndPortEdges.filter(e => matchedNodeIds.has(e.sourceNodeId) || matchedNodeIds.has(e.targetNodeId) || edgeMatchesQuery(e))
+                    : directionAndPortEdges;
+                  const searchNodeIds = new Set(matchedNodeIds);
+                  if (q) filteredEdges.forEach(e => { searchNodeIds.add(e.sourceNodeId); searchNodeIds.add(e.targetNodeId); });
 
                   const filteredNodes = TOPOLOGY_DATA.nodes.filter(n => {
                     const hostStr = `${n.hostName} ${n.ipAddress}`;
                     if (excHosts.some(tok => matchesPattern(n.hostName, tok) || matchesPattern(n.ipAddress, tok) || matchesPattern(hostStr, tok))) return false;
-                    if (q) {
-                      const hostMatch = matchesPattern(n.hostName, q) || matchesPattern(n.ipAddress, q) || matchesPattern(hostStr, q);
-                      const portMatch = n.ports.some(p => String(p.port).includes(q) || matchesPattern(p.processName || '', q) || matchesPattern(p.serviceTarget || '', q));
-                      if (!hostMatch && !portMatch) return false;
-                    }
+                    if (q && !searchNodeIds.has(n.nodeId)) return false;
                     const hasActiveEdge = filteredEdges.some(e => e.sourceNodeId === n.nodeId || e.targetNodeId === n.nodeId);
                     if (!n.isLocalAuditedServer && !hasActiveEdge) return false;
 
-                    const remainingPorts = n.ports.filter(p => !excPorts.includes(p.port) && (incPorts.length === 0 || incPorts.includes(p.port)));
+                    const remainingPorts = n.ports.filter(p => portFilter.allows(p.port));
                     if (dirFilter === 'OUT' && !hasActiveEdge) return false;
                     if (dirFilter === 'IN' && !hasActiveEdge && remainingPorts.length === 0) return false;
-                    if ((incPorts.length > 0 || excPorts.length > 0) && remainingPorts.length === 0 && !hasActiveEdge) return false;
+                    if (portFilter.isActive && remainingPorts.length === 0 && !hasActiveEdge) return false;
                     return true;
                   });
 
@@ -1949,10 +1989,13 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
                   const displayStart = totalFiltered === 0 ? 0 : startIdx + 1;
                   pageStatus.textContent = `Page ${currentPageIndex + 1} / ${totalPages} (${displayStart}–${endIdx} of ${totalFiltered} servers)`;
-                  const kpiNodesEl = document.getElementById('kpiNodes');
-                  if (kpiNodesEl) kpiNodesEl.textContent = totalFiltered;
-                  const kpiEdgesEl = document.getElementById('kpiEdges');
-                  if (kpiEdgesEl) kpiEdgesEl.textContent = activeEdges.length;
+                  // Les compteurs d'en-tête portent sur tout le résultat filtré ; la barre de pagination dit ce que montre la page.
+                  const filteredNodeIds = new Set(rankedNodes.map(n => n.nodeId));
+                  const totalFilteredEdges = filteredEdges.filter(e => filteredNodeIds.has(e.sourceNodeId) && filteredNodeIds.has(e.targetNodeId)).length;
+                  const totalVisiblePorts = rankedNodes.reduce((sum, n) => sum + n.ports.filter(p => portFilter.allows(p.port)).length, 0);
+                  document.getElementById('kpiNodes').textContent = String(totalFiltered);
+                  document.getElementById('kpiEdges').textContent = String(totalFilteredEdges);
+                  document.getElementById('kpiPorts').textContent = String(totalVisiblePorts);
                   btnPrevPage.disabled = currentPageIndex <= 0;
                   btnNextPage.disabled = currentPageIndex >= totalPages - 1;
                   btnLoadMore100.disabled = currentPageSize >= totalFiltered;
@@ -1962,15 +2005,14 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 }
 
                 function renderInspector(node, edges, allNodesMap) {
-                  const incPorts = parsePortList(includePortsInput.value);
-                  const excPorts = parsePortList(excludePortsInput.value);
+                  const portFilter = buildPortFilter();
                   if (!node) {
                     inspectorContent.innerHTML = 'Click on a server to isolate its inbound (IN) and outbound (OUT) routes, or drag it to adjust its position.';
                     return;
                   }
-                  const visiblePorts = node.ports.filter(p => !excPorts.includes(p.port) && (incPorts.length === 0 || incPorts.includes(p.port)));
+                  const visiblePorts = node.ports.filter(p => portFilter.allows(p.port));
                   const portsHtml = visiblePorts.length > 0
-                    ? visiblePorts.map(p => `<span class="port-pill">:${p.port}/${p.protocol}${p.processName ? ' (' + p.processName + ')' : ''}</span>`).join(' ')
+                    ? visiblePorts.map(p => `<span class="port-pill">:${p.port}/${escapeHtml(p.protocol)}${p.processName ? ' (' + escapeHtml(p.processName) + ')' : ''}</span>`).join(' ')
                     : '<span style="color:var(--text-muted)">No active listening port</span>';
 
                   const outbound = edges.filter(e => e.sourceNodeId === node.nodeId);
@@ -1978,16 +2020,16 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
                   const outHtml = outbound.map(e => {
                     const target = allNodesMap.get(e.targetNodeId);
-                    return `<div><span style="color:var(--accent-out)">[OUT ➔]</span> <strong>${target ? target.hostName : e.targetNodeId}</strong> :${e.targetPort}/${e.protocol} (${e.processName || 'flow'})</div>`;
+                    return `<div><span style="color:var(--accent-out)">[OUT ➔]</span> <strong>${escapeHtml(target ? target.hostName : e.targetNodeId)}</strong> :${e.targetPort}/${escapeHtml(e.protocol)} (${escapeHtml(e.processName || 'flow')})</div>`;
                   }).join('');
 
                   const inHtml = inbound.map(e => {
                     const source = allNodesMap.get(e.sourceNodeId);
-                    return `<div><span style="color:var(--accent-in)">[⬅ IN]</span> <strong>${source ? source.hostName : e.sourceNodeId}</strong> to :${e.targetPort}/${e.protocol}</div>`;
+                    return `<div><span style="color:var(--accent-in)">[⬅ IN]</span> <strong>${escapeHtml(source ? source.hostName : e.sourceNodeId)}</strong> to :${e.targetPort}/${escapeHtml(e.protocol)}</div>`;
                   }).join('');
 
                   inspectorContent.innerHTML = `
-                    <div><strong>${node.hostName}</strong> (${node.ipAddress || 'IP N/A'})</div>
+                    <div><strong>${escapeHtml(node.hostName)}</strong> (${escapeHtml(node.ipAddress || 'IP N/A')})</div>
                     <div style="margin-top:4px;color:var(--text-muted)">Non-ephemeral service ports:</div>
                     <div>${portsHtml}</div>
                     <div style="margin-top:6px;color:var(--text-muted)">Outbound Flows OUT (${outbound.length}):</div>
@@ -1998,12 +2040,9 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 }
 
                 function renderGraph(recomputePositions = false) {
-                  const incPorts = parsePortList(includePortsInput.value);
-                  const excPorts = parsePortList(excludePortsInput.value);
+                  const portFilter = buildPortFilter();
                   const { nodes, edges } = filterAndPaginateGraph();
                   const nodesMap = new Map(nodes.map(n => [n.nodeId, n]));
-                  document.getElementById('kpiNodes').textContent = String(nodes.length);
-                  document.getElementById('kpiEdges').textContent = String(edges.length);
 
                   if (recomputePositions || nodePositions.size === 0) {
                     computeLayout(nodes, edges, layoutSelect.value, sortSelect.value);
@@ -2036,7 +2075,10 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     const pairKey = [e.sourceNodeId, e.targetNodeId].sort().join('::');
                     const siblings = pairBuckets.get(pairKey) || [e];
                     const siblingIdx = siblings.indexOf(e);
-                    const fanOffset = (siblingIdx - (siblings.length - 1) / 2) * fanSpacing;
+                    // Le rang dans l'éventail est attribué dans l'ordre canonique de la paire, mais le routage calcule sa normale
+                    // dans le sens de l'arête : une arête B→A doit inverser son décalage pour rester du côté que lui assigne le rang.
+                    const isCanonicalOrder = e.sourceNodeId <= e.targetNodeId;
+                    const fanOffset = (siblingIdx - (siblings.length - 1) / 2) * fanSpacing * (isCanonicalOrder ? 1 : -1);
 
                     const startAnchor = anchorMap.get(`${e.edgeId}::src`) || { x: p1.x + NODE_W / 2, y: p1.y + NODE_H / 2, side: 'right' };
                     const endAnchor = anchorMap.get(`${e.edgeId}::dst`) || { x: p2.x + NODE_W / 2, y: p2.y + NODE_H / 2, side: 'left' };
@@ -2051,6 +2093,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
                     const path = document.createElementNS(SVG_NS, 'path');
                     path.setAttribute('d', route.d);
+                    path.setAttribute('data-edge-id', e.edgeId);
                     path.setAttribute('fill', 'none');
                     path.setAttribute('stroke', strokeColor);
                     path.setAttribute('stroke-width', isHighlighted ? '2.6' : '1.75');
@@ -2108,7 +2151,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     sub.textContent = `${n.ipAddress || 'IP N/A'} • ${n.isLocalAuditedServer ? 'Audited Server' : 'Remote Server'}`;
                     g.appendChild(sub);
 
-                    const visiblePorts = n.ports.filter(p => !excPorts.includes(p.port) && (incPorts.length === 0 || incPorts.includes(p.port)));
+                    const visiblePorts = n.ports.filter(p => portFilter.allows(p.port));
                     const portSummary = visiblePorts.slice(0, 5).map(p => `:${p.port}`).join(' ') + (visiblePorts.length > 5 ? ` +${visiblePorts.length - 5}` : '');
                     const portsTxt = document.createElementNS(SVG_NS, 'text');
                     portsTxt.setAttribute('x', '12');
@@ -2359,6 +2402,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   currentPageSize = TOPOLOGY_DATA.defaultPageSize || 100;
                   renderInspector(null, [], new Map());
                   renderGraph(true);
+                  updateCliCommandDisplay();
                 });
 
                 document.getElementById('btnExportSvg').addEventListener('click', () => {

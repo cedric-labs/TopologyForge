@@ -124,4 +124,36 @@ public sealed class TopologyMapPage(IPage page)
     public Task<int> GetNodeCountAsync() => Nodes.CountAsync();
 
     public Task<int> GetEdgeCountAsync() => Edges.CountAsync();
+
+    public ILocator EdgeById(string edgeId) => Page.Locator($"#edgesLayer > path[data-edge-id='{edgeId}']");
+
+    public Task ClickNodeByHostNameAsync(string hostName) =>
+        Nodes.Filter(new LocatorFilterOptions { HasText = hostName }).First.ClickAsync();
+
+    public Task<int> GetInspectorImageCountAsync() => InspectorContent.Locator("img").CountAsync();
+
+    public Task<bool> IsGlobalDefinedAsync(string name) =>
+        Page.EvaluateAsync<bool>("name => typeof window[name] !== 'undefined'", name);
+
+    /// <summary>
+    /// Distance en pixels entre les points médians de deux arêtes, mesurée sur la géométrie SVG réelle.
+    /// </summary>
+    public Task<double> GetEdgeMidpointDistanceAsync(string firstEdgeId, string secondEdgeId) =>
+        MeasureDistanceAsync(firstEdgeId, secondEdgeId,
+            "path => { const p = path.getPointAtLength(path.getTotalLength() / 2); return [p.x, p.y]; }");
+
+    /// <summary>
+    /// Distance en pixels entre les milieux des cordes (segments extrémité-extrémité) de deux arêtes :
+    /// c'est l'écart qu'auraient les deux arêtes si elles étaient tracées en ligne droite.
+    /// </summary>
+    public Task<double> GetEdgeChordMidpointDistanceAsync(string firstEdgeId, string secondEdgeId) =>
+        MeasureDistanceAsync(firstEdgeId, secondEdgeId,
+            "path => { const a = path.getPointAtLength(0), b = path.getPointAtLength(path.getTotalLength()); return [(a.x + b.x) / 2, (a.y + b.y) / 2]; }");
+
+    private async Task<double> MeasureDistanceAsync(string firstEdgeId, string secondEdgeId, string pointScript)
+    {
+        var first = await EdgeById(firstEdgeId).EvaluateAsync<double[]>(pointScript).ConfigureAwait(false);
+        var second = await EdgeById(secondEdgeId).EvaluateAsync<double[]>(pointScript).ConfigureAwait(false);
+        return Math.Sqrt(Math.Pow(first[0] - second[0], 2) + Math.Pow(first[1] - second[1], 2));
+    }
 }
