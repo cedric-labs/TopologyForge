@@ -180,6 +180,21 @@ public sealed class TopologyMapPage(IPage page)
             "layer => Array.from(layer.querySelectorAll('g.subnet-zone > rect:first-of-type')).map(r => ['x', 'y', 'width', 'height'].map(name => Number(r.getAttribute(name))))");
 
     /// <summary>
+    /// Rectangles [x, y, largeur, hauteur] des étiquettes de flèches affichées, mesurés sur le texte rendu.
+    /// </summary>
+    public Task<double[][]> GetEdgeLabelBoxesAsync() =>
+        LabelsLayer.EvaluateAsync<double[][]>(
+            "layer => Array.from(layer.querySelectorAll(':scope > text')).map(t => { const b = t.getBBox(); return [b.x, b.y, b.width, b.height]; })");
+
+    /// <summary>
+    /// Ordonnées que la page attribue à <paramref name="count"/> étiquettes identiques demandées au même point (x, y).
+    /// </summary>
+    public Task<double[]> PlaceIdenticalEdgeLabelsAsync(int count, double x, double y) =>
+        Page.EvaluateAsync<double[]>(
+            "a => placeEdgeLabels(Array.from({ length: a[0] }, () => ({ x: a[1], y: a[2], text: 'OUT :443/TCP' }))).map(p => p.y)",
+            new[] { count, x, y });
+
+    /// <summary>
     /// Coin supérieur gauche [x, y] de la boîte du serveur affiché sous ce nom.
     /// </summary>
     public Task<double[]> GetNodeOriginAsync(string hostName) =>

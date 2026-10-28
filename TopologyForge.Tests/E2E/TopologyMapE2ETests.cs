@@ -577,6 +577,45 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         FindOverlappingBoxes([[first[0], first[1], NodeWidth, NodeHeight], [second[0], second[1], NodeWidth, NodeHeight]]).Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData("grid", "bezier")]
+    [InlineData("grid", "orthogonal")]
+    [InlineData("tree", "bezier")]
+    [InlineData("tree", "orthogonal")]
+    [InlineData("layered", "straight")]
+    public async Task RenderGraph_WhenManyFlowsLeaveOneServer_KeepsArrowLabelsApart(string layout, string routing)
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Les flux qui partent d'un même serveur vers des voisins alignés ont des milieux proches :
+        // sans écartement, leurs étiquettes « OUT :port/proto » se superposent et deviennent illisibles.
+        List<TopologyServerNode> nodes = [Audited("pve-01", "192.168.1.10")];
+        nodes.AddRange(Enumerable.Range(1, 6).Select(i => Remote($"lxc-0{i}", $"192.168.1.{20 + i}")));
+        var edges = nodes.Skip(1).Select((n, i) => Flow($"E{i}", "pve-01", n.NodeId)).ToList();
+        edges.Add(Flow("R1", "lxc-01", "pve-01"));
+        edges.Add(Flow("R2", "pve-01", "lxc-01"));
+        await OpenGraphAsync(new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0), new TopologyRenderingOptions());
+
+        await _mapPage!.SelectLayoutAsync(layout);
+        await _mapPage.SelectRoutingAsync(routing);
+
+        var labelBoxes = await _mapPage.GetEdgeLabelBoxesAsync();
+        labelBoxes.Should().HaveCount(edges.Count);
+        FindOverlappingBoxes(labelBoxes).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task PlaceEdgeLabels_WhenNoFreeRowRemains_KeepsTheLabelOnItsArrow()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // 13 rangées sont disponibles (la position d'origine et 6 décalages de chaque côté) : la 14e étiquette reste sur sa flèche.
+        var ordinates = await _mapPage!.PlaceIdenticalEdgeLabelsAsync(14, 400, 300);
+
+        ordinates.Take(13).Should().OnlyHaveUniqueItems();
+        ordinates[13].Should().Be(300);
+    }
+
     private const double NodeWidth = 236;
     private const double NodeHeight = 106;
 

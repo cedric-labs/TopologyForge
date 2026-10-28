@@ -1317,6 +1317,41 @@ function buildRoutedEdgePath(startAnchor, endAnchor, routingMode, fanOffset, way
   };
 }
 
+const EDGE_LABEL_CHAR_WIDTH = 6.2;
+const EDGE_LABEL_HEIGHT = 14;
+const EDGE_LABEL_MAX_SHIFTS = 12;
+
+// Les étiquettes sont placées avant d'être insérées dans le DOM : leur largeur est estimée d'après le nombre de caractères
+// (≈ 5,5 px mesurés à 10,5 px, majorés pour le gras) plutôt que mesurée par getBBox, qui forcerait une mise en page par étiquette.
+function edgeLabelBox(x, y, text) {
+  const width = text.length * EDGE_LABEL_CHAR_WIDTH;
+  return { left: x - width / 2, right: x + width / 2, top: y - EDGE_LABEL_HEIGHT + 3, bottom: y + 3 };
+}
+
+function edgeLabelBoxesOverlap(a, b) {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+}
+
+// Chaque étiquette garde le milieu de sa flèche si la place est libre ; sinon elle monte ou descend d'une ligne à la fois,
+// en alternant, jusqu'à la première position sans chevauchement. Au-delà de EDGE_LABEL_MAX_SHIFTS, elle reste sur sa flèche :
+// sur une carte très dense, une étiquette superposée vaut mieux qu'une étiquette éloignée de son flux.
+function placeEdgeLabels(labels) {
+  const placed = [];
+  return labels.map(label => {
+    for (let step = 0; step <= EDGE_LABEL_MAX_SHIFTS; step++) {
+      const direction = step % 2 === 0 ? 1 : -1;
+      const y = label.y + direction * Math.ceil(step / 2) * EDGE_LABEL_HEIGHT;
+      const box = edgeLabelBox(label.x, y, label.text);
+      if (!placed.some(other => edgeLabelBoxesOverlap(box, other))) {
+        placed.push(box);
+        return { x: label.x, y };
+      }
+    }
+    placed.push(edgeLabelBox(label.x, label.y, label.text));
+    return { x: label.x, y: label.y };
+  });
+}
+
 function filterAndPaginateGraph() {
   const q = (searchInput.value || '').trim().toLowerCase();
   const portFilter = buildPortFilter();
@@ -1464,6 +1499,7 @@ function renderGraph(recomputePositions = false) {
   const edgesFrag = document.createDocumentFragment();
   const labelsFrag = document.createDocumentFragment();
   const nodesFrag = document.createDocumentFragment();
+  const pendingLabels = [];
 
   edges.forEach(e => {
     const p1 = nodePositions.get(e.sourceNodeId);
@@ -1504,17 +1540,29 @@ function renderGraph(recomputePositions = false) {
     edgesFrag.appendChild(path);
 
     if (!isDimmed && (edges.length <= 180 || isHighlighted)) {
-      const badgeText = `${isInbound ? 'IN' : 'OUT'} :${e.targetPort}/${e.protocol}`;
-      const label = document.createElementNS(SVG_NS, 'text');
-      label.setAttribute('x', String(Math.round(route.labelX)));
-      label.setAttribute('y', String(Math.round(route.labelY)));
-      label.setAttribute('text-anchor', 'middle');
-      label.setAttribute('fill', isHighlighted ? '#fbbf24' : (isInbound ? '#6ee7b7' : '#bae6fd'));
-      label.setAttribute('font-size', '10.5');
-      label.setAttribute('font-weight', isHighlighted ? 'bold' : 'normal');
-      label.textContent = badgeText;
-      labelsFrag.appendChild(label);
+      pendingLabels.push({
+        x: route.labelX,
+        y: route.labelY,
+        text: `${isInbound ? 'IN' : 'OUT'} :${e.targetPort}/${e.protocol}`,
+        fill: isHighlighted ? '#fbbf24' : (isInbound ? '#6ee7b7' : '#bae6fd'),
+        isHighlighted
+      });
     }
+  });
+
+  // Les étiquettes du serveur sélectionné sont placées en premier pour rester au milieu de leurs flèches.
+  pendingLabels.sort((a, b) => Number(b.isHighlighted) - Number(a.isHighlighted));
+  const labelPositions = placeEdgeLabels(pendingLabels);
+  pendingLabels.forEach((pending, index) => {
+    const label = document.createElementNS(SVG_NS, 'text');
+    label.setAttribute('x', String(Math.round(labelPositions[index].x)));
+    label.setAttribute('y', String(Math.round(labelPositions[index].y)));
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('fill', pending.fill);
+    label.setAttribute('font-size', '10.5');
+    label.setAttribute('font-weight', pending.isHighlighted ? 'bold' : 'normal');
+    label.textContent = pending.text;
+    labelsFrag.appendChild(label);
   });
 
   nodes.forEach(n => {
