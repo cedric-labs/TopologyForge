@@ -1359,25 +1359,38 @@ function nodeLabelObstacles(nodes) {
     }));
 }
 
+function findFreeLabelRow(x, label, placed, obstacles) {
+  for (let step = 0; step <= EDGE_LABEL_MAX_SHIFTS; step++) {
+    const direction = step % 2 === 0 ? 1 : -1;
+    const y = label.y + direction * Math.ceil(step / 2) * EDGE_LABEL_SHIFT;
+    const box = edgeLabelBox(x, y, label.text);
+    const isFree = !placed.some(other => edgeLabelBoxesOverlap(box, other))
+      && !obstacles.some(obstacle => edgeLabelBoxesOverlap(box, obstacle));
+    if (isFree) return { x, y, box };
+  }
+  return null;
+}
+
 // Chaque étiquette garde le milieu de sa flèche si la place est libre ; sinon elle monte ou descend d'une demi-ligne à la fois,
-// en alternant, jusqu'à la première position qui ne touche ni une autre étiquette ni un obstacle. Au-delà de
-// EDGE_LABEL_MAX_SHIFTS, elle reste sur sa flèche : sur une carte très dense, une étiquette superposée vaut mieux
-// qu'une étiquette éloignée de son flux.
+// en alternant, jusqu'à la première position qui ne touche ni une autre étiquette ni un obstacle. Sans position libre, elle
+// reste sur sa flèche : sur une carte très dense, une étiquette superposée à une autre reste en partie lisible et vaut mieux
+// qu'une étiquette éloignée de son flux. Une étiquette qu'une boîte de serveur masquerait sur sa flèche est en revanche
+// invisible : elle tente alors les mêmes lignes décalées d'une largeur d'étiquette à droite, puis à gauche.
 function placeEdgeLabels(labels, obstacles = []) {
   const placed = [];
   return labels.map(label => {
-    for (let step = 0; step <= EDGE_LABEL_MAX_SHIFTS; step++) {
-      const direction = step % 2 === 0 ? 1 : -1;
-      const y = label.y + direction * Math.ceil(step / 2) * EDGE_LABEL_SHIFT;
-      const box = edgeLabelBox(label.x, y, label.text);
-      const isFree = !placed.some(other => edgeLabelBoxesOverlap(box, other))
-        && !obstacles.some(obstacle => edgeLabelBoxesOverlap(box, obstacle));
-      if (isFree) {
-        placed.push(box);
-        return { x: label.x, y };
+    const onArrow = edgeLabelBox(label.x, label.y, label.text);
+    const width = onArrow.right - onArrow.left;
+    const isHiddenOnArrow = obstacles.some(obstacle => edgeLabelBoxesOverlap(onArrow, obstacle));
+    const columns = isHiddenOnArrow ? [label.x, label.x + width, label.x - width] : [label.x];
+    for (const x of columns) {
+      const spot = findFreeLabelRow(x, label, placed, obstacles);
+      if (spot) {
+        placed.push(spot.box);
+        return { x: spot.x, y: spot.y };
       }
     }
-    placed.push(edgeLabelBox(label.x, label.y, label.text));
+    placed.push(onArrow);
     return { x: label.x, y: label.y };
   });
 }

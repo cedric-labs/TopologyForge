@@ -652,6 +652,24 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PlaceEdgeLabels_WhenFourLabelsShareTheGapBetweenStackedBoxes_MovesTheLastOneSideways()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // L'écart de 42 px entre deux boîtes empilées ne loge que trois lignes : la quatrième étiquette, au bord de la boîte
+        // du haut, n'a plus de ligne libre et resterait masquée par cette boîte si elle ne pouvait pas se décaler sur le côté.
+        double[][] serverBoxes = [[60, 100, NodeWidth, NodeHeight], [60, 248, NodeWidth, NodeHeight]];
+        double[][] origins = [[130, 210], [150, 210], [170, 210], [190, 210]];
+
+        var labelBoxes = await _mapPage!.PlaceEdgeLabelsAsync("OUT :2049/TCP", origins, serverBoxes);
+
+        FindCrossingBoxes(labelBoxes, serverBoxes).Should().BeEmpty();
+        FindOverlappingBoxes(labelBoxes).Should().BeEmpty();
+        labelBoxes.Select((box, i) => Math.Abs(box[0] + (box[2] / 2) - origins[i][0]) <= box[2])
+            .Should().AllSatisfy(isNearItsArrow => isNearItsArrow.Should().BeTrue());
+    }
+
+    [Fact]
     public async Task PlaceEdgeLabels_WhenNoFreeRowRemains_KeepsTheLabelOnItsArrow()
     {
         _mapPage.Should().NotBeNull();

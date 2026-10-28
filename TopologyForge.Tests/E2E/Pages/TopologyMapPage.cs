@@ -202,6 +202,24 @@ public sealed class TopologyMapPage(IPage page)
             new[] { count, x, y });
 
     /// <summary>
+    /// Rectangles estimés [x, y, largeur, hauteur] que la page attribue à des étiquettes demandées aux points (x, y) donnés,
+    /// les rectangles <paramref name="obstacles"/> [x, y, largeur, hauteur] étant à éviter.
+    /// </summary>
+    public Task<double[][]> PlaceEdgeLabelsAsync(string text, double[][] origins, double[][] obstacles) =>
+        Page.EvaluateAsync<double[][]>(
+            """
+            a => {
+              const labels = a.origins.map(o => ({ x: o[0], y: o[1], text: a.text }));
+              const obstacles = a.obstacles.map(o => ({ left: o[0], top: o[1], right: o[0] + o[2], bottom: o[1] + o[3] }));
+              return placeEdgeLabels(labels, obstacles).map(p => {
+                const b = edgeLabelBox(p.x, p.y, a.text);
+                return [b.left, b.top, b.right - b.left, b.bottom - b.top];
+              });
+            }
+            """,
+            new { text, origins, obstacles });
+
+    /// <summary>
     /// Coin supérieur gauche [x, y] de la boîte du serveur affiché sous ce nom.
     /// </summary>
     public Task<double[]> GetNodeOriginAsync(string hostName) =>
