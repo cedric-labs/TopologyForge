@@ -544,12 +544,12 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("      <div class=\"section-body\" id=\"sectionFilters\">");
         sb.AppendLine("        <div class=\"filter-group\">");
         sb.AppendLine("          <label for=\"searchInput\">Global Search (Server, IP, Port, Process)</label>");
-        sb.AppendLine("          <input id=\"searchInput\" type=\"text\" placeholder=\"e.g. SRV-SQL, 1433, nginx...\" />");
+        sb.AppendLine("          <input id=\"searchInput\" type=\"text\" placeholder=\"e.g. nas, 8096, jellyfin...\" />");
         sb.AppendLine("        </div>");
         sb.AppendLine("        <div class=\"grid-2\">");
         sb.AppendLine("          <div class=\"filter-group\">");
         sb.AppendLine("            <label for=\"includePortsInput\">Include ports</label>");
-        sb.AppendLine("            <input id=\"includePortsInput\" type=\"text\" placeholder=\"80, 443, 1433\" />");
+        sb.AppendLine("            <input id=\"includePortsInput\" type=\"text\" placeholder=\"80, 443, 8096\" />");
         sb.AppendLine("          </div>");
         sb.AppendLine("          <div class=\"filter-group\">");
         sb.AppendLine("            <label for=\"excludePortsInput\">Exclude ports</label>");
@@ -559,7 +559,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("        <div class=\"grid-2\">");
         sb.AppendLine("          <div class=\"filter-group\">");
         sb.AppendLine("            <label for=\"excludeHostsInput\">Exclude servers/IP</label>");
-        sb.AppendLine("            <input id=\"excludeHostsInput\" type=\"text\" placeholder=\"SRV-MON, 10.99.\" />");
+        sb.AppendLine("            <input id=\"excludeHostsInput\" type=\"text\" placeholder=\"pihole, 192.168.1.\" />");
         sb.AppendLine("          </div>");
         sb.AppendLine("          <div class=\"filter-group\">");
         sb.AppendLine("            <label for=\"directionSelect\">Flow Direction</label>");
@@ -1088,17 +1088,28 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                          (ccw(ax, ay, bx, by, cx, cy) !== ccw(ax, ay, bx, by, dx, dy));
                 }
 
+                // Rognage de Liang-Barsky : tester seulement le point du segment le plus proche du centre ne suffit pas,
+                // car sur une boîte plus large que haute un segment peut couper un coin sans que ce point y soit.
                 function segmentIntersectsBox(x1, y1, x2, y2, boxPos, pad) {
-                  const bx1 = boxPos.x - pad, by1 = boxPos.y - pad;
-                  const bx2 = boxPos.x + NODE_W + pad, by2 = boxPos.y + NODE_H + pad;
-                  if (Math.max(x1, x2) < bx1 || Math.min(x1, x2) > bx2 || Math.max(y1, y2) < by1 || Math.min(y1, y2) > by2) {
-                    return false;
+                  const dx = x2 - x1, dy = y2 - y1;
+                  const boundaries = [
+                    [-dx, x1 - (boxPos.x - pad)],
+                    [dx, (boxPos.x + NODE_W + pad) - x1],
+                    [-dy, y1 - (boxPos.y - pad)],
+                    [dy, (boxPos.y + NODE_H + pad) - y1]
+                  ];
+                  let tEnter = 0, tExit = 1;
+                  for (const [p, q] of boundaries) {
+                    if (p === 0) {
+                      if (q < 0) return false;
+                      continue;
+                    }
+                    const t = q / p;
+                    if (p < 0) tEnter = Math.max(tEnter, t);
+                    else tExit = Math.min(tExit, t);
+                    if (tEnter > tExit) return false;
                   }
-                  const cx = boxPos.x + NODE_W / 2, cy = boxPos.y + NODE_H / 2;
-                  const lenSq = Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2) || 1;
-                  const t = Math.max(0, Math.min(1, ((cx - x1) * (x2 - x1) + (cy - y1) * (y2 - y1)) / lenSq));
-                  const px = x1 + t * (x2 - x1), py = y1 + t * (y2 - y1);
-                  return px >= bx1 && px <= bx2 && py >= by1 && py <= by2;
+                  return true;
                 }
 
                 function computeLayoutCost(nodes, edges) {
@@ -1160,13 +1171,16 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 }
 
                 // Pass 3: Exact 2-Opt Swap Optimizer accelerated by Spatial Hash Grid & Bounded Windowing
-                function optimizeNodePositions2Opt(nodes, edges) {
+                function optimizeNodePositions2Opt(nodes, edges, swapGroupKey = () => '') {
                   if (nodes.length <= 2 || edges.length === 0 || nodes.length > 160) return;
 
-                  const swapGroups = [
-                    nodes.filter(n => !n.isLocalAuditedServer),
-                    nodes.filter(n => n.isLocalAuditedServer)
-                  ];
+                  const groupsByKey = new Map();
+                  nodes.forEach(n => {
+                    const key = `${n.isLocalAuditedServer}::${swapGroupKey(n)}`;
+                    if (!groupsByKey.has(key)) groupsByKey.set(key, []);
+                    groupsByKey.get(key).push(n);
+                  });
+                  const swapGroups = Array.from(groupsByKey.values());
 
                   let currentCost = computeLayoutCost(nodes, edges);
                   const maxPasses = nodes.length <= 35 ? 12 : (nodes.length <= 70 ? 4 : 2);
@@ -1272,9 +1286,20 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   const height = Math.max(800, svg.clientHeight || 900);
                   const cx = width / 2, cy = height / 2;
 
+                  // Les serveurs audités restent fixes pendant la simulation : posés tous au centre, ils resteraient superposés.
+                  // Ils sont donc répartis sur un cercle dont la corde entre deux voisins laisse la place d'une boîte.
+                  const locals = nodes.filter(n => n.isLocalAuditedServer);
+                  const localRadius = locals.length > 1 ? ((NODE_W + 80) * gapFactor) / (2 * Math.sin(Math.PI / locals.length)) : 0;
+
                   nodes.forEach((n, idx) => {
                     if (n.isLocalAuditedServer) {
-                      nodePositions.set(n.nodeId, { x: cx - NODE_W / 2, y: cy - NODE_H / 2, vx: 0, vy: 0 });
+                      const angle = (2 * Math.PI * locals.indexOf(n)) / Math.max(1, locals.length);
+                      nodePositions.set(n.nodeId, {
+                        x: Math.round(cx + localRadius * Math.cos(angle) - NODE_W / 2),
+                        y: Math.round(cy + localRadius * Math.sin(angle) - NODE_H / 2),
+                        vx: 0,
+                        vy: 0
+                      });
                     } else {
                       const angle = (2 * Math.PI * idx) / Math.max(1, nodes.length);
                       const r = 260 * gapFactor + Math.sqrt(idx) * 60 * gapFactor;
@@ -1617,6 +1642,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                     }
 
                     let curY = startClusterY;
+                    let columnWidth = 0;
                     subnetMap.forEach((subNodes) => {
                       const unplacedNodes = subNodes.filter(n => !nodePositions.has(n.nodeId));
                       if (unplacedNodes.length === 0) return;
@@ -1633,15 +1659,18 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                         });
                       });
 
-                      const subWidth = colsInSub * stepX;
+                      // La colonne suivante commence après le sous-réseau le plus large de la colonne, pas après le dernier placé.
+                      columnWidth = Math.max(columnWidth, colsInSub * stepX);
                       const subHeight = rowsInSub * stepY;
                       curY += subHeight + 110;
                       if (curY > 1400) {
                         curY = startClusterY;
-                        curX += subWidth + 110;
+                        curX += columnWidth + 110;
+                        columnWidth = 0;
                       }
                     });
-                    optimizeNodePositions2Opt(ordered, edges);
+                    // Un échange entre deux sous-réseaux raccourcirait des flèches, mais ferait se chevaucher leurs zones.
+                    optimizeNodePositions2Opt(ordered, edges, n => extractSubnetPrefix(n.ipAddress));
                     applyForceRepulsionPolish(ordered, edges, gapFactor);
                     return;
                   }
@@ -1864,6 +1893,21 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   }
 
                   if (routingMode === 'orthogonal') {
+                    // Le détour est perpendiculaire à l'arête : pour une arête plutôt horizontale, il est vertical et le couloir
+                    // libre est une ligne horizontale à la hauteur du point de passage, que seul waypoint.y décrit.
+                    if (waypoint && Math.abs(waypoint.y - (y1 + y2) / 2) > Math.abs(waypoint.x - (x1 + x2) / 2)) {
+                      const stub = 18;
+                      const n1 = sideNormalVector(startAnchor.side);
+                      const n2 = sideNormalVector(endAnchor.side);
+                      const sx1 = x1 + n1.nx * stub, sx2 = x2 + n2.nx * stub;
+                      const points = [[x1, y1], [sx1, y1], [sx1, waypoint.y], [sx2, waypoint.y], [sx2, y2], [x2, y2]]
+                        .filter((p, i, all) => i === 0 || p[0] !== all[i - 1][0] || p[1] !== all[i - 1][1]);
+                      return {
+                        d: points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' '),
+                        labelX: (x1 + x2) / 2,
+                        labelY: waypoint.y - 6
+                      };
+                    }
                     if (waypoint) {
                       return {
                         d: `M ${x1} ${y1} L ${waypoint.x} ${y1} L ${waypoint.x} ${y2} L ${x2} ${y2}`,

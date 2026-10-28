@@ -150,6 +150,36 @@ public sealed class TopologyMapPage(IPage page)
         MeasureDistanceAsync(firstEdgeId, secondEdgeId,
             "path => { const a = path.getPointAtLength(0), b = path.getPointAtLength(path.getTotalLength()); return [(a.x + b.x) / 2, (a.y + b.y) / 2]; }");
 
+    /// <summary>
+    /// Évalue le test de collision de la page entre un segment et la boîte d'un serveur placée en (boxX, boxY).
+    /// </summary>
+    public Task<bool> SegmentIntersectsNodeBoxAsync(double x1, double y1, double x2, double y2, double boxX, double boxY, double padding) =>
+        Page.EvaluateAsync<bool>(
+            "a => segmentIntersectsBox(a[0], a[1], a[2], a[3], { x: a[4], y: a[5] }, a[6])",
+            new[] { x1, y1, x2, y2, boxX, boxY, padding });
+
+    /// <summary>
+    /// Attribut <c>d</c> du tracé orthogonal que la page construit entre deux ancrages, avec un point de passage imposé.
+    /// </summary>
+    public Task<string> BuildOrthogonalEdgePathAsync(double startX, double startY, string startSide, double endX, double endY, string endSide, double waypointX, double waypointY) =>
+        Page.EvaluateAsync<string>(
+            "a => buildRoutedEdgePath({ x: a[0], y: a[1], side: a[2] }, { x: a[3], y: a[4], side: a[5] }, 'orthogonal', 0, { x: a[6], y: a[7] }).d",
+            new object[] { startX, startY, startSide, endX, endY, endSide, waypointX, waypointY });
+
+    /// <summary>
+    /// Rectangles [x, y, largeur, hauteur] des zones de sous-réseau affichées.
+    /// </summary>
+    public Task<double[][]> GetSubnetZoneBoxesAsync() =>
+        ZonesLayer.EvaluateAsync<double[][]>(
+            "layer => Array.from(layer.querySelectorAll('g.subnet-zone > rect:first-of-type')).map(r => ['x', 'y', 'width', 'height'].map(name => Number(r.getAttribute(name))))");
+
+    /// <summary>
+    /// Coin supérieur gauche [x, y] de la boîte du serveur affiché sous ce nom.
+    /// </summary>
+    public Task<double[]> GetNodeOriginAsync(string hostName) =>
+        Nodes.Filter(new LocatorFilterOptions { HasText = hostName }).First.EvaluateAsync<double[]>(
+            "g => { const m = /translate\\(([-\\d.]+),\\s*([-\\d.]+)\\)/.exec(g.getAttribute('transform')); return [Number(m[1]), Number(m[2])]; }");
+
     private async Task<double> MeasureDistanceAsync(string firstEdgeId, string secondEdgeId, string pointScript)
     {
         var first = await EdgeById(firstEdgeId).EvaluateAsync<double[]>(pointScript).ConfigureAwait(false);

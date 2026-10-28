@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using AwesomeAssertions;
 using Microsoft.Playwright;
 using TopologyForge.Models;
@@ -438,6 +440,131 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         await _mapPage.ShowZonesCheckbox.CheckAsync();
         (await _mapPage.SubnetZones.CountAsync()).Should().Be(zoneCount);
     }
+
+    [Fact]
+    public async Task SegmentIntersectsBox_WhenSegmentClipsBoxCorner_ReturnsTrue()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Le segment entre dans la boîte (236 × 106 à l'origine) entre (220, 0) et (236, 16), mais son point le plus
+        // proche du centre de la boîte est son extrémité (200, -20), hors de la boîte.
+        var intersects = await _mapPage!.SegmentIntersectsNodeBoxAsync(200, -20, 260, 40, 0, 0, 0);
+
+        intersects.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SegmentIntersectsBox_WhenSegmentPassesBesideCorner_ReturnsFalse()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Le segment passe au-dessus du coin supérieur droit (en x = 236, il est en y = -18).
+        var intersects = await _mapPage!.SegmentIntersectsNodeBoxAsync(180, -60, 300, 30, 0, 0, 0);
+
+        intersects.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task BuildRoutedEdgePath_WhenOrthogonalDetourIsVertical_PassesThroughTheWaypointRow()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Arête horizontale bloquée par une boîte : le point de passage est décalé vers le bas, à la verticale du milieu.
+        var d = await _mapPage!.BuildOrthogonalEdgePathAsync(0, 100, "right", 600, 100, "left", 300, 250);
+
+        var yCoordinates = Regex.Matches(d, @"(-?[\d.]+) (-?[\d.]+)").Select(m => double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture));
+        yCoordinates.Should().Contain(250);
+    }
+
+    [Fact]
+    public async Task SortSelect_WhenSubnetColumnsWrap_KeepsSubnetZonesApart()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Le sous-réseau de 9 serveurs occupe 3 colonnes ; la colonne suivante doit commencer après la plus large,
+        // pas après la largeur du dernier sous-réseau placé (1 colonne).
+        List<TopologyServerNode> nodes = [Audited("desktop", "192.168.1.50")];
+        nodes.AddRange(Enumerable.Range(1, 9).Select(i => Remote($"iot-0{i}", $"192.168.10.{10 + i}")));
+        nodes.AddRange(new[] { 30, 40, 50, 60 }.Select(subnet => Remote($"vlan-{subnet}", $"192.168.{subnet}.2")));
+        var edges = nodes.Skip(1).Select((n, i) => Flow($"E{i}", "desktop", n.NodeId)).ToList();
+        await OpenGraphAsync(new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0), new TopologyRenderingOptions());
+
+        await _mapPage!.SelectSortAsync("subnet");
+
+        FindOverlappingBoxes(await _mapPage.GetSubnetZoneBoxesAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SortSelect_WhenSwappingServersAcrossSubnetsWouldShortenFlows_KeepsSubnetZonesApart()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Échanger nas-02 et backup-01 éviterait deux collisions de flèches, mais mélangerait les deux sous-réseaux.
+        List<TopologyServerNode> nodes =
+        [
+            Audited("desktop", "192.168.1.50"),
+            Remote("nas-01", "192.168.10.11"),
+            Remote("nas-02", "192.168.10.12"),
+            Remote("backup-01", "192.168.20.11"),
+            Remote("backup-02", "192.168.20.12")
+        ];
+        List<TopologyServiceEdge> edges = [Flow("E1", "desktop", "nas-01"), Flow("E2", "desktop", "backup-01"), Flow("E3", "nas-02", "backup-02")];
+        await OpenGraphAsync(new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0), new TopologyRenderingOptions());
+
+        await _mapPage!.SelectSortAsync("subnet");
+
+        FindOverlappingBoxes(await _mapPage.GetSubnetZoneBoxesAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task LayoutSelect_WhenOrganicWithSeveralAuditedServers_KeepsTheirBoxesApart()
+    {
+        _mapPage.Should().NotBeNull();
+        List<TopologyServerNode> nodes =
+        [
+            Audited("pve-01", "192.168.1.10"),
+            Audited("docker-01", "192.168.1.30"),
+            Remote("pihole", "192.168.1.2"),
+            Remote("homeassistant", "192.168.1.40")
+        ];
+        List<TopologyServiceEdge> edges = [Flow("E1", "pve-01", "pihole"), Flow("E2", "docker-01", "pihole"), Flow("E3", "docker-01", "homeassistant")];
+        await OpenGraphAsync(new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0), new TopologyRenderingOptions());
+
+        await _mapPage!.SelectLayoutAsync("organic");
+
+        var first = await _mapPage.GetNodeOriginAsync("pve-01");
+        var second = await _mapPage.GetNodeOriginAsync("docker-01");
+        FindOverlappingBoxes([[first[0], first[1], NodeWidth, NodeHeight], [second[0], second[1], NodeWidth, NodeHeight]]).Should().BeEmpty();
+    }
+
+    private const double NodeWidth = 236;
+    private const double NodeHeight = 106;
+
+    private static List<string> FindOverlappingBoxes(double[][] boxes)
+    {
+        var overlaps = new List<string>();
+        for (var i = 0; i < boxes.Length; i++)
+        {
+            for (var j = i + 1; j < boxes.Length; j++)
+            {
+                var (a, b) = (boxes[i], boxes[j]);
+                if (a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3])
+                {
+                    overlaps.Add($"[{string.Join(", ", a)}] ∩ [{string.Join(", ", b)}]");
+                }
+            }
+        }
+
+        return overlaps;
+    }
+
+    private static TopologyServerNode Audited(string name, string ipAddress) => new(name, name, ipAddress, true, [], 0, 1);
+
+    private static TopologyServerNode Remote(string name, string ipAddress) =>
+        new(name, name, ipAddress, false, [new(443, TopologyTransportProtocol.Tcp, "nginx", "")], 1, 0);
+
+    private static TopologyServiceEdge Flow(string edgeId, string sourceNodeId, string targetNodeId) =>
+        new(edgeId, sourceNodeId, targetNodeId, 443, TopologyTransportProtocol.Tcp, "curl", "nginx", 5, TopologyFlowDirection.Outbound);
 
     private static NetworkTopologyGraph CreateSampleTopologyGraph()
     {

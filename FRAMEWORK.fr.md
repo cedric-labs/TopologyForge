@@ -44,29 +44,29 @@ TopologyForge est le framework partagé .NET de **modélisation topologique, de 
       5. **Distribution angulaire uniforme des points d'attache sur les 4 bordures (`computeAllEdgeAnchors`) et routage par couloirs multi-obstacles (`findCorridorWaypoint`)** recalculés en temps réel y compris lors du déplacement manuel à la souris.
     * **4 modes de disposition géométrique (`TopologyLayoutMode`)** :
       * `Layered` : Anneaux concentriques 360° autour des serveurs audités ou colonnes étagées en quinconce.
-      * `ForceDirectedOrganic` : Simulation physique par forces (attraction de Hooke pondérée par l'activité des flux + répulsion de Coulomb + anti-chevauchement).
+      * `ForceDirectedOrganic` : Simulation physique par forces (attraction de Hooke pondérée par l'activité des flux + répulsion de Coulomb + anti-chevauchement) ; les serveurs audités restent fixes, répartis sur un cercle pour que leurs boîtes ne se chevauchent jamais.
       * `Circular` : Anneau périmétrique uniforme à 360°.
       * `Grid` : Matrice multi-colonnes équilibrée.
     * **6 méthodes de tri des serveurs (`TopologyNodeSortMethod`)** :
       * `BarycentricSugiyama` : Heuristique barycentrique/médiane multi-passes + optimisation 2-Opt.
       * `FunctionalTier` : Stratification architecturale en 4 couches (Clients ➔ Passerelles/Ingress ➔ Applications ➔ Bases de données/Infra).
-      * `SubnetCluster` : Regroupement spatial contigu par sous-réseaux IP CIDR avec enveloppes visuelles englobantes.
+      * `SubnetCluster` : Regroupement spatial contigu par sous-réseaux IP CIDR avec enveloppes visuelles englobantes ; chaque colonne commence après son sous-réseau le plus large et l'optimiseur 2-Opt n'échange que des serveurs d'un même sous-réseau, si bien que les enveloppes ne se chevauchent jamais.
       * `ConnectionDegree` : Tri par densité de trafic (nombre de connexions décroissant).
       * `Alphabetical` : Tri alphabétique par nom d'hôte.
       * `SubnetIp` : Tri logique par sous-réseau et octets d'adresse IP.
     * **Accélération par grille spatiale hachée (`SpatialHashGrid`)** :
-      * Partitionnement 2D indexant les intersections de segments et collisions boîtes/flèches par cellules locales, accélérant l'optimiseur 2-Opt sur les parcs de plus de 150 serveurs.
+      * Partitionnement 2D indexant les intersections de segments et collisions boîtes/flèches par cellules locales, accélérant l'optimiseur 2-Opt sur les cartes de plus de 150 serveurs.
     * **3 modes de routage des flèches (`TopologyEdgeRoutingMode`)** :
       * `BezierCurved` : Courbes de Bézier cubiques orientées selon les normales aux bordures avec contournement par couloirs + éventail sur liens multiples.
-      * `OrthogonalCorridors` : Couloirs orthogonaux à 90° avec pistes décalées anti-chevauchement.
+      * `OrthogonalCorridors` : Couloirs orthogonaux à 90° avec pistes décalées anti-chevauchement ; un détour autour d'une boîte passe par la ligne ou la colonne du point de passage, selon le sens du détour.
       * `DirectStraight` : Lignes directes de bordure à bordure avec écartement parallèle.
     * **Ancrage sur bordures & Pointes directionnelles (`IN` / `OUT`)** :
       * Répartition régulière et tri géométrique des points d'attache sur les 4 côtés de chaque serveur.
       * Distinction visuelle et chromatique des flux sortants (`OUT` en bleu cyan `#38bdf8`) et entrants (`IN` en vert émeraude `#10b981`).
     * **Profils et curseurs d'écartement (`TopologySpacingProfile`)** :
-      * Profils `Compact`, `Balanced`, `Spacious` (adapté aux parcs > 100 serveurs) et curseurs temps réel d'écartement des serveurs (`0.65x` à `2.4x`) et d'écartement des flèches (`6px` à `46px`).
+      * Profils `Compact`, `Balanced`, `Spacious` (adapté aux cartes de plus de 100 serveurs) et curseurs temps réel d'écartement des serveurs (`0.65x` à `2.4x`) et d'écartement des flèches (`6px` à `46px`).
     * **Contrôles de filtrage ergonomiques & Bouton "Apply Filters"** :
-      * Bouton `Apply Filters` dédié et déclenchement par validation `[Enter]` sur les champs de recherche textuelle et de ports, supprimant les recalculs intempestifs frappe par frappe pour une fluidité maximale sur les parcs denses.
+      * Bouton `Apply Filters` dédié et déclenchement par validation `[Enter]` sur les champs de recherche textuelle et de ports, supprimant les recalculs intempestifs frappe par frappe pour une fluidité maximale sur les cartes denses.
       * La recherche textuelle garde les serveurs trouvés avec leurs voisins directs et les flux qui les relient ; elle porte aussi sur le port, le processus et la cible de service de chaque flux, ce qui permet de retrouver un processus client sortant.
       * Les champs de ports acceptent des ports isolés et des plages (`"443, 8000-8080"`), comme `NetworkPortRange`.
       * Les compteurs d'en-tête (serveurs, ports de service, flux) portent sur tout le résultat filtré, toutes pages confondues.

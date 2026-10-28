@@ -61,7 +61,7 @@ var builder = new TopologyGraphBuilder(evaluator);
 var graph = builder.BuildGraph(flowRecords);
 
 var renderer = new TopologyHtmlRenderer();
-await renderer.WriteHtmlFileAsync("network_topology.html", graph, "Enterprise Fleet Topology");
+await renderer.WriteHtmlFileAsync("network_topology.html", graph, "Home Lab Topology");
 ```
 
 ---
@@ -70,14 +70,14 @@ await renderer.WriteHtmlFileAsync("network_topology.html", graph, "Enterprise Fl
 
 ## Performance & Scalability Benchmarks
 
-Automated benchmarks executed via `TopologyRenderingPerformanceTests` across synthetic enterprise network topologies:
+Automated benchmarks executed via `TopologyRenderingPerformanceTests` across synthetic network topologies:
 
 | Servers ($N$) | Links ($Y$) | Payload Size | HTML Render Time (.NET) | Headless Browser Load & Render (Playwright) | Evaluation |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **10** | 25 | 74 KB | 4 ms | 125 ms | Instantaneous |
 | **50** | 200 | 127 KB | < 1 ms | 147 ms | Instantaneous |
 | **200** | 1,000 | 359 KB | 6 ms | 172 ms | Ultra-responsive |
-| **1,000** | 5,000 | 1,533 KB | 11 ms | ~280 ms | High-density Datacenter scale |
+| **1,000** | 5,000 | 1,533 KB | 11 ms | ~280 ms | Responsive |
 
 * Environment: .NET 8.0 (Release), Playwright Chromium (Headless), Windows 11.
 * All layout calculations, Barycenter sweeps, and SVG layer injections complete within milliseconds on the client side.

@@ -44,13 +44,13 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
       5. **Uniform 4-border anchor distribution (`computeAllEdgeAnchors`) and obstacle-aware corridor routing (`findCorridorWaypoint`)** recalculated dynamically in real-time, including during mouse dragging.
     * **4 Layout Modes (`TopologyLayoutMode`)**:
       * `Layered`: Concentric rings around audited hub(s) or tiered bipartite columns.
-      * `ForceDirectedOrganic`: Physical spring-electrical simulation (Hooke attraction weighted by flow observations + Coulomb repulsion + box clearance).
+      * `ForceDirectedOrganic`: Physical spring-electrical simulation (Hooke attraction weighted by flow observations + Coulomb repulsion + box clearance); audited servers stay fixed and are spread on a circle so their boxes never overlap.
       * `Circular`: Uniform 360-degree perimeter ring.
       * `Grid`: Balanced multi-column matrix.
     * **6 Server Sorting Strategies (`TopologyNodeSortMethod`)**:
       * `BarycentricSugiyama`: Multi-pass barycenter/median heuristic with 2-Opt refinement.
       * `FunctionalTier`: 4-tier architectural stratification (Clients ➔ Gateways/Ingress ➔ Applications ➔ Databases/Infra).
-      * `SubnetCluster`: Contiguous spatial clustering by IP CIDR subnets with visual boundary enclosures.
+      * `SubnetCluster`: Contiguous spatial clustering by IP CIDR subnets with visual boundary enclosures; columns start after their widest subnet and 2-Opt swaps stay within a subnet, so enclosures never overlap.
       * `ConnectionDegree`: Traffic density sorting by descending connection count.
       * `Alphabetical`: Alphabetical ordering by hostname.
       * `SubnetIp`: Hierarchical IP address octet sorting.
@@ -58,15 +58,15 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
       * 2D spatial grid partitioning segment-segment crossings and box-edge collisions into localized buckets, accelerating 2-Opt layout optimization on 150+ nodes.
     * **3 Edge Routing Algorithms (`TopologyEdgeRoutingMode`)**:
       * `BezierCurved`: Cubic Bézier curves respecting boundary normal vectors with corridor detour and multi-edge fanout.
-      * `OrthogonalCorridors`: 90-degree orthogonal corridors with lane-offset anti-collision spacing.
+      * `OrthogonalCorridors`: 90-degree orthogonal corridors with lane-offset anti-collision spacing; a detour around a blocking box runs through the waypoint row or column, whichever the detour follows.
       * `DirectStraight`: Straight border-to-border vectors with parallel spacing.
     * **Border Anchoring & Directional Terminals (`IN` / `OUT`)**:
       * Equidistant border anchor distribution across all four sides of each server.
       * High-contrast chromatic differentiation: outbound flows (`OUT` in cyan `#38bdf8`) vs. inbound flows (`IN` in emerald `#10b981`).
     * **Spacing Profiles & Live Sliders (`TopologySpacingProfile`)**:
-      * Presets: `Compact`, `Balanced`, `Spacious` (tailored for estates > 100 servers) with real-time scaling sliders for node spacing (`0.65x` to `2.4x`) and edge separation (`6px` to `46px`).
+      * Presets: `Compact`, `Balanced`, `Spacious` (for maps of more than 100 servers) with real-time scaling sliders for node spacing (`0.65x` to `2.4x`) and edge separation (`6px` to `46px`).
     * **Ergonomic Filter Controls & "Apply Filters" Button**:
-      * Dedicated `Apply Filters` trigger and `[Enter]` shortcut on text search and port fields to eliminate laggy keystroke recalculations on dense enterprise maps.
+      * Dedicated `Apply Filters` trigger and `[Enter]` shortcut on text search and port fields to eliminate laggy keystroke recalculations on dense maps.
       * Text search keeps the matching servers together with their direct neighbours and the flows between them; it also matches the port, process and service target of each flow, so an outbound client process can be found.
       * Port fields accept single ports and ranges (`"443, 8000-8080"`), like `NetworkPortRange`.
       * Header counters (servers, service ports, flows) report the whole filtered result, across all pages.
