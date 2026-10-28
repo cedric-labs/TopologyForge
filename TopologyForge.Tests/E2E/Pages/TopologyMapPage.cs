@@ -151,6 +151,12 @@ public sealed class TopologyMapPage(IPage page)
             "path => { const a = path.getPointAtLength(0), b = path.getPointAtLength(path.getTotalLength()); return [(a.x + b.x) / 2, (a.y + b.y) / 2]; }");
 
     /// <summary>
+    /// Clé de paire non orientée que la page calcule pour regrouper les flux entre deux serveurs.
+    /// </summary>
+    public Task<string> UndirectedPairKeyAsync(string firstNodeId, string secondNodeId) =>
+        Page.EvaluateAsync<string>("a => undirectedPairKey(a[0], a[1])", new[] { firstNodeId, secondNodeId });
+
+    /// <summary>
     /// Évalue le test de collision de la page entre un segment et la boîte d'un serveur placée en (boxX, boxY).
     /// </summary>
     public Task<bool> SegmentIntersectsNodeBoxAsync(double x1, double y1, double x2, double y2, double boxX, double boxY, double padding) =>

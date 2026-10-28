@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$ProjectKey = "TopologyForge",
     [string]$SonarHost = $(if ($env:SONAR_HOST_URL) { $env:SONAR_HOST_URL } else { "http://localhost:9000" }),
@@ -53,6 +53,10 @@ if (-not $SkipFormat) {
 Remove-Item -Path "$ScriptRoot/TestResults" -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path "$ScriptRoot/.sonarqube" -Recurse -Force -ErrorAction SilentlyContinue
 
+# Couverture du script de la carte, mesurée par les tests E2E Playwright (voir TopologyForge.Tests/E2E/ScriptCoverage)
+$JsCoverageReport = Join-Path $ScriptRoot "TestResults/js-coverage/lcov.info"
+$env:TOPOLOGYFORGE_JS_LCOV_PATH = $JsCoverageReport
+
 # 3. SonarScanner Begin
 $useSonar = (-not $SkipSonar) -and (-not [string]::IsNullOrWhiteSpace($SonarToken))
 if ($useSonar) {
@@ -66,6 +70,7 @@ if ($useSonar) {
         "/d:sonar.qualitygate.wait=true",
         "/d:sonar.cs.opencover.reportsPaths=**/TestResults/**/coverage.opencover.xml",
         "/d:sonar.cs.vstest.reportsPaths=**/TestResults/**/*.trx",
+        "/d:sonar.javascript.lcov.reportPaths=$JsCoverageReport",
         "/d:sonar.exclusions=**/bin/**,**/obj/**,verify.ps1",
         "/d:sonar.coverage.exclusions=verify.ps1",
         "/d:sonar.cpd.exclusions=verify.ps1",

@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="README.md" />
+    <EmbeddedResource Include="Rendering\topology-map.js" LogicalName="TopologyForge.Rendering.topology-map.js" />
   </ItemGroup>
 
 </Project>

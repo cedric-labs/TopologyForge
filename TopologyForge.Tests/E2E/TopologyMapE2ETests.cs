@@ -5,6 +5,7 @@ using Microsoft.Playwright;
 using TopologyForge.Models;
 using TopologyForge.Rendering;
 using TopologyForge.Tests.E2E.Pages;
+using TopologyForge.Tests.E2E.ScriptCoverage;
 
 namespace TopologyForge.Tests.E2E;
 
@@ -17,6 +18,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     private IBrowser? _browser;
     private IPage? _page;
     private TopologyMapPage? _mapPage;
+    private MapScriptCoverageRecorder? _coverageRecorder;
     private readonly List<string> _tempHtmlPaths = [];
     private readonly List<string> _pageErrors = [];
 
@@ -29,6 +31,11 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
             ViewportSize = new ViewportSize { Width = 1600, Height = 1000 }
         });
         _page.PageError += (_, message) => _pageErrors.Add(message);
+        if (MapScriptLcovReport.OutputPath is not null)
+        {
+            _coverageRecorder = await MapScriptCoverageRecorder.StartAsync(_page);
+        }
+
         _mapPage = new TopologyMapPage(_page);
         await OpenGraphAsync(CreateSampleTopologyGraph(), new TopologyRenderingOptions { Title = "E2E Home Lab Map" });
     }
@@ -38,11 +45,21 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         var htmlPath = Path.Combine(Path.GetTempPath(), $"topology_e2e_{Guid.NewGuid():N}.html");
         _tempHtmlPaths.Add(htmlPath);
         await new TopologyHtmlRenderer().WriteHtmlFileAsync(htmlPath, graph, options);
+        if (_coverageRecorder is not null)
+        {
+            await _coverageRecorder.CollectAsync();
+        }
+
         await _mapPage!.NavigateToFileAsync(htmlPath);
     }
 
     public async Task DisposeAsync()
     {
+        if (_coverageRecorder is not null)
+        {
+            await _coverageRecorder.CollectAsync();
+        }
+
         if (_page is not null)
         {
             await _page.CloseAsync();
@@ -439,6 +456,29 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         // Re-checking restores the zones
         await _mapPage.ShowZonesCheckbox.CheckAsync();
         (await _mapPage.SubnetZones.CountAsync()).Should().Be(zoneCount);
+    }
+
+    [Theory]
+    [InlineData("nas", "proxy")]
+    [InlineData("proxy", "nas")]
+    public async Task UndirectedPairKey_WhenEndpointsAreSwapped_ReturnsTheSameOrdinalKey(string firstNodeId, string secondNodeId)
+    {
+        _mapPage.Should().NotBeNull();
+
+        var key = await _mapPage!.UndirectedPairKeyAsync(firstNodeId, secondNodeId);
+
+        key.Should().Be("nas::proxy");
+    }
+
+    [Fact]
+    public async Task UndirectedPairKey_WhenIdsDifferOnlyByCase_OrdersUppercaseFirst()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Même ordre que l'ancien tri par défaut des chaînes : ordinal UTF-16, majuscules avant minuscules.
+        var key = await _mapPage!.UndirectedPairKeyAsync("nas", "NAS");
+
+        key.Should().Be("NAS::nas");
     }
 
     [Fact]

@@ -406,6 +406,26 @@ public sealed class TopologyHtmlRendererTests
     }
 
     [Fact]
+    public void RenderHtml_WhenRendered_InlinesTheEmbeddedMapScriptResource()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var graph = CreateSampleGraph();
+        using var resourceStream = typeof(TopologyHtmlRenderer).Assembly
+            .GetManifestResourceStream("TopologyForge.Rendering.topology-map.js");
+        resourceStream.Should().NotBeNull();
+        using var reader = new StreamReader(resourceStream!);
+        var mapScript = reader.ReadToEnd();
+
+        // Act
+        var html = renderer.RenderHtml(graph, "Embedded Script Test");
+
+        // Assert
+        mapScript.Should().Contain("function renderGraph(");
+        html.Should().Contain(mapScript);
+    }
+
+    [Fact]
     public void RenderHtml_WhenRendered_PlacesSidebarButtonInKpiBarAndEmbedsOrphanFilterLogic()
     {
         // Arrange

@@ -33,6 +33,7 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
   * `TopologyCsvParser` (`ITopologyCsvParser`): Streaming asynchronous or in-memory parsing of network flow logs (such as `NetFlowAudit`) with dynamic column header discovery.
 * **Standalone HTML5 Map Rendering & 5-Pass Crossing Minimization (`TopologyForge.Rendering`)**:
   * `TopologyHtmlRenderer` (`ITopologyHtmlRenderer`) & `TopologyRenderingOptions`:
+    * **Map script as an embedded resource**: the page's JavaScript lives in `TopologyForge/Rendering/topology-map.js`, compiled into the assembly as `TopologyForge.Rendering.topology-map.js`, read once and copied into every page after the `TOPOLOGY_DATA` payload. The generated HTML file stays self-contained.
     * **Activity-Based Pagination & Chunked Loading (`DefaultPageSize = 100`)**:
       * Prioritized server ordering (locally audited nodes, connection degree, and observation density) with automatic preservation of connected hosts on the current page.
       * Integrated pagination toolbar: `◀ Prev`, `Next ▶`, `+100 Servers`, and `Show All`.

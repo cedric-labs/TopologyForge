@@ -33,6 +33,7 @@ TopologyForge est le framework partagé .NET de **modélisation topologique, de 
   * `TopologyCsvParser` (`ITopologyCsvParser`) : Lecture asynchrone ou en mémoire de journaux CSV (dont `NetFlowAudit`) avec détection dynamique des colonnes.
 * **Rendu Cartographique HTML5 Autonome & Routage Anti-Croisement en 5 Passes (`TopologyForge.Rendering`)** :
   * `TopologyHtmlRenderer` (`ITopologyHtmlRenderer`) & `TopologyRenderingOptions` :
+    * **Script de la carte en ressource embarquée** : le JavaScript de la page est dans `TopologyForge/Rendering/topology-map.js`, compilé dans l'assembly sous le nom `TopologyForge.Rendering.topology-map.js`, lu une seule fois et copié dans chaque page après la charge utile `TOPOLOGY_DATA`. Le fichier HTML généré reste autonome.
     * **Pagination intelligente par activité & Chargement par tranche (`DefaultPageSize = 100`)** :
       * Classement prioritaire (serveurs audités locaux, degré de connexion et volume d'observations) avec préservation automatique des serveurs locaux reliés à la page courante.
       * Barre de pagination intégrée : `◀ Prev`, `Next ▶`, `+100 Servers` et `Show All`.
