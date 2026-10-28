@@ -61,6 +61,8 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
       * `BezierCurved`: Cubic Bézier curves respecting boundary normal vectors with corridor detour and multi-edge fanout.
       * `OrthogonalCorridors`: 90-degree orthogonal corridors with lane-offset anti-collision spacing; a detour around a blocking box runs through the waypoint row or column, whichever the detour follows.
       * `DirectStraight`: Straight border-to-border vectors with parallel spacing.
+    * **Arrow Label Placement (`placeEdgeLabels`)**:
+      * Each `IN` / `OUT :port/protocol` label sits at the middle of its arrow; when that spot is taken, it moves up or down one row at a time (up to 12 shifts) until it no longer overlaps another label. Labels of the selected server are placed first.
     * **Border Anchoring & Directional Terminals (`IN` / `OUT`)**:
       * Equidistant border anchor distribution across all four sides of each server.
       * High-contrast chromatic differentiation: outbound flows (`OUT` in cyan `#38bdf8`) vs. inbound flows (`IN` in emerald `#10b981`).
