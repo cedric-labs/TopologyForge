@@ -18,5 +18,12 @@ public enum EdgeAggregationMode
     /// <summary>
     /// Conserve une arête distincte par port d'écoute avec répartition complète des ancres.
     /// </summary>
-    None
+    None,
+
+    /// <summary>
+    /// Fusionne tous les flux d'une même paire de serveurs, quels que soient leur orientation et leur direction,
+    /// en une seule arête : à double pointe si des flux circulent dans les deux sens, de style <c>Mixed</c>
+    /// (calque <c>layer_mixed</c>) si les flux fusionnés ne partagent pas la même direction.
+    /// </summary>
+    ByServerPair
 }

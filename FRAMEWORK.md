@@ -86,6 +86,10 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
     * **Standalone Vector SVG Export (`Export SVG`)**:
       * One-click vector extraction exporting the active topology view (including custom user drag positions and active filters) into a standalone `network_topology_map.svg` file.
       * Automatic bounding box (`viewBox`) calculation with balanced padding and embedded dark canvas background (`#0b0f19`) for seamless embedding in Word, PowerPoint, Visio, Draw.io, or Inkscape.
+    * **Draw.io Export Edge Aggregation (`EdgeAggregationMode`, `TopologyToDrawioAdapter`)**:
+      * `AdaptiveThreshold` (default) keeps one edge per port up to three ports between two servers in the same direction, then merges them; `ByDirection` always merges per source, target and direction; `None` keeps one edge per port.
+      * `ByServerPair` merges every flow of a server pair into one edge, as the HTML map does when ports are hidden: two arrow heads (`DiagramEdgeDirection.Bidirectional`) when flows run both ways, the `Inbound` or `Outbound` style when all merged flows share it, otherwise the `Mixed` style on the `layer_mixed` layer. The label lists the ports; metadata gives `ports`, `flow_count` and `total_observations`.
+      * `DrawioXmlRenderer` honours `DiagramEdge.Direction`: `Bidirectional` draws the end arrow at both ends, `Undirected` draws none.
     * **Dashboard Ergonomics & Orphan Pruning**:
       * **Header-Aligned Sidebar Toggle**: Integrated into the top KPI banner directly beside *Servers*, avoiding any section heading overlap.
       * **Auto-Pruning of Orphan Nodes**: Nodes losing all active links and listeners after filtering are automatically pruned from the canvas and live KPI metrics.

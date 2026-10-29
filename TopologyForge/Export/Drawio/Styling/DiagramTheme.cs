@@ -108,6 +108,7 @@ public sealed record DiagramTheme(
             ["Default"] = new(StrokeColor: "#38bdf8", StrokeWidth: 2, FontColor: "#94a3b8"),
             ["Inbound"] = new(StrokeColor: "#10b981", StrokeWidth: 2, FontColor: "#6ee7b7"),
             ["Outbound"] = new(StrokeColor: "#38bdf8", StrokeWidth: 2, FontColor: "#93c5fd"),
+            ["Mixed"] = new(StrokeColor: "#8b9dc3", StrokeWidth: 2, FontColor: "#cbd5e1"),
             ["Highlighted"] = new(StrokeColor: "#f59e0b", StrokeWidth: 3, FontColor: "#fbbf24")
         });
 
@@ -167,6 +168,7 @@ public sealed record DiagramTheme(
             ["Default"] = new(StrokeColor: "#0284c7", StrokeWidth: 2, FontColor: "#475569"),
             ["Inbound"] = new(StrokeColor: "#059669", StrokeWidth: 2, FontColor: "#047857"),
             ["Outbound"] = new(StrokeColor: "#0284c7", StrokeWidth: 2, FontColor: "#0369a1"),
+            ["Mixed"] = new(StrokeColor: "#64748b", StrokeWidth: 2, FontColor: "#475569"),
             ["Highlighted"] = new(StrokeColor: "#d97706", StrokeWidth: 3, FontColor: "#b45309")
         });
 }

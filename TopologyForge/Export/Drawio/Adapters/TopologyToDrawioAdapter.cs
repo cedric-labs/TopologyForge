@@ -18,6 +18,7 @@ public sealed class TopologyToDrawioAdapter(
     private const double NodeWidth = 200.0;
     private const double ContainerPadding = 24.0;
     private const double ContainerHeaderOffset = 36.0;
+    private const string MixedLayerId = "layer_mixed";
 
     /// <summary>
     /// Convertit le graphe réseau en document Draw.io avec disposition géométrique arborescente et routage sans collision.
@@ -32,14 +33,20 @@ public sealed class TopologyToDrawioAdapter(
         var router = new TopologyEdgeRouter(gridSize, fanSpacing);
         var routedEdges = router.RouteEdges(nodes, edges, forceVerticalTreeAnchors: true);
 
+        var layers = new List<DiagramLayer>
+        {
+            new("layer_infra", "Infrastructure (Serveurs & Zones)", Visible: true),
+            new("layer_inbound", "Flux Entrants (Inbound)", Visible: true),
+            new("layer_outbound", "Flux Sortants (Outbound)", Visible: true)
+        };
+        if (edges.Any(e => e.LayerId == MixedLayerId))
+        {
+            layers.Add(new DiagramLayer(MixedLayerId, "Flux Mixtes (Inbound + Outbound)", Visible: true));
+        }
+
         return new DiagramDocument(
             Title: title,
-            Layers:
-            [
-                new DiagramLayer("layer_infra", "Infrastructure (Serveurs & Zones)", Visible: true),
-                new DiagramLayer("layer_inbound", "Flux Entrants (Inbound)", Visible: true),
-                new DiagramLayer("layer_outbound", "Flux Sortants (Outbound)", Visible: true)
-            ],
+            Layers: layers,
             Containers: containers,
             Nodes: nodes,
             Edges: routedEdges,
@@ -177,6 +184,11 @@ public sealed class TopologyToDrawioAdapter(
 
     private IReadOnlyList<DiagramEdge> BuildAndAggregateEdges(IReadOnlyList<TopologyServiceEdge> edges)
     {
+        if (aggregationMode == EdgeAggregationMode.ByServerPair)
+        {
+            return BuildServerPairEdges(edges);
+        }
+
         if (aggregationMode == EdgeAggregationMode.None)
         {
             return edges.Select(e =>
@@ -237,10 +249,7 @@ public sealed class TopologyToDrawioAdapter(
             else
             {
                 // Fusion en un lien agrégé consolidé
-                var ports = list.Select(e => $":{e.TargetPort}/{e.Protocol}").Distinct().ToList();
-                string label = ports.Count <= 2
-                    ? string.Join(", ", ports)
-                    : $"{ports[0]}, {ports[1]} (+{ports.Count - 2})";
+                string label = FormatPortsLabel(list);
 
                 long totalObservations = list.Sum(e => e.ObservationCount);
 
@@ -261,6 +270,50 @@ public sealed class TopologyToDrawioAdapter(
         }
 
         return aggregatedEdges;
+    }
+
+    // Même regroupement que la carte HTML quand ses ports sont masqués : une arête par paire non orientée, dont la
+    // couleur ne garde la direction IN/OUT que si tous les flux fusionnés la partagent.
+    private static List<DiagramEdge> BuildServerPairEdges(IReadOnlyList<TopologyServiceEdge> edges)
+    {
+        return edges
+            .GroupBy(e => string.CompareOrdinal(e.SourceNodeId, e.TargetNodeId) <= 0
+                ? (First: e.SourceNodeId, Second: e.TargetNodeId)
+                : (First: e.TargetNodeId, Second: e.SourceNodeId))
+            .Select(group =>
+            {
+                var list = group.ToList();
+                var first = list[0];
+                bool flowsBothWays = list.Exists(e => e.SourceNodeId != first.SourceNodeId);
+                var directions = list.Select(e => e.FlowDirection).Distinct().ToList();
+                var (layer, styleKey) = directions.Count > 1
+                    ? (MixedLayerId, "Mixed")
+                    : directions[0] == TopologyFlowDirection.Inbound ? ("layer_inbound", "Inbound") : ("layer_outbound", "Outbound");
+
+                return new DiagramEdge(
+                    Id: $"pair_{group.Key.First}_{group.Key.Second}",
+                    SourceNodeId: first.SourceNodeId,
+                    TargetNodeId: first.TargetNodeId,
+                    TargetPortLabel: FormatPortsLabel(list),
+                    LayerId: layer,
+                    StyleKey: styleKey,
+                    Direction: flowsBothWays ? DiagramEdgeDirection.Bidirectional : DiagramEdgeDirection.Directed,
+                    Metadata: new Dictionary<string, string>
+                    {
+                        ["ports"] = string.Join(",", list.Select(e => e.TargetPort).Distinct()),
+                        ["flow_count"] = list.Count.ToString(CultureInfo.InvariantCulture),
+                        ["total_observations"] = list.Sum(e => e.ObservationCount).ToString(CultureInfo.InvariantCulture)
+                    });
+            })
+            .ToList();
+    }
+
+    private static string FormatPortsLabel(IEnumerable<TopologyServiceEdge> edges)
+    {
+        var ports = edges.Select(e => $":{e.TargetPort}/{e.Protocol}").Distinct().ToList();
+        return ports.Count <= 2
+            ? string.Join(", ", ports)
+            : $"{ports[0]}, {ports[1]} (+{ports.Count - 2})";
     }
 
     private static string ExtractSubnetPrefix(string ipAddress)

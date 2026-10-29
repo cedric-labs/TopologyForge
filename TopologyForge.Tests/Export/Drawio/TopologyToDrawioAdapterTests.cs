@@ -2,6 +2,7 @@ namespace TopologyForge.Tests.Export.Drawio;
 
 using AwesomeAssertions;
 using TopologyForge.Export.Drawio.Adapters;
+using TopologyForge.Export.Drawio.Model;
 using TopologyForge.Models;
 using Xunit;
 
@@ -98,5 +99,59 @@ public sealed class TopologyToDrawioAdapterTests
         aggEdge.TargetPortLabel.Should().Contain("(+2)");
         aggEdge.Metadata.Should().ContainKey("total_observations")
             .WhoseValue.Should().Be("1000");
+    }
+
+    [Fact]
+    public void Convert_WhenByServerPairAndFlowsGoBothWays_MergesThemIntoOneBidirectionalMixedEdge()
+    {
+        // Arrange
+        var desktop = new TopologyServerNode("desktop", "desktop", "192.168.1.10", true, [], 1, 1);
+        var proxy = new TopologyServerNode("proxy", "proxy", "192.168.1.30", false, [], 1, 1);
+        var edges = new List<TopologyServiceEdge>
+        {
+            new("e1", "desktop", "proxy", 443, TopologyTransportProtocol.Tcp, "curl", "nginx", 25, TopologyFlowDirection.Outbound),
+            new("e2", "proxy", "desktop", 8080, TopologyTransportProtocol.Tcp, "nginx", "kestrel", 40, TopologyFlowDirection.Inbound)
+        };
+        var graph = new NetworkTopologyGraph(DateTimeOffset.UtcNow, [desktop, proxy], edges, 65, 0);
+        var adapter = new TopologyToDrawioAdapter(aggregationMode: EdgeAggregationMode.ByServerPair);
+
+        // Act
+        var doc = adapter.Convert(graph);
+
+        // Assert
+        var pairEdge = doc.Edges.Should().ContainSingle().Subject;
+        pairEdge.Direction.Should().Be(DiagramEdgeDirection.Bidirectional);
+        pairEdge.StyleKey.Should().Be("Mixed");
+        pairEdge.LayerId.Should().Be("layer_mixed");
+        pairEdge.TargetPortLabel.Should().Be(":443/Tcp, :8080/Tcp");
+        pairEdge.Metadata.Should().ContainKey("flow_count").WhoseValue.Should().Be("2");
+        pairEdge.Metadata.Should().ContainKey("total_observations").WhoseValue.Should().Be("65");
+        doc.Layers.Select(l => l.Id).Should().Contain("layer_mixed");
+    }
+
+    [Fact]
+    public void Convert_WhenByServerPairAndFlowsShareOneDirection_KeepsTheDirectionStyleAndOneHead()
+    {
+        // Arrange
+        var desktop = new TopologyServerNode("desktop", "desktop", "192.168.1.10", true, [], 0, 2);
+        var nas = new TopologyServerNode("nas", "nas", "192.168.1.50", false, [], 2, 0);
+        var edges = new List<TopologyServiceEdge>
+        {
+            new("e1", "desktop", "nas", 443, TopologyTransportProtocol.Tcp, "curl", "nginx", 5, TopologyFlowDirection.Outbound),
+            new("e2", "desktop", "nas", 873, TopologyTransportProtocol.Tcp, "agent", "rsync", 5, TopologyFlowDirection.Outbound)
+        };
+        var graph = new NetworkTopologyGraph(DateTimeOffset.UtcNow, [desktop, nas], edges, 10, 0);
+        var adapter = new TopologyToDrawioAdapter(aggregationMode: EdgeAggregationMode.ByServerPair);
+
+        // Act
+        var doc = adapter.Convert(graph);
+
+        // Assert
+        var pairEdge = doc.Edges.Should().ContainSingle().Subject;
+        pairEdge.Direction.Should().Be(DiagramEdgeDirection.Directed);
+        pairEdge.SourceNodeId.Should().Be("desktop");
+        pairEdge.StyleKey.Should().Be("Outbound");
+        pairEdge.LayerId.Should().Be("layer_outbound");
+        doc.Layers.Select(l => l.Id).Should().NotContain("layer_mixed");
     }
 }

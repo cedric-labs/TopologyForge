@@ -91,6 +91,8 @@ public sealed class DrawioModelAndStyleTests
         // Assert
         dark.RoleStyles.Should().ContainKeys("Standard", "AuditedRoot", "Database", "ExternalGateway");
         light.RoleStyles.Should().ContainKeys("Standard", "AuditedRoot", "Database", "ExternalGateway");
+        dark.FlowStyles.Should().ContainKeys("Inbound", "Outbound", "Mixed");
+        light.FlowStyles.Should().ContainKeys("Inbound", "Outbound", "Mixed");
         dark.CanvasBackgroundColor.Should().Be("#0f172a");
         light.CanvasBackgroundColor.Should().Be("#ffffff");
     }

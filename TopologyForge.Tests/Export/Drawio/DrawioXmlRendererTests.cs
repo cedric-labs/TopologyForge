@@ -66,4 +66,29 @@ public sealed class DrawioXmlRendererTests
             .And.Contain(":443/TCP")
             .And.Contain("<Array as=\"points\">");
     }
+
+    [Theory]
+    [InlineData(DiagramEdgeDirection.Directed, "endArrow=classic;startArrow=none;")]
+    [InlineData(DiagramEdgeDirection.Bidirectional, "endArrow=classic;startArrow=classic;")]
+    [InlineData(DiagramEdgeDirection.Undirected, "endArrow=none;startArrow=none;")]
+    public void Render_WhenEdgeHasDirection_DrawsTheMatchingArrowHeads(DiagramEdgeDirection direction, string expectedArrows)
+    {
+        // Arrange
+        var document = new DiagramDocument(
+            Title: "Arrows",
+            Layers: [new DiagramLayer("layer_flows", "Flows")],
+            Containers: [],
+            Nodes:
+            [
+                new DiagramNode("desktop", "desktop", "192.168.1.10", 0, 0, 200, 90),
+                new DiagramNode("nas", "nas", "192.168.1.50", 300, 0, 200, 90)
+            ],
+            Edges: [new DiagramEdge("e1", "desktop", "nas", Direction: direction)]);
+
+        // Act
+        string xml = new DrawioXmlRenderer().Render(document, DiagramTheme.DarkModern);
+
+        // Assert
+        xml.Should().Contain(expectedArrows);
+    }
 }

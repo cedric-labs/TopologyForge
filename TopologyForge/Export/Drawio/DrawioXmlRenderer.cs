@@ -360,6 +360,13 @@ public sealed class DrawioXmlRenderer
 
         int dashedVal = def.Dashed ? 1 : 0;
 
-        return $"{routingStyle}html=1;strokeColor={def.StrokeColor};strokeWidth={def.StrokeWidth.ToString(CultureInfo.InvariantCulture)};fontColor={def.FontColor};fontSize={def.FontSize.ToString(CultureInfo.InvariantCulture)};dashed={dashedVal.ToString(CultureInfo.InvariantCulture)};endArrow={def.ArrowEnd};startArrow={def.ArrowStart};{exitAnchor}{entryAnchor}";
+        var (endArrow, startArrow) = edge.Direction switch
+        {
+            DiagramEdgeDirection.Bidirectional => (def.ArrowEnd, def.ArrowEnd),
+            DiagramEdgeDirection.Undirected => ("none", "none"),
+            _ => (def.ArrowEnd, def.ArrowStart)
+        };
+
+        return $"{routingStyle}html=1;strokeColor={def.StrokeColor};strokeWidth={def.StrokeWidth.ToString(CultureInfo.InvariantCulture)};fontColor={def.FontColor};fontSize={def.FontSize.ToString(CultureInfo.InvariantCulture)};dashed={dashedVal.ToString(CultureInfo.InvariantCulture)};endArrow={endArrow};startArrow={startArrow};{exitAnchor}{entryAnchor}";
     }
 }

@@ -86,6 +86,10 @@ TopologyForge est le framework partagé .NET de **modélisation topologique, de 
     * **Export Vectoriel SVG Autonome (`Export SVG`)** :
       * Bouton intégré dans la barre d'outils permettant d'extraire la vue courante (avec filtres, sélections et déplacements manuels) sous forme de fichier vectoriel autonome `network_topology_map.svg`.
       * Calcul automatique du cadre englobant (`viewBox`) avec marges équilibrées et fond sombre vectoriel intégré (`#0b0f19`) pour insertion directe dans Microsoft Word, PowerPoint, Visio, Draw.io ou Inkscape sans perte de netteté.
+    * **Agrégation des arêtes de l'export Draw.io (`EdgeAggregationMode`, `TopologyToDrawioAdapter`)** :
+      * `AdaptiveThreshold` (par défaut) garde une arête par port jusqu'à trois ports entre deux serveurs dans le même sens, puis les fusionne ; `ByDirection` fusionne toujours par source, cible et direction ; `None` garde une arête par port.
+      * `ByServerPair` fusionne tous les flux d'une paire de serveurs en une seule arête, comme la carte HTML quand les ports sont masqués : deux pointes (`DiagramEdgeDirection.Bidirectional`) quand des flux circulent dans les deux sens, le style `Inbound` ou `Outbound` quand tous les flux fusionnés le partagent, sinon le style `Mixed` sur le calque `layer_mixed`. L'étiquette liste les ports ; les métadonnées donnent `ports`, `flow_count` et `total_observations`.
+      * `DrawioXmlRenderer` respecte `DiagramEdge.Direction` : `Bidirectional` dessine la pointe de fin aux deux extrémités, `Undirected` n'en dessine aucune.
     * **Ergonomie du Tableau de Bord & Filtrage Dynamique Précis** :
       * **Bouton Sidebar repositionné** : Intégré directement dans la barre d'en-tête KPI à gauche de l'indicateur *Servers*, libérant totalement les titres de sections sans aucun chevauchement.
       * **Sidebar compacte sans ascenseur par défaut** : Échelle et paddings verticaux calibrés pour afficher 100 % des options d'un coup d'œil sans barre de défilement vertical.
