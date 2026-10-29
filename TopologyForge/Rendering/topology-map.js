@@ -1520,6 +1520,55 @@ function renderInspector(node, edges, allNodesMap) {
   `;
 }
 
+function describeFlowEdge(e, siblings, fanSpacing) {
+  const siblingIdx = siblings.indexOf(e);
+  // Le rang dans l'éventail est attribué dans l'ordre canonique de la paire, mais le routage calcule sa normale
+  // dans le sens de l'arête : une arête B→A doit inverser son décalage pour rester du côté que lui assigne le rang.
+  const isCanonicalOrder = e.sourceNodeId <= e.targetNodeId;
+  const isInbound = e.direction === 'IN';
+  return {
+    edge: e,
+    edgeId: e.edgeId,
+    fanOffset: (siblingIdx - (siblings.length - 1) / 2) * fanSpacing * (isCanonicalOrder ? 1 : -1),
+    stroke: isInbound ? '#10b981' : '#38bdf8',
+    markerStart: isInbound ? 'url(#originIn)' : 'url(#originOut)',
+    markerEnd: isInbound ? 'url(#arrowIn)' : 'url(#arrowOut)',
+    isDoubleHeaded: false,
+    label: `${isInbound ? 'IN' : 'OUT'} :${e.targetPort}/${e.protocol}`,
+    labelFill: isInbound ? '#6ee7b7' : '#bae6fd',
+    tooltip: null
+  };
+}
+
+const PAIR_EDGE_STYLES = {
+  IN: { stroke: '#10b981', arrow: 'url(#arrowIn)', origin: 'url(#originIn)' },
+  OUT: { stroke: '#38bdf8', arrow: 'url(#arrowOut)', origin: 'url(#originOut)' },
+  MIXED: { stroke: '#8b9dc3', arrow: 'url(#arrowMixed)', origin: 'url(#originMixed)' }
+};
+
+// Sans étiquettes de ports, l'éventail des flux d'une paire n'apporte plus d'information et encombre la carte :
+// une seule flèche les résume, avec une pointe à chaque extrémité qui reçoit un flux. Elle ne garde la couleur
+// IN ou OUT que si tous ses flux la partagent ; les ports restent lisibles dans l'infobulle et l'inspecteur.
+function describePairEdge(pairKey, flows) {
+  const edge = flows[0];
+  const isDoubleHeaded = flows.some(f => f.sourceNodeId !== edge.sourceNodeId);
+  const directions = new Set(flows.map(f => f.direction === 'IN' ? 'IN' : 'OUT'));
+  const style = PAIR_EDGE_STYLES[directions.size === 1 ? [...directions][0] : 'MIXED'];
+  const ports = [...new Set(flows.map(f => `${f.targetPort}/${f.protocol}`))];
+  return {
+    edge,
+    edgeId: pairKey,
+    fanOffset: 0,
+    stroke: style.stroke,
+    markerStart: isDoubleHeaded ? style.arrow : style.origin,
+    markerEnd: style.arrow,
+    isDoubleHeaded,
+    label: null,
+    labelFill: null,
+    tooltip: `${flows.length} ${flows.length === 1 ? 'flow' : 'flows'}: ${ports.join(', ')}`
+  };
+}
+
 function renderGraph(recomputePositions = false) {
   const portFilter = buildPortFilter();
   const { nodes, edges } = filterAndPaginateGraph();
@@ -1539,15 +1588,19 @@ function renderGraph(recomputePositions = false) {
     pairBuckets.get(pairKey).push(e);
   });
 
-  const anchorMap = computeAllEdgeAnchors(nodes, edges);
+  const showPorts = !showPortsCheck || showPortsCheck.checked;
+  const drawnEdges = showPorts
+    ? edges.map(e => describeFlowEdge(e, pairBuckets.get(undirectedPairKey(e.sourceNodeId, e.targetNodeId)) || [e], fanSpacing))
+    : Array.from(pairBuckets, ([pairKey, flows]) => describePairEdge(pairKey, flows));
+  const anchorMap = computeAllEdgeAnchors(nodes, drawnEdges.map(drawn => drawn.edge));
 
   const edgesFrag = document.createDocumentFragment();
   const labelsFrag = document.createDocumentFragment();
   const nodesFrag = document.createDocumentFragment();
   const pendingLabels = [];
-  const showPorts = !showPortsCheck || showPortsCheck.checked;
 
-  edges.forEach(e => {
+  drawnEdges.forEach(drawn => {
+    const e = drawn.edge;
     const p1 = nodePositions.get(e.sourceNodeId);
     const p2 = nodePositions.get(e.targetNodeId);
     if (!p1 || !p2) return;
@@ -1555,42 +1608,34 @@ function renderGraph(recomputePositions = false) {
     const isHighlighted = selectedNodeId && (e.sourceNodeId === selectedNodeId || e.targetNodeId === selectedNodeId);
     const isDimmed = selectedNodeId && !isHighlighted;
 
-    const pairKey = undirectedPairKey(e.sourceNodeId, e.targetNodeId);
-    const siblings = pairBuckets.get(pairKey) || [e];
-    const siblingIdx = siblings.indexOf(e);
-    // Le rang dans l'éventail est attribué dans l'ordre canonique de la paire, mais le routage calcule sa normale
-    // dans le sens de l'arête : une arête B→A doit inverser son décalage pour rester du côté que lui assigne le rang.
-    const isCanonicalOrder = e.sourceNodeId <= e.targetNodeId;
-    const fanOffset = (siblingIdx - (siblings.length - 1) / 2) * fanSpacing * (isCanonicalOrder ? 1 : -1);
-
     const startAnchor = anchorMap.get(`${e.edgeId}::src`) || { x: p1.x + NODE_W / 2, y: p1.y + NODE_H / 2, side: 'right' };
     const endAnchor = anchorMap.get(`${e.edgeId}::dst`) || { x: p2.x + NODE_W / 2, y: p2.y + NODE_H / 2, side: 'left' };
 
-    const waypoint = findCorridorWaypoint(startAnchor, endAnchor, e.sourceNodeId, e.targetNodeId, nodes, fanOffset);
-    const route = buildRoutedEdgePath(startAnchor, endAnchor, routingMode, fanOffset, waypoint);
-
-    const isInbound = e.direction === 'IN';
-    const strokeColor = isHighlighted ? '#f59e0b' : (isInbound ? '#10b981' : '#38bdf8');
-    const markerEnd = isHighlighted ? 'url(#arrowHighlight)' : (isInbound ? 'url(#arrowIn)' : 'url(#arrowOut)');
-    const markerStart = isInbound ? 'url(#originIn)' : 'url(#originOut)';
+    const waypoint = findCorridorWaypoint(startAnchor, endAnchor, e.sourceNodeId, e.targetNodeId, nodes, drawn.fanOffset);
+    const route = buildRoutedEdgePath(startAnchor, endAnchor, routingMode, drawn.fanOffset, waypoint);
 
     const path = document.createElementNS(SVG_NS, 'path');
     path.setAttribute('d', route.d);
-    path.setAttribute('data-edge-id', e.edgeId);
+    path.setAttribute('data-edge-id', drawn.edgeId);
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', strokeColor);
+    path.setAttribute('stroke', isHighlighted ? '#f59e0b' : drawn.stroke);
     path.setAttribute('stroke-width', isHighlighted ? '2.6' : '1.75');
     path.setAttribute('stroke-opacity', isDimmed ? '0.18' : '0.88');
-    path.setAttribute('marker-start', markerStart);
-    path.setAttribute('marker-end', markerEnd);
+    path.setAttribute('marker-start', isHighlighted && drawn.isDoubleHeaded ? 'url(#arrowHighlight)' : drawn.markerStart);
+    path.setAttribute('marker-end', isHighlighted ? 'url(#arrowHighlight)' : drawn.markerEnd);
+    if (drawn.tooltip) {
+      const tooltip = document.createElementNS(SVG_NS, 'title');
+      tooltip.textContent = drawn.tooltip;
+      path.appendChild(tooltip);
+    }
     edgesFrag.appendChild(path);
 
-    if (showPorts && !isDimmed && (edges.length <= 180 || isHighlighted)) {
+    if (drawn.label && !isDimmed && (edges.length <= 180 || isHighlighted)) {
       pendingLabels.push({
         x: route.labelX,
         y: route.labelY,
-        text: `${isInbound ? 'IN' : 'OUT'} :${e.targetPort}/${e.protocol}`,
-        fill: isHighlighted ? '#fbbf24' : (isInbound ? '#6ee7b7' : '#bae6fd'),
+        text: drawn.label,
+        fill: isHighlighted ? '#fbbf24' : drawn.labelFill,
         isHighlighted
       });
     }

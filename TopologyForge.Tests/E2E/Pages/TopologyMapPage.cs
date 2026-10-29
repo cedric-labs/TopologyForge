@@ -128,6 +128,17 @@ public sealed class TopologyMapPage(IPage page)
 
     public ILocator EdgeById(string edgeId) => Page.Locator($"#edgesLayer > path[data-edge-id='{edgeId}']");
 
+    /// <summary>
+    /// Texte de l'infobulle SVG portée par une arête (élément enfant <c>title</c>), vide si l'arête n'en a pas.
+    /// </summary>
+    public async Task<string> GetEdgeTooltipAsync(string edgeId)
+    {
+        var tooltip = EdgeById(edgeId).Locator("title");
+        return await tooltip.CountAsync().ConfigureAwait(false) == 0
+            ? string.Empty
+            : await tooltip.TextContentAsync().ConfigureAwait(false) ?? string.Empty;
+    }
+
     public Task ClickNodeByHostNameAsync(string hostName) =>
         Nodes.Filter(new LocatorFilterOptions { HasText = hostName }).First.ClickAsync();
 

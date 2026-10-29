@@ -468,7 +468,6 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         await _mapPage.ShowPortsCheckbox.UncheckAsync();
 
         (await _mapPage.Labels.CountAsync()).Should().Be(0);
-        (await _mapPage.GetEdgeCountAsync()).Should().Be(5);
         (await _mapPage.CliCommandText.InnerTextAsync()).Should().EndWith("--map-edge-labels none");
         await _mapPage.ClickNodeAsync(0);
         (await _mapPage.InspectorContent.InnerTextAsync()).Should().MatchRegex(@":\d+/(TCP|UDP)");
@@ -488,6 +487,72 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
 
         (await _mapPage.Labels.CountAsync()).Should().Be(5);
         (await _mapPage.CliCommandText.InnerTextAsync()).Should().NotContain("--map-edge-labels");
+    }
+
+    [Fact]
+    public async Task ShowPortsCheckbox_WhenUnchecked_DrawsOneArrowPerServerPair()
+    {
+        _mapPage.Should().NotBeNull();
+        (await _mapPage!.GetEdgeCountAsync()).Should().Be(5);
+
+        await _mapPage.ShowPortsCheckbox.UncheckAsync();
+
+        // E2 (desktop → proxy) et E3 (proxy → desktop) fusionnent : 5 flux, 4 paires de serveurs.
+        (await _mapPage.GetEdgeCountAsync()).Should().Be(4);
+        (await _mapPage.EdgeById("E2").CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ShowPortsCheckbox_WhenPairExchangesFlowsBothWays_DrawsOneNeutralArrowWithTwoHeads()
+    {
+        _mapPage.Should().NotBeNull();
+
+        await _mapPage!.ShowPortsCheckbox.UncheckAsync();
+
+        var pairKey = await _mapPage.UndirectedPairKeyAsync("desktop", "proxy");
+        var pairEdge = _mapPage.EdgeById(pairKey);
+        (await pairEdge.GetAttributeAsync("stroke")).Should().Be("#8b9dc3");
+        (await pairEdge.GetAttributeAsync("marker-start")).Should().Be("url(#arrowMixed)");
+        (await pairEdge.GetAttributeAsync("marker-end")).Should().Be("url(#arrowMixed)");
+        (await _mapPage.GetEdgeTooltipAsync(pairKey)).Should().Be("2 flows: 443/TCP, 8080/TCP");
+    }
+
+    [Fact]
+    public async Task ShowPortsCheckbox_WhenPairFlowsShareOneDirection_KeepsTheDirectionColorAndOrigin()
+    {
+        _mapPage.Should().NotBeNull();
+        var graph = new NetworkTopologyGraph(
+            DateTimeOffset.UtcNow,
+            [Audited("desktop", "192.168.1.10"), Remote("nas", "192.168.1.50")],
+            [
+                Flow("E1", "desktop", "nas"),
+                new("E2", "desktop", "nas", 873, TopologyTransportProtocol.Tcp, "agent", "rsync", 5, TopologyFlowDirection.Outbound)
+            ],
+            10,
+            0);
+        await OpenGraphAsync(graph, new TopologyRenderingOptions { DefaultEdgeLabelMode = TopologyEdgeLabelMode.None });
+
+        var pairKey = await _mapPage!.UndirectedPairKeyAsync("desktop", "nas");
+        var pairEdge = _mapPage.EdgeById(pairKey);
+        (await _mapPage.GetEdgeCountAsync()).Should().Be(1);
+        (await pairEdge.GetAttributeAsync("stroke")).Should().Be("#38bdf8");
+        (await pairEdge.GetAttributeAsync("marker-start")).Should().Be("url(#originOut)");
+        (await pairEdge.GetAttributeAsync("marker-end")).Should().Be("url(#arrowOut)");
+        (await _mapPage.GetEdgeTooltipAsync(pairKey)).Should().Be("2 flows: 443/TCP, 873/TCP");
+    }
+
+    [Fact]
+    public async Task ShowPortsCheckbox_WhenUncheckedAndServerSelected_HighlightsBothHeadsOfItsPairArrow()
+    {
+        _mapPage.Should().NotBeNull();
+        await _mapPage!.ShowPortsCheckbox.UncheckAsync();
+
+        await _mapPage.ClickNodeByHostNameAsync("proxy");
+
+        var pairEdge = _mapPage.EdgeById(await _mapPage.UndirectedPairKeyAsync("desktop", "proxy"));
+        (await pairEdge.GetAttributeAsync("stroke")).Should().Be("#f59e0b");
+        (await pairEdge.GetAttributeAsync("marker-start")).Should().Be("url(#arrowHighlight)");
+        (await pairEdge.GetAttributeAsync("marker-end")).Should().Be("url(#arrowHighlight)");
     }
 
     [Theory]

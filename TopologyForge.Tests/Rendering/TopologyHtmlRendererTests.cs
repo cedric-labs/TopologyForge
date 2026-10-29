@@ -179,6 +179,8 @@ public sealed class TopologyHtmlRendererTests
         html.Should().Contain("id=\"arrowOut\"");
         html.Should().Contain("id=\"arrowIn\"");
         html.Should().Contain("id=\"arrowHighlight\"");
+        html.Should().Contain("id=\"arrowMixed\"");
+        html.Should().Contain("Merged IN and OUT Flows");
         html.Should().Contain("id=\"sortSelect\"");
         html.Should().Contain("id=\"routingSelect\"");
         html.Should().Contain("id=\"spacingSelect\"");

@@ -214,6 +214,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                   --accent-port: #10b981;
                   --accent-out: #38bdf8;
                   --accent-in: #10b981;
+                  --accent-mixed: #8b9dc3;
                   --accent-highlight: #f59e0b;
                 }
                 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -615,20 +616,26 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("    <main class=\"canvas-area\">");
         sb.AppendLine("      <svg id=\"topologySvg\">");
         sb.AppendLine("        <defs>");
-        sb.AppendLine("          <marker id=\"arrowOut\" viewBox=\"0 0 12 12\" refX=\"10.5\" refY=\"6\" markerWidth=\"8\" markerHeight=\"8\" orient=\"auto\">");
+        sb.AppendLine("          <marker id=\"arrowOut\" viewBox=\"0 0 12 12\" refX=\"10.5\" refY=\"6\" markerWidth=\"8\" markerHeight=\"8\" orient=\"auto-start-reverse\">");
         sb.AppendLine("            <path d=\"M 0 1.5 L 11 6 L 0 10.5 L 2.6 6 z\" fill=\"#38bdf8\" />");
         sb.AppendLine("          </marker>");
-        sb.AppendLine("          <marker id=\"arrowIn\" viewBox=\"0 0 12 12\" refX=\"10.5\" refY=\"6\" markerWidth=\"8\" markerHeight=\"8\" orient=\"auto\">");
+        sb.AppendLine("          <marker id=\"arrowIn\" viewBox=\"0 0 12 12\" refX=\"10.5\" refY=\"6\" markerWidth=\"8\" markerHeight=\"8\" orient=\"auto-start-reverse\">");
         sb.AppendLine("            <path d=\"M 0 1.5 L 11 6 L 0 10.5 L 2.6 6 z\" fill=\"#10b981\" />");
         sb.AppendLine("          </marker>");
-        sb.AppendLine("          <marker id=\"arrowHighlight\" viewBox=\"0 0 12 12\" refX=\"10.5\" refY=\"6\" markerWidth=\"9\" markerHeight=\"9\" orient=\"auto\">");
+        sb.AppendLine("          <marker id=\"arrowHighlight\" viewBox=\"0 0 12 12\" refX=\"10.5\" refY=\"6\" markerWidth=\"9\" markerHeight=\"9\" orient=\"auto-start-reverse\">");
         sb.AppendLine("            <path d=\"M 0 1 L 11.5 6 L 0 11 L 2.8 6 z\" fill=\"#f59e0b\" />");
+        sb.AppendLine("          </marker>");
+        sb.AppendLine("          <marker id=\"arrowMixed\" viewBox=\"0 0 12 12\" refX=\"10.5\" refY=\"6\" markerWidth=\"8\" markerHeight=\"8\" orient=\"auto-start-reverse\">");
+        sb.AppendLine("            <path d=\"M 0 1.5 L 11 6 L 0 10.5 L 2.6 6 z\" fill=\"#8b9dc3\" />");
         sb.AppendLine("          </marker>");
         sb.AppendLine("          <marker id=\"originOut\" viewBox=\"0 0 8 8\" refX=\"4\" refY=\"4\" markerWidth=\"5\" markerHeight=\"5\">");
         sb.AppendLine("            <circle cx=\"4\" cy=\"4\" r=\"3\" fill=\"#38bdf8\" />");
         sb.AppendLine("          </marker>");
         sb.AppendLine("          <marker id=\"originIn\" viewBox=\"0 0 8 8\" refX=\"4\" refY=\"4\" markerWidth=\"5\" markerHeight=\"5\">");
         sb.AppendLine("            <circle cx=\"4\" cy=\"4\" r=\"3\" fill=\"#10b981\" />");
+        sb.AppendLine("          </marker>");
+        sb.AppendLine("          <marker id=\"originMixed\" viewBox=\"0 0 8 8\" refX=\"4\" refY=\"4\" markerWidth=\"5\" markerHeight=\"5\">");
+        sb.AppendLine("            <circle cx=\"4\" cy=\"4\" r=\"3\" fill=\"#8b9dc3\" />");
         sb.AppendLine("          </marker>");
         sb.AppendLine("        </defs>");
         sb.AppendLine("        <g id=\"viewportGroup\">");
@@ -643,6 +650,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("        <div class=\"legend-item\"><span class=\"dot\" style=\"background:var(--accent-remote)\"></span>Remote Server</div>");
         sb.AppendLine("        <div class=\"legend-item\"><span class=\"arrow-sample\" style=\"background:var(--accent-out)\"></span>➔ Outbound Flow (OUT)</div>");
         sb.AppendLine("        <div class=\"legend-item\"><span class=\"arrow-sample\" style=\"background:var(--accent-in)\"></span>➔ Inbound Flow (IN)</div>");
+        sb.AppendLine("        <div class=\"legend-item\"><span class=\"arrow-sample\" style=\"background:var(--accent-mixed)\"></span>⬌ Merged IN and OUT Flows</div>");
         sb.AppendLine("        <div class=\"legend-item\"><span class=\"arrow-sample\" style=\"background:var(--accent-highlight)\"></span>➔ Highlighted Flow</div>");
         sb.AppendLine("      </div>");
         sb.AppendLine("      <div class=\"pagination-bar\">");
