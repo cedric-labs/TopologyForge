@@ -795,8 +795,8 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
 
         var rows = await GetTargetRowOrdinatesAsync();
 
-        // Espacement équilibré (facteur 1,05) : rangées de 170 px, 42 px sous les serveurs audités, 59 px entre deux bandes.
-        rows.Should().Equal(272, 442, 671, 841);
+        // Espacement équilibré (facteur 1,05) : rangées de 155 px, 42 px sous les serveurs audités, 59 px entre deux bandes.
+        rows.Should().Equal(257, 412, 626, 781);
     }
 
     [Fact]
@@ -808,6 +808,30 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         var boxes = await _mapPage!.GetNodeBoxesAsync();
 
         boxes.Where(box => box[0] > 60).Select(box => box[1]).Distinct().Should().HaveCount(5);
+    }
+
+    [Fact]
+    public async Task LayoutSelect_WhenHorizontalTreeStacksServers_UsesTheTighterTreeRowStep()
+    {
+        _mapPage.Should().NotBeNull();
+        await OpenGraphAsync(CreateSubnetTopologyGraph(("192.168.10", 20)), new TopologyRenderingOptions { DefaultLayoutMode = TopologyLayoutMode.HorizontalTree });
+
+        var boxes = await _mapPage!.GetNodeBoxesAsync();
+
+        // Espacement équilibré (facteur 1,05) : rangées de 155 px, soit 49 px entre deux boîtes de 106 px.
+        boxes.Where(box => box[0] > 60).Select(box => box[1]).Distinct().Order().Should().Equal(60, 215, 370, 525, 680);
+    }
+
+    [Fact]
+    public async Task SortSelect_WhenSubnetClustersStackServers_KeepsTheDefaultRowStep()
+    {
+        _mapPage.Should().NotBeNull();
+        await OpenGraphAsync(CreateSubnetTopologyGraph(("192.168.10", 2)), new TopologyRenderingOptions { DefaultSortMethod = TopologyNodeSortMethod.SubnetCluster });
+
+        var rows = (await _mapPage!.GetNodeBoxesAsync()).Select(box => box[1]).Distinct().Order();
+
+        // Le resserrement ne vise que les arbres : hors arbre, deux rangées restent à 170 px en espacement équilibré.
+        rows.Should().Equal(60, 310, 480);
     }
 
     [Fact]

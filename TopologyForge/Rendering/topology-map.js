@@ -43,9 +43,14 @@ function arePortLabelsShown() {
   return !showPortsCheck || showPortsCheck.checked;
 }
 
-function rowStep(gapFactor) {
+const ROW_STEP = 162;
+// Les arbres serrent davantage leurs rangées (49 px entre deux boîtes en espacement équilibré, au lieu de 64 px) ;
+// le plancher de rowStep garde toujours la place des étiquettes de ports entre deux boîtes empilées.
+const TREE_ROW_STEP = 148;
+
+function rowStep(gapFactor, baseStep = ROW_STEP) {
   const minGap = arePortLabelsShown() ? STACKED_NODE_MIN_GAP : STACKED_NODE_MIN_GAP_WITHOUT_LABELS;
-  return Math.max(Math.round(162 * gapFactor), NODE_H + minGap);
+  return Math.max(Math.round(baseStep * gapFactor), NODE_H + minGap);
 }
 let panX = 50, panY = 50, scale = 1.0;
 let isPanning = false, startPanX = 0, startPanY = 0;
@@ -776,6 +781,7 @@ function simulateForceDirectedLayout(nodes, edges, gapFactor) {
 
 // Une colonne avance de 350 px et une rangée de 162 px : pour qu'une matrice de N serveurs garde à peu près
 // les proportions d'un écran 16:9, elle compte environ 0,83 colonne par rangée, soit √(0,83 N) colonnes.
+// Les rangées d'arbre, ramenées à 148 px, élargissent un peu la matrice ; le ratio est conservé tel quel.
 const TREE_COLUMNS_PER_ROW = 0.83;
 // Les écarts sous les serveurs audités et entre deux bandes de sous-réseaux suivent l'espacement. Au plus serré
 // (facteur 0,65, rangées écartées de 24 px), une bande reste à 60 px de la suivante : assez pour les 42 px de marge
@@ -789,7 +795,7 @@ function treeColumnCount(serverCount) {
 
 function layoutTree(ordered, edges, gapFactor, isHorizontal) {
   const stepX = Math.round(350 * gapFactor);
-  const stepY = rowStep(gapFactor);
+  const stepY = rowStep(gapFactor, TREE_ROW_STEP);
 
   const inDegree = new Map();
   const outDegree = new Map();
