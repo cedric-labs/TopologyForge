@@ -3,14 +3,14 @@ using TopologyForge.Models;
 namespace TopologyForge.Builders;
 
 /// <summary>
-/// Contrat de construction d'un graphe topologique consolidé à partir d'enregistrements de flux réseau.
+/// Builds a consolidated topology graph from network flow records.
 /// </summary>
 public interface ITopologyGraphBuilder
 {
     /// <summary>
-    /// Agrège et déduplique les flux réseau en nœuds serveurs, ports non éphémères et liens de dépendance.
+    /// Aggregates and deduplicates network flows into server nodes, non-ephemeral ports and dependency edges.
     /// </summary>
-    /// <param name="flows">Collection des flux bruts observés.</param>
-    /// <returns>Graphe topologique consolidé.</returns>
+    /// <param name="flows">Raw observed flows.</param>
+    /// <returns>The consolidated topology graph.</returns>
     NetworkTopologyGraph BuildGraph(IEnumerable<TopologyFlowRecord> flows);
 }

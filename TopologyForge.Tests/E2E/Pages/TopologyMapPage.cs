@@ -3,7 +3,7 @@ using Microsoft.Playwright;
 namespace TopologyForge.Tests.E2E.Pages;
 
 /// <summary>
-/// Page Object Model encapsulant les interactions avec la carte topologique rÃ©seau interactive HTML5.
+/// Page Object Model wrapping the interactions with the interactive HTML5 network topology map.
 /// </summary>
 public sealed class TopologyMapPage(IPage page)
 {
@@ -16,7 +16,7 @@ public sealed class TopologyMapPage(IPage page)
     public ILocator KpiFlows => Page.Locator("#kpiEdges");
     public ILocator KpiPorts => Page.Locator("#kpiPorts");
 
-    // Sidebar & Panneau de configuration
+    // Sidebar & configuration panel
     public ILocator BtnToggleSidebar => Page.Locator("#btnToggleSidebar");
     public ILocator SidebarPanel => Page.Locator("#sidebarPanel");
 
@@ -48,7 +48,7 @@ public sealed class TopologyMapPage(IPage page)
     public ILocator BtnCopyCliCommand => Page.Locator("#btnCopyCliCommand");
     public ILocator CliCommandText => Page.Locator("#cliCommandText");
 
-    // Inspecteur de serveur
+    // Server inspector
     public ILocator InspectorPanel => Page.Locator("#inspectorPanel");
     public ILocator InspectorContent => Page.Locator("#inspectorContent");
 
@@ -129,7 +129,7 @@ public sealed class TopologyMapPage(IPage page)
     public ILocator EdgeById(string edgeId) => Page.Locator($"#edgesLayer > path[data-edge-id='{edgeId}']");
 
     /// <summary>
-    /// Texte de l'infobulle SVG portée par une arête (élément enfant <c>title</c>), vide si l'arête n'en a pas.
+    /// Text of the SVG tooltip carried by an edge (<c>title</c> child element), empty when the edge has none.
     /// </summary>
     public async Task<string> GetEdgeTooltipAsync(string edgeId)
     {
@@ -148,28 +148,28 @@ public sealed class TopologyMapPage(IPage page)
         Page.EvaluateAsync<bool>("name => typeof window[name] !== 'undefined'", name);
 
     /// <summary>
-    /// Distance en pixels entre les points médians de deux arêtes, mesurée sur la géométrie SVG réelle.
+    /// Distance in pixels between the midpoints of two edges, measured on the actual SVG geometry.
     /// </summary>
     public Task<double> GetEdgeMidpointDistanceAsync(string firstEdgeId, string secondEdgeId) =>
         MeasureDistanceAsync(firstEdgeId, secondEdgeId,
             "path => { const p = path.getPointAtLength(path.getTotalLength() / 2); return [p.x, p.y]; }");
 
     /// <summary>
-    /// Distance en pixels entre les milieux des cordes (segments extrémité-extrémité) de deux arêtes :
-    /// c'est l'écart qu'auraient les deux arêtes si elles étaient tracées en ligne droite.
+    /// Distance in pixels between the midpoints of the chords (end-to-end segments) of two edges:
+    /// the gap the two edges would have if they were drawn as straight lines.
     /// </summary>
     public Task<double> GetEdgeChordMidpointDistanceAsync(string firstEdgeId, string secondEdgeId) =>
         MeasureDistanceAsync(firstEdgeId, secondEdgeId,
             "path => { const a = path.getPointAtLength(0), b = path.getPointAtLength(path.getTotalLength()); return [(a.x + b.x) / 2, (a.y + b.y) / 2]; }");
 
     /// <summary>
-    /// Clé de paire non orientée que la page calcule pour regrouper les flux entre deux serveurs.
+    /// Unordered pair key that the page computes to group the flows between two servers.
     /// </summary>
     public Task<string> UndirectedPairKeyAsync(string firstNodeId, string secondNodeId) =>
         Page.EvaluateAsync<string>("a => undirectedPairKey(a[0], a[1])", new[] { firstNodeId, secondNodeId });
 
     /// <summary>
-    /// Évalue le test de collision de la page entre un segment et la boîte d'un serveur placée en (boxX, boxY).
+    /// Evaluates the page's collision test between a segment and the box of a server placed at (boxX, boxY).
     /// </summary>
     public Task<bool> SegmentIntersectsNodeBoxAsync(double x1, double y1, double x2, double y2, double boxX, double boxY, double padding) =>
         Page.EvaluateAsync<bool>(
@@ -177,7 +177,7 @@ public sealed class TopologyMapPage(IPage page)
             new[] { x1, y1, x2, y2, boxX, boxY, padding });
 
     /// <summary>
-    /// Attribut <c>d</c> du tracé orthogonal que la page construit entre deux ancrages, avec un point de passage imposé.
+    /// <c>d</c> attribute of the orthogonal path that the page builds between two anchors, with a forced waypoint.
     /// </summary>
     public Task<string> BuildOrthogonalEdgePathAsync(double startX, double startY, string startSide, double endX, double endY, string endSide, double waypointX, double waypointY) =>
         Page.EvaluateAsync<string>(
@@ -185,8 +185,8 @@ public sealed class TopologyMapPage(IPage page)
             new object[] { startX, startY, startSide, endX, endY, endSide, waypointX, waypointY });
 
     /// <summary>
-    /// Attribut <c>d</c> de la flèche en bus que la page construit d'un départ de tronc vers un ancrage cible,
-    /// la séparation en branches ayant lieu à la coordonnée <paramref name="split"/>.
+    /// <c>d</c> attribute of the bus arrow that the page builds from a trunk start to a target anchor,
+    /// the split into branches happening at the <paramref name="split"/> coordinate.
     /// </summary>
     public Task<string> BuildBusEdgePathAsync(double trunkX, double trunkY, string trunkSide, double split, double endX, double endY, string endSide) =>
         Page.EvaluateAsync<string>(
@@ -194,7 +194,7 @@ public sealed class TopologyMapPage(IPage page)
             new object[] { trunkX, trunkY, trunkSide, split, endX, endY, endSide });
 
     /// <summary>
-    /// Point [x, y] où la page demande l'étiquette d'une flèche en bus, avant le placement anti-chevauchement.
+    /// [x, y] point where the page asks for the label of a bus arrow, before overlap-avoiding placement.
     /// </summary>
     public Task<double[]> GetBusEdgeLabelPointAsync(double trunkX, double trunkY, string trunkSide, double split, double endX, double endY, string endSide) =>
         Page.EvaluateAsync<double[]>(
@@ -202,8 +202,8 @@ public sealed class TopologyMapPage(IPage page)
             new object[] { trunkX, trunkY, trunkSide, split, endX, endY, endSide });
 
     /// <summary>
-    /// Lignes de séparation que la page attribue successivement à des bus verticaux descendants partant de la même ordonnée
-    /// <paramref name="origin"/>, chacun couvrant la largeur [début, fin] donnée et visant la même ligne <paramref name="split"/>.
+    /// Separation lines that the page assigns in turn to downward vertical buses starting from the same ordinate
+    /// <paramref name="origin"/>, each covering the given [start, end] width and aiming at the same <paramref name="split"/> line.
     /// </summary>
     public Task<double[]> AssignBusLanesAsync(double origin, double reach, double split, double[][] spans) =>
         Page.EvaluateAsync<double[]>(
@@ -211,42 +211,42 @@ public sealed class TopologyMapPage(IPage page)
             new { origin, reach, split, spans });
 
     /// <summary>
-    /// Couples [identifiant d'arête, attribut <c>d</c>] des flèches affichées, dans l'ordre du DOM.
+    /// [edge identifier, <c>d</c> attribute] pairs of the displayed arrows, in DOM order.
     /// </summary>
     public Task<string[][]> GetEdgePathDefinitionsAsync() =>
         EdgesLayer.EvaluateAsync<string[][]>(
             "layer => Array.from(layer.querySelectorAll(':scope > path')).map(p => [p.getAttribute('data-edge-id'), p.getAttribute('d')])");
 
     /// <summary>
-    /// Points [x, y] où se terminent les flèches affichées, c'est-à-dire leurs pointes.
+    /// [x, y] points where the displayed arrows end, i.e. their heads.
     /// </summary>
     public Task<double[][]> GetEdgeEndPointsAsync() =>
         EdgesLayer.EvaluateAsync<double[][]>(
             "layer => Array.from(layer.querySelectorAll(':scope > path')).map(p => { const e = p.getPointAtLength(p.getTotalLength()); return [e.x, e.y]; })");
 
     /// <summary>
-    /// Rectangles [x, y, largeur, hauteur] des zones de sous-réseau affichées.
+    /// [x, y, width, height] rectangles of the displayed subnet zones.
     /// </summary>
     public Task<double[][]> GetSubnetZoneBoxesAsync() =>
         ZonesLayer.EvaluateAsync<double[][]>(
             "layer => Array.from(layer.querySelectorAll('g.subnet-zone > rect:first-of-type')).map(r => ['x', 'y', 'width', 'height'].map(name => Number(r.getAttribute(name))))");
 
     /// <summary>
-    /// Rectangles [x, y, largeur, hauteur] des étiquettes de flèches affichées, mesurés sur le texte rendu.
+    /// [x, y, width, height] rectangles of the displayed arrow labels, measured on the rendered text.
     /// </summary>
     public Task<double[][]> GetEdgeLabelBoxesAsync() =>
         LabelsLayer.EvaluateAsync<double[][]>(
             "layer => Array.from(layer.querySelectorAll(':scope > text')).map(t => { const b = t.getBBox(); return [b.x, b.y, b.width, b.height]; })");
 
     /// <summary>
-    /// Rectangles [x, y, largeur, hauteur] des boîtes de serveurs affichées.
+    /// [x, y, width, height] rectangles of the displayed server boxes.
     /// </summary>
     public Task<double[][]> GetNodeBoxesAsync() =>
         NodesLayer.EvaluateAsync<double[][]>(
             "layer => Array.from(layer.querySelectorAll(':scope > g')).map(g => { const m = /translate\\(([-\\d.]+),\\s*([-\\d.]+)\\)/.exec(g.getAttribute('transform')); const r = g.querySelector('rect'); return [Number(m[1]), Number(m[2]), Number(r.getAttribute('width')), Number(r.getAttribute('height'))]; })");
 
     /// <summary>
-    /// Ordonnées que la page attribue à <paramref name="count"/> étiquettes identiques demandées au même point (x, y).
+    /// Ordinates that the page assigns to <paramref name="count"/> identical labels requested at the same (x, y) point.
     /// </summary>
     public Task<double[]> PlaceIdenticalEdgeLabelsAsync(int count, double x, double y) =>
         Page.EvaluateAsync<double[]>(
@@ -254,8 +254,8 @@ public sealed class TopologyMapPage(IPage page)
             new[] { count, x, y });
 
     /// <summary>
-    /// Rectangles estimés [x, y, largeur, hauteur] que la page attribue à des étiquettes demandées aux points (x, y) donnés,
-    /// les rectangles <paramref name="obstacles"/> [x, y, largeur, hauteur] étant à éviter.
+    /// Estimated [x, y, width, height] rectangles that the page assigns to labels requested at the given (x, y) points,
+    /// avoiding the <paramref name="obstacles"/> [x, y, width, height] rectangles.
     /// </summary>
     public Task<double[][]> PlaceEdgeLabelsAsync(string text, double[][] origins, double[][] obstacles) =>
         Page.EvaluateAsync<double[][]>(
@@ -272,7 +272,7 @@ public sealed class TopologyMapPage(IPage page)
             new { text, origins, obstacles });
 
     /// <summary>
-    /// Coin supérieur gauche [x, y] de la boîte du serveur affiché sous ce nom.
+    /// Top-left corner [x, y] of the box of the server displayed under this name.
     /// </summary>
     public Task<double[]> GetNodeOriginAsync(string hostName) =>
         Nodes.Filter(new LocatorFilterOptions { HasText = hostName }).First.EvaluateAsync<double[]>(

@@ -1,28 +1,28 @@
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Mode de tracé et de routage géométrique des flèches de flux entre les serveurs.
+/// How flow arrows between servers are drawn and routed.
 /// </summary>
 public enum TopologyEdgeRoutingMode
 {
     /// <summary>
-    /// Courbes de Bézier cubiques avec déviation automatique autour des boîtes de serveurs intermédiaires et éventail sur liens multiples.
+    /// Cubic Bézier curves that bend around intermediate server boxes and fan out on multiple links.
     /// </summary>
     BezierCurved = 0,
 
     /// <summary>
-    /// Couloirs orthogonaux à angles droits (90°) avec pistes décalées anti-chevauchement.
+    /// Right-angled (90°) orthogonal corridors with offset lanes so that arrows do not overlap.
     /// </summary>
     OrthogonalCorridors = 1,
 
     /// <summary>
-    /// Segments directs de bordure à bordure avec décalage parallèle pour les liens multiples.
+    /// Straight border-to-border segments with a parallel offset for multiple links.
     /// </summary>
     DirectStraight = 2,
 
     /// <summary>
-    /// Bus orthogonal : les flèches d'un même serveur partagent un tronc par sens (IN, OUT) jusqu'à une ligne de séparation,
-    /// puis se divisent en une branche par cible. Pensé pour la mise en page en arbre, utilisable avec les autres.
+    /// Orthogonal bus: the arrows of a server share one trunk per direction (IN, OUT) up to a separation line,
+    /// then split into one branch per target. Designed for the tree layout, usable with the others.
     /// </summary>
     Bus = 3
 }

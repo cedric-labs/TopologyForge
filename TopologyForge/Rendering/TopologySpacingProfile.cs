@@ -1,22 +1,22 @@
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Profil d'espacement entre les boîtes de serveurs et d'écartement des flèches parallèles.
+/// Spacing between server boxes and between parallel arrows.
 /// </summary>
 public enum TopologySpacingProfile
 {
     /// <summary>
-    /// Disposition dense minimisant l'espace entre les serveurs.
+    /// Dense layout that minimises the space between servers.
     /// </summary>
     Compact = 0,
 
     /// <summary>
-    /// Disposition équilibrée par défaut.
+    /// Balanced layout (default).
     /// </summary>
     Balanced = 1,
 
     /// <summary>
-    /// Disposition aérée avec larges couloirs de routage adaptée aux grands parcs (> 100 serveurs).
+    /// Airy layout with wide routing corridors, suited to large estates (> 100 servers).
     /// </summary>
     Spacious = 2
 }

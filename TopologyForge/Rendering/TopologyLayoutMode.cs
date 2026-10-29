@@ -1,37 +1,37 @@
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Disposition géométrique des serveurs sur la cartographie réseau.
+/// Geometric layout of the servers on the network map.
 /// </summary>
 public enum TopologyLayoutMode
 {
     /// <summary>
-    /// Disposition hiérarchique étagée en colonnes ou anneaux concentriques autour du serveur audité.
+    /// Tiered hierarchical layout in columns or concentric rings around the audited server.
     /// </summary>
     Layered = 0,
 
     /// <summary>
-    /// Disposition circulaire uniforme en anneau.
+    /// Uniform circular layout on a ring.
     /// </summary>
     Circular = 1,
 
     /// <summary>
-    /// Disposition matricielle en grille multi-colonnes.
+    /// Multi-column grid layout.
     /// </summary>
     Grid = 2,
 
     /// <summary>
-    /// Disposition organique dirigée par les forces physiques (attraction par ressorts et répulsion coulombienne).
+    /// Organic force-directed layout (spring attraction and Coulomb repulsion).
     /// </summary>
     ForceDirectedOrganic = 3,
 
     /// <summary>
-    /// Disposition arborescente descendante multi-colonnes (racines au sommet, cibles en colonnes compactes en dessous).
+    /// Top-down multi-column tree layout (roots at the top, targets in compact columns below).
     /// </summary>
     Tree = 4,
 
     /// <summary>
-    /// Disposition arborescente horizontale (racines à gauche, flux s'écoulant de gauche à droite).
+    /// Horizontal tree layout (roots on the left, flows running from left to right).
     /// </summary>
     HorizontalTree = 5
 }

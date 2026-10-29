@@ -1,38 +1,38 @@
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Syntaxe de la commande que la section « CLI Command » de la carte HTML propose de copier pour reproduire la vue affichée.
-/// Les valeurs par défaut reproduisent la syntaxe historique de NetFlowAudit 1.x.
+/// Syntax of the command that the "CLI Command" section of the HTML map offers to copy to reproduce the current view.
+/// The default values reproduce the historical NetFlowAudit 1.x syntax.
 /// </summary>
 public sealed record TopologyCliCommandFormat
 {
     /// <summary>
-    /// Début de la commande, avant les options de filtre et de rendu (par défaut <c>NetFlowAudit.Cli --map-only</c>).
+    /// Start of the command, before the filter and rendering options (<c>NetFlowAudit.Cli --map-only</c> by default).
     /// </summary>
     public string Prefix { get; init; } = "NetFlowAudit.Cli --map-only";
 
     /// <summary>
-    /// Option portant la disposition (par défaut <c>--map-layout</c>).
+    /// Option carrying the layout (<c>--map-layout</c> by default).
     /// </summary>
     public string LayoutOption { get; init; } = "--map-layout";
 
     /// <summary>
-    /// Option portant la méthode de tri (par défaut <c>--map-sort</c>).
+    /// Option carrying the sort method (<c>--map-sort</c> by default).
     /// </summary>
     public string SortOption { get; init; } = "--map-sort";
 
     /// <summary>
-    /// Option portant le routage des flèches (par défaut <c>--map-routing</c>).
+    /// Option carrying the arrow routing (<c>--map-routing</c> by default).
     /// </summary>
     public string RoutingOption { get; init; } = "--map-routing";
 
     /// <summary>
-    /// Option portant le profil d'écartement (par défaut <c>--map-spacing</c>).
+    /// Option carrying the spacing profile (<c>--map-spacing</c> by default).
     /// </summary>
     public string SpacingOption { get; init; } = "--map-spacing";
 
     /// <summary>
-    /// Option portant le contenu des étiquettes des flèches (par défaut <c>--map-edge-labels</c>), ajoutée avec la valeur <c>none</c> quand les ports sont masqués.
+    /// Option carrying the arrow label content (<c>--map-edge-labels</c> by default), added with the value <c>none</c> when ports are hidden.
     /// </summary>
     public string EdgeLabelsOption { get; init; } = "--map-edge-labels";
 }

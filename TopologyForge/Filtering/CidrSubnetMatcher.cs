@@ -4,16 +4,16 @@ using System.Net;
 namespace TopologyForge.Filtering;
 
 /// <summary>
-/// Évaluateur d'appartenance d'adresses IPv4 et IPv6 à des règles d'adresses exactes ou de sous-réseaux CIDR.
+/// Checks whether IPv4 and IPv6 addresses match exact address rules or CIDR subnets.
 /// </summary>
 public static class CidrSubnetMatcher
 {
     /// <summary>
-    /// Vérifie si une adresse IP correspond à au moins une règle de la liste fournie.
+    /// Checks whether an IP address matches at least one rule of the given list.
     /// </summary>
-    /// <param name="ipAddressString">Adresse IP à tester.</param>
-    /// <param name="cidrOrIpRules">Collection de règles (IP exactes ou notations CIDR ex: 192.168.1.0/24).</param>
-    /// <returns><c>true</c> si une règle correspond ; sinon <c>false</c>.</returns>
+    /// <param name="ipAddressString">The IP address to test.</param>
+    /// <param name="cidrOrIpRules">Rules (exact IPs or CIDR notations such as 192.168.1.0/24).</param>
+    /// <returns><c>true</c> if a rule matches; otherwise <c>false</c>.</returns>
     public static bool IsMatchAny(string? ipAddressString, IEnumerable<string> cidrOrIpRules)
     {
         ArgumentNullException.ThrowIfNull(cidrOrIpRules);
@@ -35,11 +35,11 @@ public static class CidrSubnetMatcher
     }
 
     /// <summary>
-    /// Vérifie si une adresse IP correspond à une adresse exacte ou à un bloc CIDR.
+    /// Checks whether an IP address matches an exact address or a CIDR block.
     /// </summary>
-    /// <param name="ipAddressString">Adresse IP à évaluer.</param>
-    /// <param name="cidrOrIpRule">Règle d'adresse IP exacte ou sous-réseau CIDR.</param>
-    /// <returns><c>true</c> si l'adresse appartient au sous-réseau ; sinon <c>false</c>.</returns>
+    /// <param name="ipAddressString">The IP address to evaluate.</param>
+    /// <param name="cidrOrIpRule">Exact IP address or CIDR subnet rule.</param>
+    /// <returns><c>true</c> if the address belongs to the subnet; otherwise <c>false</c>.</returns>
     public static bool IsMatch(string? ipAddressString, string? cidrOrIpRule)
     {
         if (string.IsNullOrWhiteSpace(ipAddressString) || string.IsNullOrWhiteSpace(cidrOrIpRule))

@@ -1,17 +1,17 @@
 namespace TopologyForge.Models;
 
 /// <summary>
-/// Protocole de transport réseau de couche 4.
+/// Layer 4 network transport protocol.
 /// </summary>
 public enum TopologyTransportProtocol
 {
     /// <summary>
-    /// Protocole orienté connexion TCP.
+    /// Connection-oriented TCP protocol.
     /// </summary>
     Tcp = 0,
 
     /// <summary>
-    /// Protocole datagramme sans connexion UDP.
+    /// Connectionless UDP datagram protocol.
     /// </summary>
     Udp = 1
 }

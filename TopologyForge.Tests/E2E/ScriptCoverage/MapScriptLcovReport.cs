@@ -5,13 +5,13 @@ using TopologyForge.Rendering;
 namespace TopologyForge.Tests.E2E.ScriptCoverage;
 
 /// <summary>
-/// Cumule sur tous les tests E2E les exécutions par ligne de <c>topology-map.js</c> et les écrit au format LCOV, que
-/// SonarQube lit pour mesurer la couverture du script.
+/// Accumulates, across all E2E tests, the per-line executions of <c>topology-map.js</c> and writes them in LCOV format, which
+/// SonarQube reads to measure the script coverage.
 /// </summary>
 public static class MapScriptLcovReport
 {
     /// <summary>
-    /// Variable d'environnement renseignée par <c>verify.ps1</c> avec le chemin du rapport. Sans elle, rien n'est mesuré.
+    /// Environment variable set by <c>verify.ps1</c> to the report path. Without it, nothing is measured.
     /// </summary>
     public const string OutputPathVariable = "TOPOLOGYFORGE_JS_LCOV_PATH";
 
@@ -22,17 +22,17 @@ public static class MapScriptLcovReport
     private static readonly Lazy<string> MapScript = new(ReadMapScriptResource);
 
     /// <summary>
-    /// Chemin du rapport LCOV demandé, ou <see langword="null"/> si la mesure n'est pas demandée.
+    /// Path of the requested LCOV report, or <see langword="null"/> when no measurement is requested.
     /// </summary>
     public static string? OutputPath =>
         Environment.GetEnvironmentVariable(OutputPathVariable) is { Length: > 0 } path ? path : null;
 
     /// <summary>
-    /// Ajoute un relevé V8 au cumul et réécrit le rapport complet.
+    /// Adds a V8 reading to the total and rewrites the complete report.
     /// </summary>
-    /// <param name="scriptSource">Source du bloc &lt;script&gt; de la page.</param>
-    /// <param name="ranges">Plages de couverture de toutes les fonctions du script.</param>
-    /// <param name="cancellationToken">Jeton d'annulation de l'écriture.</param>
+    /// <param name="scriptSource">Source of the page's &lt;script&gt; block.</param>
+    /// <param name="ranges">Coverage ranges of every function of the script.</param>
+    /// <param name="cancellationToken">Cancellation token for the write.</param>
     public static async Task AddAsync(string scriptSource, IReadOnlyList<V8CoverageRange> ranges, CancellationToken cancellationToken = default)
     {
         if (OutputPath is not { } outputPath)
@@ -49,8 +49,8 @@ public static class MapScriptLcovReport
                 LineHits[line] = LineHits.GetValueOrDefault(line) + count;
             }
 
-            // Le rapport est réécrit à chaque relevé : xUnit n'offre pas de point de sortie commun à toutes les classes de
-            // test, et le dernier relevé contient ainsi le cumul de toute l'exécution.
+            // The report is rewritten on each reading: xUnit offers no exit point shared by every test
+            // class, so the last reading holds the total of the whole run.
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath)) ?? ".");
             await File.WriteAllTextAsync(outputPath, FormatLcov(), Encoding.ASCII, cancellationToken);
         }
@@ -77,7 +77,7 @@ public static class MapScriptLcovReport
         return lcov.ToString();
     }
 
-    // SonarQube rattache la couverture au fichier source du dépôt, pas à la ressource copiée dans bin/.
+    // SonarQube attaches the coverage to the repository source file, not to the resource copied into bin/.
     private static string FindMapScriptSourcePath()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)

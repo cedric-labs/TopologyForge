@@ -3,34 +3,34 @@ using TopologyForge.Models;
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Contrat de génération de cartes topologiques HTML interactives et 100 % autonomes (hors-ligne).
+/// Generates interactive, fully self-contained (offline) HTML topology maps.
 /// </summary>
 public interface ITopologyHtmlRenderer
 {
     /// <summary>
-    /// Génère le document HTML complet et autonome représentant le graphe topologique.
+    /// Generates the complete, self-contained HTML document representing the topology graph.
     /// </summary>
-    /// <param name="graph">Graphe topologique consolidé à représenter.</param>
-    /// <param name="title">Titre affiché dans l'en-tête de la carte.</param>
-    /// <returns>Chaîne contenant le code HTML5 complet (CSS et moteur JS embarqués).</returns>
+    /// <param name="graph">The consolidated topology graph to render.</param>
+    /// <param name="title">Title shown in the map header.</param>
+    /// <returns>The complete HTML5 code (CSS and JS engine embedded).</returns>
     string RenderHtml(NetworkTopologyGraph graph, string title = "Network Flow & Server Topology Map");
 
     /// <summary>
-    /// Génère le document HTML complet et autonome avec les options de tri, de routage et d'écartement spécifiées.
+    /// Generates the complete, self-contained HTML document with the given sort, routing and spacing options.
     /// </summary>
-    /// <param name="graph">Graphe topologique consolidé à représenter.</param>
-    /// <param name="options">Options de rendu (tri, routage des flèches, écartements, pagination).</param>
-    /// <returns>Chaîne contenant le code HTML5 complet.</returns>
+    /// <param name="graph">The consolidated topology graph to render.</param>
+    /// <param name="options">Rendering options (sort, arrow routing, spacing, pagination).</param>
+    /// <returns>The complete HTML5 code.</returns>
     string RenderHtml(NetworkTopologyGraph graph, TopologyRenderingOptions options);
 
     /// <summary>
-    /// Écrit de manière asynchrone le document HTML autonome sur le disque.
+    /// Writes the self-contained HTML document to disk asynchronously.
     /// </summary>
-    /// <param name="outputPath">Chemin du fichier HTML cible.</param>
-    /// <param name="graph">Graphe topologique consolidé.</param>
-    /// <param name="title">Titre de la carte.</param>
-    /// <param name="cancellationToken">Jeton d'annulation coopératif.</param>
-    /// <returns>Tâche représentant l'opération d'écriture.</returns>
+    /// <param name="outputPath">Path of the target HTML file.</param>
+    /// <param name="graph">The consolidated topology graph.</param>
+    /// <param name="title">Title of the map.</param>
+    /// <param name="cancellationToken">Cooperative cancellation token.</param>
+    /// <returns>A task representing the write operation.</returns>
     Task WriteHtmlFileAsync(
         string outputPath,
         NetworkTopologyGraph graph,
@@ -38,13 +38,13 @@ public interface ITopologyHtmlRenderer
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Écrit de manière asynchrone le document HTML autonome sur le disque avec les options de rendu spécifiées.
+    /// Writes the self-contained HTML document to disk asynchronously with the given rendering options.
     /// </summary>
-    /// <param name="outputPath">Chemin du fichier HTML cible.</param>
-    /// <param name="graph">Graphe topologique consolidé.</param>
-    /// <param name="options">Options de rendu (tri, routage des flèches, écartements, pagination).</param>
-    /// <param name="cancellationToken">Jeton d'annulation coopératif.</param>
-    /// <returns>Tâche représentant l'opération d'écriture.</returns>
+    /// <param name="outputPath">Path of the target HTML file.</param>
+    /// <param name="graph">The consolidated topology graph.</param>
+    /// <param name="options">Rendering options (sort, arrow routing, spacing, pagination).</param>
+    /// <param name="cancellationToken">Cooperative cancellation token.</param>
+    /// <returns>A task representing the write operation.</returns>
     Task WriteHtmlFileAsync(
         string outputPath,
         NetworkTopologyGraph graph,

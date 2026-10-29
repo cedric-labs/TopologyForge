@@ -1,12 +1,12 @@
 namespace TopologyForge.Models;
 
 /// <summary>
-/// Descripteur d'un port de service non éphémère hébergé sur un serveur.
+/// Describes a non-ephemeral service port hosted on a server.
 /// </summary>
-/// <param name="Port">Numéro du port d'écoute ou de service.</param>
-/// <param name="Protocol">Protocole de transport (TCP/UDP).</param>
-/// <param name="ProcessName">Processus exposant le port (si connu).</param>
-/// <param name="ServiceTarget">Cible applicative ou module exécuté (si connu).</param>
+/// <param name="Port">Listening or service port number.</param>
+/// <param name="Protocol">Transport protocol (TCP/UDP).</param>
+/// <param name="ProcessName">Process exposing the port (if known).</param>
+/// <param name="ServiceTarget">Application target or running module (if known).</param>
 public sealed record ServerListenerDescriptor(
     int Port,
     TopologyTransportProtocol Protocol,

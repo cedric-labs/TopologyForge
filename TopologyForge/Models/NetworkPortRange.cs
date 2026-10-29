@@ -4,48 +4,48 @@ using System.Runtime.InteropServices;
 namespace TopologyForge.Models;
 
 /// <summary>
-/// Plage de ports réseau TCP/UDP validée (0 à 65535).
+/// Validated TCP/UDP network port range (0 to 65535).
 /// </summary>
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct NetworkPortRange
 {
     /// <summary>
-    /// Plage par défaut des ports dynamiques / éphémères selon le standard IANA (49152 à 65535).
+    /// Default IANA range of dynamic / ephemeral ports (49152 to 65535).
     /// </summary>
     public static readonly NetworkPortRange DefaultEphemeralRange = new(49152, 65535);
 
     /// <summary>
-    /// Borne inférieure incluse de la plage de ports.
+    /// Inclusive lower bound of the range.
     /// </summary>
     public int StartPort { get; }
 
     /// <summary>
-    /// Borne supérieure incluse de la plage de ports.
+    /// Inclusive upper bound of the range.
     /// </summary>
     public int EndPort { get; }
 
     /// <summary>
-    /// Initialise une plage de ports validée.
+    /// Creates a validated port range.
     /// </summary>
-    /// <param name="startPort">Port de début (0 à 65535).</param>
-    /// <param name="endPort">Port de fin (0 à 65535, supérieur ou égal à <paramref name="startPort"/>).</param>
-    /// <exception cref="ArgumentOutOfRangeException">Si un port est hors des limites 0..65535.</exception>
-    /// <exception cref="ArgumentException">Si le port de début est supérieur au port de fin.</exception>
+    /// <param name="startPort">First port (0 to 65535).</param>
+    /// <param name="endPort">Last port (0 to 65535, greater than or equal to <paramref name="startPort"/>).</param>
+    /// <exception cref="ArgumentOutOfRangeException">A port is outside 0..65535.</exception>
+    /// <exception cref="ArgumentException">The first port is greater than the last port.</exception>
     public NetworkPortRange(int startPort, int endPort)
     {
         if (startPort is < 0 or > 65535)
         {
-            throw new ArgumentOutOfRangeException(nameof(startPort), "Le port de début doit être compris entre 0 et 65535.");
+            throw new ArgumentOutOfRangeException(nameof(startPort), "The start port must be between 0 and 65535.");
         }
 
         if (endPort is < 0 or > 65535)
         {
-            throw new ArgumentOutOfRangeException(nameof(endPort), "Le port de fin doit être compris entre 0 et 65535.");
+            throw new ArgumentOutOfRangeException(nameof(endPort), "The end port must be between 0 and 65535.");
         }
 
         if (startPort > endPort)
         {
-            throw new ArgumentException("Le port de début ne peut pas être supérieur au port de fin.", nameof(startPort));
+            throw new ArgumentException("The start port cannot be greater than the end port.", nameof(startPort));
         }
 
         StartPort = startPort;
@@ -53,30 +53,30 @@ public readonly record struct NetworkPortRange
     }
 
     /// <summary>
-    /// Crée une plage ciblant un port unique.
+    /// Creates a range that targets a single port.
     /// </summary>
-    /// <param name="port">Numéro du port unique.</param>
-    /// <returns>Instance de <see cref="NetworkPortRange"/> pour ce port.</returns>
+    /// <param name="port">The single port number.</param>
+    /// <returns>A <see cref="NetworkPortRange"/> for this port.</returns>
     public static NetworkPortRange Single(int port) => new(port, port);
 
     /// <summary>
-    /// Vérifie si un port appartient à cette plage (bornes incluses).
+    /// Checks whether a port belongs to this range (bounds included).
     /// </summary>
-    /// <param name="port">Numéro du port à tester.</param>
-    /// <returns><c>true</c> si le port est dans l'intervalle ; sinon <c>false</c>.</returns>
+    /// <param name="port">The port number to test.</param>
+    /// <returns><c>true</c> if the port is within the range; otherwise <c>false</c>.</returns>
     public bool Contains(int port) => port >= StartPort && port <= EndPort;
 
     /// <summary>
-    /// Analyse une représentation textuelle de port ou de plage (ex: "443" ou "8000-8080").
+    /// Parses a port or range specification (e.g. "443" or "8000-8080").
     /// </summary>
-    /// <param name="specification">Spécification textuelle.</param>
-    /// <returns>Plage de ports correspondante.</returns>
-    /// <exception cref="FormatException">Si le format est invalide.</exception>
+    /// <param name="specification">The text specification.</param>
+    /// <returns>The matching port range.</returns>
+    /// <exception cref="FormatException">The format is invalid.</exception>
     public static NetworkPortRange Parse(string specification)
     {
         if (string.IsNullOrWhiteSpace(specification))
         {
-            throw new FormatException("La spécification de plage de ports ne peut pas être vide.");
+            throw new FormatException("The port range specification cannot be empty.");
         }
 
         var trimmed = specification.Trim();
@@ -99,14 +99,14 @@ public readonly record struct NetworkPortRange
             return new NetworkPortRange(startPort, endPort);
         }
 
-        throw new FormatException($"Format de plage de ports invalide : '{specification}'. Attendu : '80' ou '8000-8080'.");
+        throw new FormatException($"Invalid port range format: '{specification}'. Expected '80' or '8000-8080'.");
     }
 
     /// <summary>
-    /// Analyse une liste de ports ou plages séparés par des virgules ou points-virgules (ex: "80, 443, 8000-8080").
+    /// Parses a list of ports or ranges separated by commas or semicolons (e.g. "80, 443, 8000-8080").
     /// </summary>
-    /// <param name="specifications">Chaîne contenant une ou plusieurs spécifications.</param>
-    /// <returns>Liste en lecture seule des plages analysées.</returns>
+    /// <param name="specifications">A string holding one or more specifications.</param>
+    /// <returns>A read-only list of the parsed ranges.</returns>
     public static IReadOnlyList<NetworkPortRange> ParseList(string? specifications)
     {
         if (string.IsNullOrWhiteSpace(specifications))
@@ -125,9 +125,9 @@ public readonly record struct NetworkPortRange
     }
 
     /// <summary>
-    /// Formate la plage sous forme canonique ("443" ou "8000-8080").
+    /// Formats the range in canonical form ("443" or "8000-8080").
     /// </summary>
-    /// <returns>Représentation textuelle.</returns>
+    /// <returns>The text representation.</returns>
     public override string ToString() =>
         StartPort == EndPort
             ? StartPort.ToString(CultureInfo.InvariantCulture)

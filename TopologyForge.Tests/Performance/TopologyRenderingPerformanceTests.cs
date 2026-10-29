@@ -9,8 +9,8 @@ using Xunit.Abstractions;
 namespace TopologyForge.Tests.Performance;
 
 /// <summary>
-/// Tests de performance et benchmarks mesurant les temps de gÃ©nÃ©ration et de rendu navigateur
-/// pour diffÃ©rentes volumÃ©tries de serveurs N et de liens Y.
+/// Performance tests and benchmarks measuring generation and browser rendering times
+/// for various numbers of servers N and links Y.
 /// </summary>
 public sealed class TopologyRenderingPerformanceTests(ITestOutputHelper output)
 {
@@ -44,7 +44,7 @@ public sealed class TopologyRenderingPerformanceTests(ITestOutputHelper output)
         html.Should().NotBeNullOrWhiteSpace();
         html.Length.Should().BeGreaterThan(1000);
         sw.ElapsedMilliseconds.Should().BeLessThanOrEqualTo(maxAllowedMs,
-            $"la gÃ©nÃ©ration HTML pour {serverCount} serveurs et {edgeCount} liens doit respecter le budget de {maxAllowedMs} ms");
+            $"generating the HTML for {serverCount} servers and {edgeCount} links must stay within the {maxAllowedMs} ms budget");
     }
 
     [Theory]
@@ -83,7 +83,7 @@ public sealed class TopologyRenderingPerformanceTests(ITestOutputHelper output)
 
             renderedNodes.Should().BeGreaterThan(0);
             sw.ElapsedMilliseconds.Should().BeLessThanOrEqualTo(5000,
-                $"le chargement navigateur pour {serverCount} serveurs doit s'exÃ©cuter en moins de 5 secondes");
+                $"browser loading for {serverCount} servers must complete in under 5 seconds");
         }
         finally
         {

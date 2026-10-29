@@ -7,12 +7,12 @@ using TopologyForge.Export.Drawio.Model;
 using TopologyForge.Export.Drawio.Styling;
 
 /// <summary>
-/// Sérialiseur XML standard Draw.io / diagrams.net pour graphes et topologies.
+/// Standard Draw.io / diagrams.net XML serializer for graphs and topologies.
 /// </summary>
 public sealed class DrawioXmlRenderer
 {
     /// <summary>
-    /// Sérialise le document de diagramme en XML Draw.io standard non compressé.
+    /// Serializes the diagram document as standard uncompressed Draw.io XML.
     /// </summary>
     public string Render(DiagramDocument document, DiagramTheme? theme = null)
     {
@@ -66,7 +66,7 @@ public sealed class DrawioXmlRenderer
             // <root>
             writer.WriteStartElement("root");
 
-            // Cellule système 0
+            // System cell 0
             WriteCell(writer, "0", null, null);
 
             // Calques utilisateur
@@ -81,13 +81,13 @@ public sealed class DrawioXmlRenderer
                 WriteContainer(writer, rc, activeTheme);
             }
 
-            // Nœuds / Serveurs
+            // Nodes / servers
             foreach (var rn in resolvedNodes)
             {
                 WriteNode(writer, rn, activeTheme);
             }
 
-            // Arêtes / Liens de flux
+            // Edges / flow links
             foreach (var edge in document.Edges)
             {
                 WriteEdge(writer, edge, activeTheme);
@@ -284,7 +284,7 @@ public sealed class DrawioXmlRenderer
         writer.WriteEndElement(); // </mxGeometry>
         writer.WriteEndElement(); // </mxCell>
 
-        // Étiquette de port cible déportée
+        // Target port label placed away from the edge
         if (!string.IsNullOrWhiteSpace(edge.TargetPortLabel))
         {
             writer.WriteStartElement("mxCell");

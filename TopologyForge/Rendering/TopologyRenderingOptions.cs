@@ -1,67 +1,67 @@
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Options de rendu visuel, de tri, de disposition géométrique, de routage de flèches, d'écartement et de pagination pour la cartographie HTML autonome.
+/// Visual, sort, layout, arrow routing, spacing and pagination options for the self-contained HTML map.
 /// </summary>
 public sealed record TopologyRenderingOptions
 {
     /// <summary>
-    /// Titre principal affiché dans l'en-tête de la cartographie.
+    /// Main title shown in the map header.
     /// </summary>
     public string Title { get; init; } = "Network Flow & Server Topology Map";
 
     /// <summary>
-    /// Disposition géométrique initiale des nœuds (Hiérarchique par défaut).
+    /// Initial geometric layout of the nodes (hierarchical by default).
     /// </summary>
     public TopologyLayoutMode DefaultLayoutMode { get; init; } = TopologyLayoutMode.Layered;
 
     /// <summary>
-    /// Méthode de tri initiale des serveurs (Sugiyama anti-croisement par défaut).
+    /// Initial server sort method (crossing-avoiding Sugiyama by default).
     /// </summary>
     public TopologyNodeSortMethod DefaultSortMethod { get; init; } = TopologyNodeSortMethod.BarycentricSugiyama;
 
     /// <summary>
-    /// Mode de routage initial des flèches (Courbes de Bézier avec contournement par défaut).
+    /// Initial arrow routing mode (Bézier curves that bend around servers by default).
     /// </summary>
     public TopologyEdgeRoutingMode DefaultRoutingMode { get; init; } = TopologyEdgeRoutingMode.BezierCurved;
 
     /// <summary>
-    /// Profil d'écartement initial entre serveurs et flèches.
+    /// Initial spacing profile between servers and arrows.
     /// </summary>
     public TopologySpacingProfile DefaultSpacingProfile { get; init; } = TopologySpacingProfile.Balanced;
 
     /// <summary>
-    /// Contenu initial des étiquettes des flèches (ports affichés par défaut).
+    /// Initial content of the arrow labels (ports shown by default).
     /// </summary>
     public TopologyEdgeLabelMode DefaultEdgeLabelMode { get; init; } = TopologyEdgeLabelMode.Ports;
 
     /// <summary>
-    /// Nombre initial de serveurs affichés par page (100 par défaut).
+    /// Initial number of servers shown per page (100 by default).
     /// </summary>
     public int DefaultPageSize { get; init; } = 100;
 
     /// <summary>
-    /// Filtres d'inclusions de ports par défaut transmis à l'IHM web.
+    /// Default port inclusion filters passed to the web page.
     /// </summary>
     public string InitialIncludePorts { get; init; } = string.Empty;
 
     /// <summary>
-    /// Filtres d'exclusions de ports par défaut transmis à l'IHM web.
+    /// Default port exclusion filters passed to the web page.
     /// </summary>
     public string InitialExcludePorts { get; init; } = string.Empty;
 
     /// <summary>
-    /// Filtres d'exclusions de serveurs ou adresses IP transmis à l'IHM web.
+    /// Server or IP address exclusion filters passed to the web page.
     /// </summary>
     public string InitialExcludeHosts { get; init; } = string.Empty;
 
     /// <summary>
-    /// Filtre de direction des flux transmis à l'IHM web (all, OUT ou IN).
+    /// Flow direction filter passed to the web page (all, OUT or IN).
     /// </summary>
     public string InitialDirection { get; init; } = "all";
 
     /// <summary>
-    /// Syntaxe de la commande proposée à la copie dans la section « CLI Command » (syntaxe NetFlowAudit 1.x par défaut).
+    /// Syntax of the command offered for copying in the "CLI Command" section (NetFlowAudit 1.x syntax by default).
     /// </summary>
     public TopologyCliCommandFormat CliCommandFormat { get; init; } = new();
 }

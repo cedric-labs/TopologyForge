@@ -3,7 +3,7 @@ namespace TopologyForge.Export.Drawio.Model;
 using System.Runtime.InteropServices;
 
 /// <summary>
-/// Représente un document de diagramme complet prêt pour la sérialisation Draw.io.
+/// A complete diagram document ready for Draw.io serialization.
 /// </summary>
 public sealed record DiagramDocument(
     string Title,
@@ -15,7 +15,7 @@ public sealed record DiagramDocument(
     int GridSize = 10);
 
 /// <summary>
-/// Calque Draw.io permettant d'afficher ou masquer sélectivement des familles d'éléments.
+/// Draw.io layer used to show or hide families of elements selectively.
 /// </summary>
 public sealed record DiagramLayer(
     string Id,
@@ -24,8 +24,8 @@ public sealed record DiagramLayer(
     bool Locked = false);
 
 /// <summary>
-/// Conteneur hiérarchique (ex: Zone, Sous-réseau, VPC, Département).
-/// Coordonnées TOUJOURS en repère absolu.
+/// Hierarchical container (e.g. zone, subnet, VPC, department).
+/// Coordinates are ALWAYS absolute.
 /// </summary>
 public sealed record DiagramContainer(
     string Id,
@@ -41,8 +41,8 @@ public sealed record DiagramContainer(
     Styling.DiagramContainerStyle? CustomStyle = null);
 
 /// <summary>
-/// Nœud géométrique représentant une entité, un équipement ou une carte.
-/// Coordonnées TOUJOURS en repère absolu.
+/// Geometric node representing an entity, a device or a card.
+/// Coordinates are ALWAYS absolute.
 /// </summary>
 public sealed record DiagramNode(
     string Id,
@@ -62,7 +62,7 @@ public sealed record DiagramNode(
     Styling.DiagramNodeStyle? CustomStyle = null);
 
 /// <summary>
-/// Connexion orientée entre deux nœuds avec ancres relatives, waypoints absolus et échelonnement d'étiquettes.
+/// Directed connection between two nodes, with relative anchors, absolute waypoints and staggered labels.
 /// </summary>
 public sealed record DiagramEdge(
     string Id,
@@ -84,19 +84,19 @@ public sealed record DiagramEdge(
     Styling.DiagramEdgeStyle? CustomStyle = null);
 
 /// <summary>
-/// Point d'ancrage relatif sur le périmètre de la boîte (valeurs normalisées de 0.0 à 1.0).
+/// Relative anchor point on the box perimeter (normalised values from 0.0 to 1.0).
 /// </summary>
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DiagramAnchorPoint(double X, double Y, bool Perimeter = false);
 
 /// <summary>
-/// Point géométrique en coordonnées canevas absolues.
+/// Geometric point in absolute canvas coordinates.
 /// </summary>
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DiagramPoint(double X, double Y);
 
 /// <summary>
-/// Formes géométriques supportées pour un nœud de diagramme.
+/// Geometric shapes supported for a diagram node.
 /// </summary>
 public enum DiagramNodeShape
 {
@@ -109,7 +109,7 @@ public enum DiagramNodeShape
 }
 
 /// <summary>
-/// Direction de la relation représentée par l'arête.
+/// Direction of the relation the edge represents.
 /// </summary>
 public enum DiagramEdgeDirection
 {
@@ -119,7 +119,7 @@ public enum DiagramEdgeDirection
 }
 
 /// <summary>
-/// Type de routage géométrique de l'arête.
+/// Geometric routing type of the edge.
 /// </summary>
 public enum DiagramEdgeRouting
 {

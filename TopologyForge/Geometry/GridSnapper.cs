@@ -1,12 +1,12 @@
 namespace TopologyForge.Geometry;
 
 /// <summary>
-/// Utilitaire d'alignement sur la grille magnétique Draw.io et de calcul d'ancres relatives fiabilisées.
+/// Snaps values to the Draw.io magnetic grid and computes relative anchors that stay on it.
 /// </summary>
 public static class GridSnapper
 {
     /// <summary>
-    /// Aligne une valeur scalaire sur le multiple de grille le plus proche.
+    /// Snaps a scalar value to the nearest grid multiple.
     /// </summary>
     public static double Snap(double value, int gridSize = 10)
     {
@@ -19,9 +19,9 @@ public static class GridSnapper
     }
 
     /// <summary>
-    /// Répartit N ancres sur une tranche de boîte [boxOrigin, boxOrigin + boxLength]
-    /// en garantissant que la coordonnée absolue résultante tombe sur un pas de grille,
-    /// puis retourne à la fois le ratio normalisé [0..1] pour Draw.io et la coordonnée absolue.
+    /// Spreads N anchors along a box side [boxOrigin, boxOrigin + boxLength]
+    /// so that each resulting absolute coordinate falls on a grid step,
+    /// then returns both the normalised [0..1] ratio for Draw.io and the absolute coordinate.
     /// </summary>
     public static (double NormalizedRatio, double AbsoluteCoord) ComputeGridAlignedAnchor(
         double boxOrigin,

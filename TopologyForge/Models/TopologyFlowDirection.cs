@@ -1,22 +1,22 @@
 namespace TopologyForge.Models;
 
 /// <summary>
-/// Sens directionnel d'un flux réseau observé.
+/// Direction of an observed network flow.
 /// </summary>
 public enum TopologyFlowDirection
 {
     /// <summary>
-    /// Port local en écoute passive (serveur hébergeant un service).
+    /// Local port listening passively (server hosting a service).
     /// </summary>
     Listening = 0,
 
     /// <summary>
-    /// Connexion entrante d'un client distant vers un port de service local.
+    /// Inbound connection from a remote client to a local service port.
     /// </summary>
     Inbound = 1,
 
     /// <summary>
-    /// Connexion sortante du serveur local vers un port de service d'un serveur distant.
+    /// Outbound connection from the local server to a service port on a remote server.
     /// </summary>
     Outbound = 2
 }

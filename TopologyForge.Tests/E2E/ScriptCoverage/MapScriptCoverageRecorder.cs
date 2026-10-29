@@ -4,15 +4,15 @@ using Microsoft.Playwright;
 namespace TopologyForge.Tests.E2E.ScriptCoverage;
 
 /// <summary>
-/// Mesure par le protocole CDP de Chromium la couverture V8 du script de la carte pendant un test E2E.
+/// Measures, through the Chromium CDP protocol, the V8 coverage of the map script during an E2E test.
 /// </summary>
 public sealed class MapScriptCoverageRecorder(ICDPSession cdpSession)
 {
     /// <summary>
-    /// Démarre la mesure sur une page, avant toute navigation pour que le script inline soit instrumenté dès son exécution.
+    /// Starts measuring on a page, before any navigation, so that the inline script is instrumented as soon as it runs.
     /// </summary>
-    /// <param name="page">Page Chromium pilotée par le test.</param>
-    /// <returns>Enregistreur attaché à la page.</returns>
+    /// <param name="page">Chromium page driven by the test.</param>
+    /// <returns>Recorder attached to the page.</returns>
     public static async Task<MapScriptCoverageRecorder> StartAsync(IPage page)
     {
         ArgumentNullException.ThrowIfNull(page);
@@ -27,13 +27,13 @@ public sealed class MapScriptCoverageRecorder(ICDPSession cdpSession)
     }
 
     /// <summary>
-    /// Relève la couverture du document courant et l'ajoute au rapport LCOV. À appeler avant chaque navigation et avant la
-    /// fermeture de la page, car les compteurs d'un document déchargé sont perdus.
+    /// Takes the coverage of the current document and adds it to the LCOV report. Call it before each navigation and before
+    /// closing the page, because the counters of an unloaded document are lost.
     /// </summary>
-    /// <param name="cancellationToken">Jeton d'annulation de l'écriture du rapport.</param>
+    /// <param name="cancellationToken">Cancellation token for writing the report.</param>
     public async Task CollectAsync(CancellationToken cancellationToken = default)
     {
-        // takePreciseCoverage remet les compteurs à zéro : les relevés successifs s'additionnent sans double comptage.
+        // takePreciseCoverage resets the counters: successive readings add up without double counting.
         var coverage = await cdpSession.SendAsync("Profiler.takePreciseCoverage");
         if (coverage is not { } result)
         {
@@ -59,7 +59,7 @@ public sealed class MapScriptCoverageRecorder(ICDPSession cdpSession)
         }
     }
 
-    // Seul le bloc <script> de la page porte une URL file: ; les expressions de Page.EvaluateAsync n'ont pas d'URL.
+    // Only the page's <script> block has a file: URL; Page.EvaluateAsync expressions have no URL.
     private static bool IsPageScript(JsonElement script) =>
         script.GetProperty("url").GetString() is { } url
         && url.StartsWith("file:", StringComparison.OrdinalIgnoreCase);

@@ -5,9 +5,9 @@ using TopologyForge.Models;
 namespace TopologyForge.Builders;
 
 /// <summary>
-/// Constructeur de graphe topologique consolidant les serveurs, leurs ports de service non éphémères et leurs flux.
+/// Builds a topology graph that consolidates servers, their non-ephemeral service ports and their flows.
 /// </summary>
-/// <param name="flowEvaluator">Évaluateur des critères d'inclusion et d'exclusion.</param>
+/// <param name="flowEvaluator">Evaluates the inclusion and exclusion criteria.</param>
 public sealed class TopologyGraphBuilder(ITopologyFlowEvaluator flowEvaluator) : ITopologyGraphBuilder
 {
     private readonly ITopologyFlowEvaluator _flowEvaluator = flowEvaluator ?? throw new ArgumentNullException(nameof(flowEvaluator));
@@ -90,7 +90,7 @@ public sealed class TopologyGraphBuilder(ITopologyFlowEvaluator flowEvaluator) :
 
         if (flow.Direction == TopologyFlowDirection.Outbound)
         {
-            // En flux sortant, le port de service (non éphémère) est hébergé par le serveur distant (RemotePort)
+            // On an outbound flow, the (non-ephemeral) service port is hosted by the remote server (RemotePort)
             remoteNode.AddListeningPort(flow.RemotePort, flow.Protocol, string.Empty, string.Empty);
 
             RegisterOrIncrementEdge(
@@ -106,7 +106,7 @@ public sealed class TopologyGraphBuilder(ITopologyFlowEvaluator flowEvaluator) :
         }
         else if (flow.Direction == TopologyFlowDirection.Inbound)
         {
-            // En flux entrant, le port de service (non éphémère) est hébergé par le serveur local (LocalPort)
+            // On an inbound flow, the (non-ephemeral) service port is hosted by the local server (LocalPort)
             localNode.AddListeningPort(flow.LocalPort, flow.Protocol, flow.ProcessName, flow.ServiceTarget);
 
             RegisterOrIncrementEdge(

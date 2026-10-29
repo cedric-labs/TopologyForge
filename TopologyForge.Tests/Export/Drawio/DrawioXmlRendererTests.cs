@@ -12,11 +12,11 @@ public sealed class DrawioXmlRendererTests
     public void Render_WhenCalledWithHierarchicalContainersAndNodes_ResolvesRelativeCoordinates()
     {
         // Arrange
-        // Zone en (100, 80, W:500, H:400)
+        // Zone at (100, 80, W:500, H:400)
         var container = new DiagramContainer("zone_1", "Subnet 10.0.1.0/24", 100, 80, 500, 400);
 
-        // Serveur enfant en coordonnées absolues (130, 130, W:200, H:90)
-        // La coordonnée relative doit valoir X = 30, Y = 50
+        // Child server at absolute coordinates (130, 130, W:200, H:90)
+        // The relative coordinate must be X = 30, Y = 50
         var node = new DiagramNode(
             Id: "srv_1",
             Label: "SRV-APP",
@@ -58,7 +58,7 @@ public sealed class DrawioXmlRendererTests
             .And.Contain("<mxfile host=\"app.diagrams.net\"")
             .And.Contain("background=\"#0f172a\"")
             .And.Contain("parent=\"zone_1\"")
-            .And.Contain("x=\"30\" y=\"50\"") // Coordonnées relatives vérifiées !
+            .And.Contain("x=\"30\" y=\"50\"") // relative coordinates
             .And.Contain("overflow=fill;")
             .And.Contain("placeholders=\"1\"")
             .And.Contain("exitDx=0;exitDy=0;exitPerimeter=0;")

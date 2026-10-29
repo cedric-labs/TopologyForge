@@ -1,19 +1,19 @@
 namespace TopologyForge.Models;
 
 /// <summary>
-/// Enregistrement unitaire d'un flux ou d'un port d'écoute réseau destiné à la construction topologique.
+/// A single network flow or listening port record used to build the topology.
 /// </summary>
-/// <param name="SourceServerName">Nom d'hôte du serveur local ou source.</param>
-/// <param name="SourceIp">Adresse IP principale ou locale du serveur source.</param>
-/// <param name="LocalPort">Port local observé sur le serveur source.</param>
-/// <param name="RemoteServerName">Nom d'hôte résolu du serveur distant (vide si écoute locale ou non résolu).</param>
-/// <param name="RemoteIp">Adresse IP du serveur distant.</param>
-/// <param name="RemotePort">Port distant observé sur le serveur distant.</param>
-/// <param name="Protocol">Protocole de transport (TCP ou UDP).</param>
-/// <param name="Direction">Direction du flux (Listening, Inbound, Outbound).</param>
-/// <param name="ProcessName">Nom du processus associé au flux.</param>
-/// <param name="ServiceTarget">Cible d'exécution ou service sous-jacent résolu.</param>
-/// <param name="ObservationCount">Nombre d'observations cumulées de ce flux.</param>
+/// <param name="SourceServerName">Host name of the local or source server.</param>
+/// <param name="SourceIp">Main or local IP address of the source server.</param>
+/// <param name="LocalPort">Local port observed on the source server.</param>
+/// <param name="RemoteServerName">Resolved host name of the remote server (empty when listening locally or unresolved).</param>
+/// <param name="RemoteIp">IP address of the remote server.</param>
+/// <param name="RemotePort">Remote port observed on the remote server.</param>
+/// <param name="Protocol">Transport protocol (TCP or UDP).</param>
+/// <param name="Direction">Flow direction (Listening, Inbound, Outbound).</param>
+/// <param name="ProcessName">Name of the process associated with the flow.</param>
+/// <param name="ServiceTarget">Resolved execution target or underlying service.</param>
+/// <param name="ObservationCount">Cumulative number of observations of this flow.</param>
 public sealed record TopologyFlowRecord(
     string SourceServerName,
     string SourceIp,
@@ -28,9 +28,9 @@ public sealed record TopologyFlowRecord(
     long ObservationCount = 1)
 {
     /// <summary>
-    /// Détermine le port de service persistant (port local pour Listening/Inbound, port distant pour Outbound).
+    /// Returns the persistent service port (local port for Listening/Inbound, remote port for Outbound).
     /// </summary>
-    /// <returns>Numéro du port de service.</returns>
+    /// <returns>The service port number.</returns>
     public int GetServicePort() =>
         Direction == TopologyFlowDirection.Outbound ? RemotePort : LocalPort;
 }

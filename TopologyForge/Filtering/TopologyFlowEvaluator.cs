@@ -3,9 +3,9 @@ using TopologyForge.Models;
 namespace TopologyForge.Filtering;
 
 /// <summary>
-/// Évaluateur de filtrage multicritère (ports éphémères, plages de ports, hôtes, CIDR, processus et directions).
+/// Multi-criteria filter (ephemeral ports, port ranges, hosts, CIDR, processes and directions).
 /// </summary>
-/// <param name="options">Options de filtrage configurées.</param>
+/// <param name="options">The configured filtering options.</param>
 public sealed class TopologyFlowEvaluator(TopologyFilterOptions options) : ITopologyFlowEvaluator
 {
     private readonly TopologyFilterOptions _options = options ?? throw new ArgumentNullException(nameof(options));

@@ -35,7 +35,7 @@ public sealed class TopologyEdgeRouterTests
     [Fact]
     public void RouteEdges_WhenOpposingFlowsExist_PreventsXCrossingAndMaintainsParallelOffset()
     {
-        // Arrange: srv_A en (100, 100) et srv_B en (500, 100)
+        // Arrange: srv_A at (100, 100) and srv_B at (500, 100)
         var nodeA = new DiagramNode("srv_A", "Server A", "10.0.1.1", 100, 100, 200, 90);
         var nodeB = new DiagramNode("srv_B", "Server B", "10.0.1.2", 500, 100, 200, 90);
 
@@ -57,18 +57,18 @@ public sealed class TopologyEdgeRouterTests
         r1.Waypoints.Should().NotBeNullOrEmpty();
         r2.Waypoints.Should().NotBeNullOrEmpty();
 
-        // Les deux arêtes doivent avoir des couloirs distincts distants d'au moins 20px
+        // Both edges must have distinct corridors at least 20px apart
         double diffY = Math.Abs(r1.Waypoints![0].Y - r2.Waypoints![0].Y);
         diffY.Should().BeGreaterThanOrEqualTo(20.0);
 
-        // Les ancres ne doivent pas se chevaucher
+        // Anchors must not overlap
         r1.ExitAnchor.Should().NotBe(r2.EntryAnchor);
     }
 
     [Fact]
     public void RouteEdges_WhenObstacleBetweenNodes_RoutesAroundObstacleBoundingBox()
     {
-        // Arrange: A en (100, 100), Obstacle en (350, 80, W:200, H:100), B en (650, 100)
+        // Arrange: A at (100, 100), obstacle at (350, 80, W:200, H:100), B at (650, 100)
         var nodeA = new DiagramNode("srv_A", "Server A", "10.0.1.1", 100, 100, 150, 80);
         var nodeObstacle = new DiagramNode("srv_Obs", "Obstacle", "10.0.1.99", 300, 80, 200, 100);
         var nodeB = new DiagramNode("srv_B", "Server B", "10.0.1.2", 600, 100, 150, 80);
@@ -83,7 +83,7 @@ public sealed class TopologyEdgeRouterTests
         var routedEdge = routed.Single();
         routedEdge.Waypoints.Should().NotBeNull().And.HaveCountGreaterThanOrEqualTo(2);
 
-        // Vérifier qu'aucun point de passage ou segment ne traverse la boîte obstacle protégée
+        // Check that no waypoint or segment crosses the protected obstacle box
         var obsBox = CorridorWaypointFinder.BoundingBox.FromNode(nodeObstacle, padding: 16.0);
         bool hasCollision = obsBox.IntersectsSegment(routedEdge.Waypoints![0], routedEdge.Waypoints[1]);
         hasCollision.Should().BeFalse();

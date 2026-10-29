@@ -73,9 +73,27 @@ public sealed class TopologyToDrawioAdapterTests
     }
 
     [Fact]
+    public void Convert_WhenServersAreLaidOut_WritesTheTooltipsInEnglish()
+    {
+        // Arrange
+        var rootServer = new TopologyServerNode("srv_root", "pve01", "192.168.1.10", true, [], 0, 1);
+        var target = new TopologyServerNode("srv_nas", "nas", "192.168.1.20", false, [], 1, 0);
+        var edge = new TopologyServiceEdge(
+            "e1", "srv_root", "srv_nas", 445, TopologyTransportProtocol.Tcp, "smb", "nas", 1, TopologyFlowDirection.Outbound);
+        var graph = new NetworkTopologyGraph(DateTimeOffset.UtcNow, [rootServer, target], [edge], 1, 0);
+
+        // Act
+        var doc = new TopologyToDrawioAdapter().Convert(graph, "Homelab");
+
+        // Assert
+        doc.Nodes.Single(n => n.Id == "srv_root").TooltipTemplate.Should().Be("IP: %ip%\nName: %name%\nRole: Audited server");
+        doc.Nodes.Single(n => n.Id == "srv_nas").TooltipTemplate.Should().Be("IP: %ip%\nName: %name%\nSubnet: 192.168.1.0/24");
+    }
+
+    [Fact]
     public void Convert_WhenMoreThanThreePortsBetweenServers_AggregatesIntoSingleTrunkEdge()
     {
-        // Arrange: 4 ports entre root et tgt
+        // Arrange: 4 ports between root and tgt
         var rootServer = new TopologyServerNode("srv_root", "ROOT", "10.0.1.5", true, [], 0, 4);
         var target = new TopologyServerNode("srv_tgt", "TARGET", "10.0.2.10", false, [], 4, 0);
 
@@ -93,7 +111,7 @@ public sealed class TopologyToDrawioAdapterTests
         // Act
         var doc = adapter.Convert(graph);
 
-        // Assert: Doit être agrégé en 1 seule arête consolidée
+        // Assert: aggregated into a single consolidated edge
         doc.Edges.Should().ContainSingle();
         var aggEdge = doc.Edges.Single();
         aggEdge.TargetPortLabel.Should().Contain("(+2)");

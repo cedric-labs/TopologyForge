@@ -7,8 +7,8 @@ using TopologyForge.Geometry;
 using TopologyForge.Models;
 
 /// <summary>
-/// Adaptateur convertissant un graphe topologique réseau <see cref="NetworkTopologyGraph"/>
-/// en un document de diagramme Draw.io complet, géométriquement positionné et routé.
+/// Converts a network topology graph <see cref="NetworkTopologyGraph"/>
+/// into a complete, positioned and routed Draw.io diagram document.
 /// </summary>
 public sealed class TopologyToDrawioAdapter(
     int gridSize = 10,
@@ -21,7 +21,7 @@ public sealed class TopologyToDrawioAdapter(
     private const string MixedLayerId = "layer_mixed";
 
     /// <summary>
-    /// Convertit le graphe réseau en document Draw.io avec disposition géométrique arborescente et routage sans collision.
+    /// Converts the network graph into a Draw.io document with a tree layout and collision-free routing.
     /// </summary>
     public DiagramDocument Convert(NetworkTopologyGraph graph, string title = "Network Flow Topology")
     {
@@ -69,7 +69,7 @@ public sealed class TopologyToDrawioAdapter(
         var diagramNodes = new List<DiagramNode>(serverNodes.Count);
         var diagramContainers = new List<DiagramContainer>();
 
-        // 1. Positionnement des racines (serveurs audités) en haut
+        // 1. Roots (audited servers) at the top
         double rootStartX = 80.0;
         double rootY = 60.0;
         for (int i = 0; i < roots.Count; i++)
@@ -92,7 +92,7 @@ public sealed class TopologyToDrawioAdapter(
                 Shape: DiagramNodeShape.RichCardHtml,
                 RoleKey: "AuditedRoot",
                 Badges: badges,
-                TooltipTemplate: "IP: %ip%\nNom: %name%\nRôle: Serveur Audité",
+                TooltipTemplate: "IP: %ip%\nName: %name%\nRole: Audited server",
                 Metadata: new Dictionary<string, string>
                 {
                     ["ip"] = root.IpAddress,
@@ -102,7 +102,7 @@ public sealed class TopologyToDrawioAdapter(
                 }));
         }
 
-        // 2. Regroupement des cibles par sous-réseau
+        // 2. Targets grouped by subnet
         var subnetGroups = targetNodes
             .GroupBy(n => ExtractSubnetPrefix(n.IpAddress))
             .OrderByDescending(g => g.Count())
@@ -119,7 +119,7 @@ public sealed class TopologyToDrawioAdapter(
             string subnetCidr = group.Key;
             var subNodes = group.ToList();
 
-            // Disposition en colonnes de 2 nœuds max de large
+            // Columns at most 2 nodes wide
             int subCols = Math.Min(2, subNodes.Count);
             int subRows = (int)Math.Ceiling(subNodes.Count / (double)subCols);
 
@@ -152,7 +152,7 @@ public sealed class TopologyToDrawioAdapter(
                     Shape: DiagramNodeShape.RichCardHtml,
                     RoleKey: "Standard",
                     Badges: badges,
-                    TooltipTemplate: "IP: %ip%\nNom: %name%\nSous-réseau: " + subnetCidr,
+                    TooltipTemplate: "IP: %ip%\nName: %name%\nSubnet: " + subnetCidr,
                     Metadata: new Dictionary<string, string>
                     {
                         ["ip"] = srv.IpAddress,
@@ -214,7 +214,7 @@ public sealed class TopologyToDrawioAdapter(
             }).ToList();
         }
 
-        // Regroupement par couple et direction
+        // Grouped by server pair and direction
         var groups = edges.GroupBy(e => $"{e.SourceNodeId}->{e.TargetNodeId}::{e.FlowDirection}").ToList();
         var aggregatedEdges = new List<DiagramEdge>();
 
@@ -228,7 +228,7 @@ public sealed class TopologyToDrawioAdapter(
 
             if (aggregationMode == EdgeAggregationMode.AdaptiveThreshold && list.Count <= 3)
             {
-                // Fan-out individuel si <= 3 ports
+                // One fanned-out edge per port up to 3 ports
                 foreach (var e in list)
                 {
                     aggregatedEdges.Add(new DiagramEdge(
@@ -248,7 +248,7 @@ public sealed class TopologyToDrawioAdapter(
             }
             else
             {
-                // Fusion en un lien agrégé consolidé
+                // Beyond that, a single aggregated edge
                 string label = FormatPortsLabel(list);
 
                 long totalObservations = list.Sum(e => e.ObservationCount);
@@ -272,8 +272,8 @@ public sealed class TopologyToDrawioAdapter(
         return aggregatedEdges;
     }
 
-    // Même regroupement que la carte HTML quand ses ports sont masqués : une arête par paire non orientée, dont la
-    // couleur ne garde la direction IN/OUT que si tous les flux fusionnés la partagent.
+    // Same grouping as the HTML map when its ports are hidden: one edge per unordered pair, whose
+    // colour keeps the IN/OUT direction only when every merged flow shares it.
     private static List<DiagramEdge> BuildServerPairEdges(IReadOnlyList<TopologyServiceEdge> edges)
     {
         return edges

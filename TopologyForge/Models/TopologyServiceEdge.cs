@@ -1,17 +1,17 @@
 namespace TopologyForge.Models;
 
 /// <summary>
-/// Lien orienté représentant une dépendance réseau d'un serveur client vers le port de service d'un serveur cible.
+/// Directed edge representing a network dependency from a client server to a service port on a target server.
 /// </summary>
-/// <param name="EdgeId">Identifiant unique du lien dans le graphe.</param>
-/// <param name="SourceNodeId">Identifiant du serveur initiateur du flux.</param>
-/// <param name="TargetNodeId">Identifiant du serveur hébergeant le port de service cible.</param>
-/// <param name="TargetPort">Numéro du port de service cible (non éphémère).</param>
-/// <param name="Protocol">Protocole de transport (TCP/UDP).</param>
-/// <param name="ProcessName">Processus associé au flux.</param>
-/// <param name="ServiceTarget">Cible d'exécution associée au flux.</param>
-/// <param name="ObservationCount">Volume cumulé d'observations sur ce lien.</param>
-/// <param name="FlowDirection">Sens d'observation initial du flux (Outbound ou Inbound).</param>
+/// <param name="EdgeId">Unique identifier of the edge in the graph.</param>
+/// <param name="SourceNodeId">Identifier of the server that initiates the flow.</param>
+/// <param name="TargetNodeId">Identifier of the server hosting the target service port.</param>
+/// <param name="TargetPort">Target (non-ephemeral) service port number.</param>
+/// <param name="Protocol">Transport protocol (TCP/UDP).</param>
+/// <param name="ProcessName">Process associated with the flow.</param>
+/// <param name="ServiceTarget">Execution target associated with the flow.</param>
+/// <param name="ObservationCount">Cumulative number of observations on this edge.</param>
+/// <param name="FlowDirection">Direction in which the flow was first observed (Outbound or Inbound).</param>
 public sealed record TopologyServiceEdge(
     string EdgeId,
     string SourceNodeId,

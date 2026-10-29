@@ -3,15 +3,15 @@ namespace TopologyForge.Geometry;
 using TopologyForge.Export.Drawio.Model;
 
 /// <summary>
-/// Routeur d'arêtes orthogonal répartissant les ancres de manière canonique,
-/// injectant les points de passage en Z (fan-out) et évitant les obstacles AABB.
+/// Orthogonal edge router that spreads anchors canonically,
+/// inserts Z-shaped waypoints (fan-out) and avoids AABB obstacles.
 /// </summary>
 public sealed class TopologyEdgeRouter(int gridSize = 10, int fanSpacing = 20)
 {
     private enum BoxFace { Top, Bottom, Left, Right }
 
     /// <summary>
-    /// Calcule le routage spatial, les ancres relatives et les waypoints pour chaque arête.
+    /// Computes the routing, relative anchors and waypoints of each edge.
     /// </summary>
     public IReadOnlyList<DiagramEdge> RouteEdges(
         IReadOnlyList<DiagramNode> nodes,
@@ -24,7 +24,7 @@ public sealed class TopologyEdgeRouter(int gridSize = 10, int fanSpacing = 20)
         var nodeMap = nodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
         var allBoxes = nodes.Select(n => CorridorWaypointFinder.BoundingBox.FromNode(n)).ToList();
 
-        // 1. Regroupement canonique par paire de serveurs (indépendant du sens A->B ou B->A)
+        // 1. Canonical grouping by server pair (independent of the A->B or B->A direction)
         var pairGroups = edges
             .Where(e => nodeMap.ContainsKey(e.SourceNodeId) && nodeMap.ContainsKey(e.TargetNodeId))
             .GroupBy(e => GetCanonicalPairKey(e.SourceNodeId, e.TargetNodeId))
@@ -47,15 +47,15 @@ public sealed class TopologyEdgeRouter(int gridSize = 10, int fanSpacing = 20)
             int siblingIdx = siblings.IndexOf(edge);
             int siblingCount = siblings.Count;
 
-            // 2. Référentiel canonique (nodeA = premier dans l'ordre ordinal, nodeB = second)
-            // Empêche deux flux opposés (A->B et B->A) de se croiser en X
+            // 2. Canonical frame (nodeA = first in ordinal order, nodeB = second)
+            // Keeps two opposite flows (A->B and B->A) from crossing in an X
             bool isCanonicalOrder = string.CompareOrdinal(edge.SourceNodeId, edge.TargetNodeId) <= 0;
             var nodeA = isCanonicalOrder ? srcNode : tgtNode;
             var nodeB = isCanonicalOrder ? tgtNode : srcNode;
 
             var (faceA, faceB, isHorizontal) = DetermineFacingSides(nodeA, nodeB, forceVerticalTreeAnchors);
 
-            // 3. Calcul des ancres normalisées [0..1] alignées sur la grille
+            // 3. Normalised [0..1] anchors aligned on the grid
             var (anchorA, absPointA) = ComputeFaceAnchor(nodeA, faceA, siblingIdx, siblingCount);
             var (anchorB, absPointB) = ComputeFaceAnchor(nodeB, faceB, siblingIdx, siblingCount);
 
@@ -64,16 +64,16 @@ public sealed class TopologyEdgeRouter(int gridSize = 10, int fanSpacing = 20)
             var startPoint = isCanonicalOrder ? absPointA : absPointB;
             var endPoint = isCanonicalOrder ? absPointB : absPointA;
 
-            // 4. Calcul du fanOffset aligné sur la grille
+            // 4. fanOffset aligned on the grid
             double rawFanOffset = (siblingIdx - ((siblingCount - 1) / 2.0)) * fanSpacing;
             double snappedFanOffset = GridSnapper.Snap(rawFanOffset, gridSize);
 
-            // 5. Filtrage des obstacles (tous les serveurs sauf la source et la cible)
+            // 5. Obstacles: every server except the source and the target
             var obstacles = allBoxes
                 .Where(b => b.Id != srcNode.Id && b.Id != tgtNode.Id)
                 .ToList();
 
-            // 6. Calcul des Waypoints (coude en Z + évitement d'obstacles)
+            // 6. Waypoints (Z bend and obstacle avoidance)
             var waypoints = CorridorWaypointFinder.BuildOrthogonalWaypoints(
                 startPoint,
                 endPoint,
@@ -82,7 +82,7 @@ public sealed class TopologyEdgeRouter(int gridSize = 10, int fanSpacing = 20)
                 obstacles,
                 gridSize);
 
-            // 7. Échelonnement longitudinal des étiquettes pour éviter le chevauchement
+            // 7. Labels staggered along the edge so that they do not overlap
             double targetLabelPos = siblingCount > 1
                 ? Math.Clamp(0.72 + (siblingIdx * 0.08), 0.65, 0.92)
                 : 0.8;

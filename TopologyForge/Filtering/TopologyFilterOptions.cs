@@ -3,72 +3,72 @@ using TopologyForge.Models;
 namespace TopologyForge.Filtering;
 
 /// <summary>
-/// Options déclaratives de filtrage (inclusions et exclusions) pour la génération de la cartographie réseau.
+/// Declarative filtering options (inclusions and exclusions) for generating the network map.
 /// </summary>
 public sealed record TopologyFilterOptions
 {
     /// <summary>
-    /// Exclut automatiquement les flux dont le port de service appartient à la plage éphémère (<c>true</c> par défaut).
+    /// Automatically excludes flows whose service port is in the ephemeral range (<c>true</c> by default).
     /// </summary>
     public bool ExcludeEphemeralPorts { get; init; } = true;
 
     /// <summary>
-    /// Plage de ports considérée comme éphémère (49152-65535 par défaut).
+    /// Port range considered ephemeral (49152-65535 by default).
     /// </summary>
     public NetworkPortRange EphemeralPortRange { get; init; } = NetworkPortRange.DefaultEphemeralRange;
 
     /// <summary>
-    /// Plages de ports de service explicitement incluses (si non vide, seuls ces ports sont retenus).
+    /// Explicitly included service port ranges (when not empty, only these ports are kept).
     /// </summary>
     public IReadOnlyList<NetworkPortRange> IncludedPorts { get; init; } = [];
 
     /// <summary>
-    /// Plages de ports de service explicitement exclues.
+    /// Explicitly excluded service port ranges.
     /// </summary>
     public IReadOnlyList<NetworkPortRange> ExcludedPorts { get; init; } = [];
 
     /// <summary>
-    /// Motifs de noms d'hôtes inclus (accepte le caractère générique <c>*</c>, insensible à la casse).
+    /// Included host name patterns (accepts the <c>*</c> wildcard, case-insensitive).
     /// </summary>
     public IReadOnlyList<string> IncludedHostPatterns { get; init; } = [];
 
     /// <summary>
-    /// Motifs de noms d'hôtes exclus (accepte le caractère générique <c>*</c>, insensible à la casse).
+    /// Excluded host name patterns (accepts the <c>*</c> wildcard, case-insensitive).
     /// </summary>
     public IReadOnlyList<string> ExcludedHostPatterns { get; init; } = [];
 
     /// <summary>
-    /// Adresses IP ou sous-réseaux CIDR explicitement inclus.
+    /// Explicitly included IP addresses or CIDR subnets.
     /// </summary>
     public IReadOnlyList<string> IncludedIpRanges { get; init; } = [];
 
     /// <summary>
-    /// Adresses IP ou sous-réseaux CIDR explicitement exclus.
+    /// Explicitly excluded IP addresses or CIDR subnets.
     /// </summary>
     public IReadOnlyList<string> ExcludedIpRanges { get; init; } = [];
 
     /// <summary>
-    /// Motifs de noms de processus ou cibles applicatives inclus.
+    /// Included process name or application target patterns.
     /// </summary>
     public IReadOnlyList<string> IncludedProcesses { get; init; } = [];
 
     /// <summary>
-    /// Motifs de noms de processus ou cibles applicatives exclus.
+    /// Excluded process name or application target patterns.
     /// </summary>
     public IReadOnlyList<string> ExcludedProcesses { get; init; } = [];
 
     /// <summary>
-    /// Inclut les ports en écoute passive (<see cref="TopologyFlowDirection.Listening"/>).
+    /// Includes passively listening ports (<see cref="TopologyFlowDirection.Listening"/>).
     /// </summary>
     public bool IncludeListeners { get; init; } = true;
 
     /// <summary>
-    /// Inclut les connexions entrantes (<see cref="TopologyFlowDirection.Inbound"/>).
+    /// Includes inbound connections (<see cref="TopologyFlowDirection.Inbound"/>).
     /// </summary>
     public bool IncludeInboundFlows { get; init; } = true;
 
     /// <summary>
-    /// Inclut les connexions sortantes (<see cref="TopologyFlowDirection.Outbound"/>).
+    /// Includes outbound connections (<see cref="TopologyFlowDirection.Outbound"/>).
     /// </summary>
     public bool IncludeOutboundFlows { get; init; } = true;
 }

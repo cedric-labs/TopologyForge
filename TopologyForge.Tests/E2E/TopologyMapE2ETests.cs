@@ -10,7 +10,7 @@ using TopologyForge.Tests.E2E.ScriptCoverage;
 namespace TopologyForge.Tests.E2E;
 
 /// <summary>
-/// Suite de tests E2E Playwright automatisÃ©s validant le rendu structurel SVG, l'interactivitÃ© des contrÃ´les et la prÃ©cision des filtres.
+/// Automated Playwright E2E tests checking the SVG structure, the interactivity of the controls and the accuracy of the filters.
 /// </summary>
 public sealed partial class TopologyMapE2ETests : IAsyncLifetime
 {
@@ -127,7 +127,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
         _mapPage.Should().NotBeNull();
         (await _mapPage!.GetNodeCountAsync()).Should().Be(5);
 
-        // Exclure le port 873 (nas n'a que ce port et ce flux)
+        // Exclude port 873 (nas only has this port and this flow)
         await _mapPage.FilterByPortsAsync(excludePorts: "873");
 
         var nodeCountAfter = await _mapPage.GetNodeCountAsync();
@@ -148,7 +148,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
         var nodeCountAfter = await _mapPage.GetNodeCountAsync();
         var edgeCountAfter = await _mapPage.GetEdgeCountAsync();
 
-        // Seuls desktop et homeassistant participent au port 8123
+        // Only desktop and homeassistant use port 8123
         nodeCountAfter.Should().Be(2);
         edgeCountAfter.Should().Be(1);
         (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("2");
@@ -161,7 +161,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
         _mapPage.Should().NotBeNull();
         await _mapPage!.SearchAsync("sso");
 
-        // sso et son seul voisin desktop, reliés par le flux E4
+        // sso and its only neighbour desktop, linked by flow E4
         (await _mapPage.GetNodeCountAsync()).Should().Be(2);
         (await _mapPage.GetEdgeCountAsync()).Should().Be(1);
         (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("2");
@@ -172,7 +172,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // « curl » n'apparaît que sur l'arête sortante E2 (desktop → proxy)
+        // "curl" only appears on the outbound edge E2 (desktop → proxy)
         await _mapPage!.SearchAsync("curl");
 
         (await _mapPage.GetNodeCountAsync()).Should().Be(2);
@@ -199,7 +199,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
         _mapPage.Should().NotBeNull();
         await _mapPage!.FilterByPortsAsync(includePorts: "8100-8200");
 
-        // 8123 est dans la plage : desktop → homeassistant
+        // 8123 is in the range: desktop → homeassistant
         (await _mapPage.GetNodeCountAsync()).Should().Be(2);
         (await _mapPage.GetEdgeCountAsync()).Should().Be(1);
     }
@@ -210,7 +210,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
         _mapPage.Should().NotBeNull();
         await _mapPage!.FilterByPortsAsync(excludePorts: "800-900");
 
-        // 873 est dans la plage : nas disparaît
+        // 873 is in the range: nas disappears
         (await _mapPage.GetNodeCountAsync()).Should().Be(4);
         (await _mapPage.GetEdgeCountAsync()).Should().Be(4);
     }
@@ -223,7 +223,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
 
         await _mapPage.FilterByPortsAsync(includePorts: "8123");
 
-        // Seul le port d'écoute 8123 de homeassistant reste visible
+        // Only the listening port 8123 of homeassistant stays visible
         (await _mapPage.KpiPorts.InnerTextAsync()).Should().Be("1");
     }
 
@@ -243,8 +243,8 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // E2 (desktop → proxy) et E3 (proxy → desktop) partagent la même paire de serveurs :
-        // l'éventail doit courber les deux flèches de part et d'autre, donc les écarter davantage que leurs cordes.
+        // E2 (desktop → proxy) and E3 (proxy → desktop) share the same server pair:
+        // the fan must bend both arrows on either side, so they end up further apart than their chords.
         var chordDistance = await _mapPage!.GetEdgeChordMidpointDistanceAsync("E2", "E3");
 
         var curveDistance = await _mapPage.GetEdgeMidpointDistanceAsync("E2", "E3");
@@ -285,7 +285,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
         edgeCount.Should().Be(1); // Seul le flux IN sur le port 8080
 
         var nodeCount = await _mapPage.GetNodeCountAsync();
-        nodeCount.Should().Be(2); // desktop et proxy (les autres sans flux IN sont élagués)
+        nodeCount.Should().Be(2); // desktop and proxy (the others, without IN flows, are pruned)
         (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("2");
         (await _mapPage.KpiFlows.InnerTextAsync()).Should().Be("1");
     }
@@ -300,7 +300,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
         edgeCount.Should().Be(4); // 4 flux Outbound
 
         var nodeCount = await _mapPage.GetNodeCountAsync();
-        nodeCount.Should().Be(5); // desktop + 4 serveurs distants connectés en sortie
+        nodeCount.Should().Be(5); // desktop + 4 remote servers reached outbound
         (await _mapPage.KpiServers.InnerTextAsync()).Should().Be("5");
         (await _mapPage.KpiFlows.InnerTextAsync()).Should().Be("4");
     }
@@ -497,7 +497,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
 
         await _mapPage.ShowPortsCheckbox.UncheckAsync();
 
-        // E2 (desktop → proxy) et E3 (proxy → desktop) fusionnent : 5 flux, 4 paires de serveurs.
+        // E2 (desktop → proxy) and E3 (proxy → desktop) merge: 5 flows, 4 server pairs.
         (await _mapPage.GetEdgeCountAsync()).Should().Be(4);
         (await _mapPage.EdgeById("E2").CountAsync()).Should().Be(0);
     }
@@ -572,7 +572,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // Même ordre que l'ancien tri par défaut des chaînes : ordinal UTF-16, majuscules avant minuscules.
+        // Same order as the former default string sort: UTF-16 ordinal, upper case before lower case.
         var key = await _mapPage!.UndirectedPairKeyAsync("nas", "NAS");
 
         key.Should().Be("NAS::nas");
@@ -583,8 +583,8 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // Le segment entre dans la boîte (236 × 106 à l'origine) entre (220, 0) et (236, 16), mais son point le plus
-        // proche du centre de la boîte est son extrémité (200, -20), hors de la boîte.
+        // The segment enters the box (236 × 106 at the origin) between (220, 0) and (236, 16), but its point closest
+        // to the centre of the box is its end (200, -20), outside the box.
         var intersects = await _mapPage!.SegmentIntersectsNodeBoxAsync(200, -20, 260, 40, 0, 0, 0);
 
         intersects.Should().BeTrue();
@@ -595,7 +595,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // Le segment passe au-dessus du coin supérieur droit (en x = 236, il est en y = -18).
+        // The segment passes above the top-right corner (at x = 236, it is at y = -18).
         var intersects = await _mapPage!.SegmentIntersectsNodeBoxAsync(180, -60, 300, 30, 0, 0, 0);
 
         intersects.Should().BeFalse();
@@ -606,7 +606,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // Arête horizontale bloquée par une boîte : le point de passage est décalé vers le bas, à la verticale du milieu.
+        // Horizontal edge blocked by a box: the waypoint moves down, vertically below the middle.
         var d = await _mapPage!.BuildOrthogonalEdgePathAsync(0, 100, "right", 600, 100, "left", 300, 250);
 
         var yCoordinates = Regex.Matches(d, @"(-?[\d.]+) (-?[\d.]+)").Select(m => double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture));
@@ -663,8 +663,8 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // Trois serveurs d'une même rangée desservent des cibles de la rangée suivante sur des largeurs qui se recouvrent :
-        // à la même ordonnée, on ne saurait plus quel tronc alimente quelle branche. Le troisième ne recouvre pas le premier.
+        // Three servers of one row serve targets of the next row over overlapping widths:
+        // at the same ordinate, nobody could tell which trunk feeds which branch. The third one does not overlap the first.
         double[][] spans = [[100, 500], [400, 700], [600, 900]];
 
         var splits = await _mapPage!.AssignBusLanesAsync(origin: 200, reach: 140, split: 270, spans);
@@ -677,7 +677,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // Avec 20 px entre le serveur et sa cible, aucune voie ne respecte l'écart de 8 px de chaque côté.
+        // With 20 px between the server and its target, no lane keeps the 8 px gap on each side.
         double[][] spans = [[100, 500], [100, 500]];
 
         var splits = await _mapPage!.AssignBusLanesAsync(origin: 200, reach: 20, split: 210, spans);
@@ -730,8 +730,8 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // Trois serveurs audités joignent la même base : sans regroupement à l'arrivée, trois branches parallèles
-        // aboutissent chacune à sa pointe et la carte ne montre plus qu'elles visent une seule cible.
+        // Three audited servers reach the same database: without merging at the arrival, three parallel branches
+        // each end at their own head and the map no longer shows that they aim at a single target.
         await OpenGraphAsync(CreateConvergingTopologyGraph(TopologyFlowDirection.Outbound), BusTreeOptions(TopologyEdgeLabelMode.None));
 
         var tips = await _mapPage!.GetEdgeEndPointsAsync();
@@ -757,7 +757,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // L'écart de 42 px entre deux boîtes empilées loge les étiquettes de ports : sans elles, il ne sert plus à rien.
+        // The 42 px gap between two stacked boxes holds the port labels: without them, it serves no purpose.
         await OpenGraphAsync(
             CreateSubnetTopologyGraph(("192.168.1", 4)),
             new TopologyRenderingOptions
@@ -788,14 +788,14 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // Deux sous-réseaux de 3 serveurs n'entrent pas sur une même bande de 3 colonnes : le second passe en dessous.
+        // Two subnets of 3 servers do not fit in one band of 3 columns: the second one goes below.
         await OpenGraphAsync(
             CreateSubnetTopologyGraph(("192.168.10", 3), ("192.168.20", 3)),
             new TopologyRenderingOptions { DefaultLayoutMode = TopologyLayoutMode.Tree });
 
         var rows = await GetTargetRowOrdinatesAsync();
 
-        // Espacement équilibré (facteur 1,05) : rangées de 155 px, 42 px sous les serveurs audités, 59 px entre deux bandes.
+        // Balanced spacing (factor 1.05): 155 px rows, 42 px below the audited servers, 59 px between two bands.
         rows.Should().Equal(257, 412, 626, 781);
     }
 
@@ -818,7 +818,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
 
         var boxes = await _mapPage!.GetNodeBoxesAsync();
 
-        // Espacement équilibré (facteur 1,05) : rangées de 155 px, soit 49 px entre deux boîtes de 106 px.
+        // Balanced spacing (factor 1.05): 155 px rows, i.e. 49 px between two 106 px boxes.
         boxes.Where(box => box[0] > 60).Select(box => box[1]).Distinct().Order().Should().Equal(60, 215, 370, 525, 680);
     }
 
@@ -830,7 +830,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
 
         var rows = (await _mapPage!.GetNodeBoxesAsync()).Select(box => box[1]).Distinct().Order();
 
-        // Le resserrement ne vise que les arbres : hors arbre, deux rangées restent à 170 px en espacement équilibré.
+        // Only trees are tightened: outside trees, two rows stay 170 px apart with balanced spacing.
         rows.Should().Equal(60, 310, 480);
     }
 
@@ -844,8 +844,8 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
 
         var rows = (await _mapPage!.GetNodeBoxesAsync()).Select(box => box[1]).Distinct().Order();
 
-        // Le premier sous-réseau commence à 310 px (le polissage l'écarte ensuite des flèches vers le second) ;
-        // en espacement équilibré (facteur 1,05), le second suit à 2 × 170 + 42 px, soit 64 px entre leurs zones.
+        // The first subnet starts at 310 px (polishing then moves it away from the arrows towards the second one);
+        // with balanced spacing (factor 1.05), the second follows at 2 × 170 + 42 px, i.e. 64 px between their zones.
         rows.TakeLast(2).Should().Equal(692, 862);
     }
 
@@ -854,14 +854,14 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // Deux sous-réseaux de 3 serveurs n'entrent pas sur une même bande de 3 rangées : le second passe à droite.
+        // Two subnets of 3 servers do not fit in one band of 3 rows: the second one goes to the right.
         await OpenGraphAsync(
             CreateSubnetTopologyGraph(("192.168.10", 3), ("192.168.20", 3)),
             new TopologyRenderingOptions { DefaultLayoutMode = TopologyLayoutMode.HorizontalTree });
 
         var columns = await GetTargetColumnAbscissasAsync();
 
-        // Espacement équilibré (facteur 1,05) : colonnes de 368 px, 42 px après les serveurs audités, 59 px entre deux bandes.
+        // Balanced spacing (factor 1.05): 368 px columns, 42 px after the audited servers, 59 px between two bands.
         columns.Should().Equal(470, 838, 1265, 1633);
     }
 
@@ -870,8 +870,8 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // Le sous-réseau de 9 serveurs occupe 3 colonnes ; la colonne suivante doit commencer après la plus large,
-        // pas après la largeur du dernier sous-réseau placé (1 colonne).
+        // The 9-server subnet takes 3 columns; the next column must start after the widest one,
+        // not after the width of the last subnet placed (1 column).
         List<TopologyServerNode> nodes = [Audited("desktop", "192.168.1.50")];
         nodes.AddRange(Enumerable.Range(1, 9).Select(i => Remote($"iot-0{i}", $"192.168.10.{10 + i}")));
         nodes.AddRange(new[] { 30, 40, 50, 60 }.Select(subnet => Remote($"vlan-{subnet}", $"192.168.{subnet}.2")));
@@ -888,7 +888,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // Échanger nas-02 et backup-01 éviterait deux collisions de flèches, mais mélangerait les deux sous-réseaux.
+        // Swapping nas-02 and backup-01 would avoid two arrow collisions, but would mix the two subnets.
         List<TopologyServerNode> nodes =
         [
             Audited("desktop", "192.168.1.50"),
@@ -937,8 +937,8 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // Les flux qui partent d'un même serveur vers des voisins alignés ont des milieux proches :
-        // sans écartement, leurs étiquettes « OUT :port/proto » se superposent et deviennent illisibles.
+        // Flows leaving the same server towards aligned neighbours have close midpoints:
+        // without spreading, their "OUT :port/proto" labels overlap and become unreadable.
         List<TopologyServerNode> nodes = [Audited("pve-01", "192.168.1.10")];
         nodes.AddRange(Enumerable.Range(1, 6).Select(i => Remote($"lxc-0{i}", $"192.168.1.{20 + i}")));
         var edges = nodes.Skip(1).Select((n, i) => Flow($"E{i}", "pve-01", n.NodeId)).ToList();
@@ -966,9 +966,9 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // En mise en page layered, les serveurs audités sont empilés dans une même colonne : les flux qui les relient
-        // ont leur milieu près des boîtes voisines, qui sont dessinées par-dessus les étiquettes et les masquent.
-        // En espacement compact, l'écart entre deux boîtes empilées doit encore laisser passer une étiquette.
+        // In the layered layout, the audited servers are stacked in one column: the flows between them
+        // have their midpoint near the neighbouring boxes, which are drawn over the labels and hide them.
+        // With compact spacing, the gap between two stacked boxes must still let a label through.
         List<TopologyServerNode> nodes =
         [
             Audited("desktop", "192.168.1.10"),
@@ -1007,8 +1007,8 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // L'écart de 42 px entre deux boîtes empilées ne loge que trois lignes : la quatrième étiquette, au bord de la boîte
-        // du haut, n'a plus de ligne libre et resterait masquée par cette boîte si elle ne pouvait pas se décaler sur le côté.
+        // The 42 px gap between two stacked boxes only holds three lines: the fourth label, at the edge of the top
+        // box, has no free line left and would stay hidden by that box if it could not move sideways.
         double[][] serverBoxes = [[60, 100, NodeWidth, NodeHeight], [60, 248, NodeWidth, NodeHeight]];
         double[][] origins = [[130, 210], [150, 210], [170, 210], [190, 210]];
 
@@ -1025,7 +1025,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     {
         _mapPage.Should().NotBeNull();
 
-        // 13 rangées sont disponibles (la position d'origine et 6 décalages de chaque côté) : la 14e étiquette reste sur sa flèche.
+        // 13 rows are available (the original position and 6 offsets on each side): the 14th label stays on its arrow.
         var ordinates = await _mapPage!.PlaceIdenticalEdgeLabelsAsync(14, 400, 300);
 
         ordinates.Take(13).Should().OnlyHaveUniqueItems();
@@ -1065,11 +1065,11 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
         return Math.Sqrt((dx * dx) + (dy * dy));
     }
 
-    // Le tronc d'une flèche en bus est son premier segment : du point de départ jusqu'à l'ordonnée de séparation.
+    // The trunk of a bus arrow is its first segment: from the starting point down to the separation ordinate.
     private static string BusTrunkOf(string pathDefinition) =>
         string.Join(' ', pathDefinition.Split(' ').Take(6));
 
-    // pve-01 ouvre trois flux sortants vers ses conteneurs et deux flux entrants, en client, vers les NAS audités.
+    // pve-01 opens three outbound flows to its containers and two inbound flows, as a client, to the audited NAS.
     private static NetworkTopologyGraph CreateBusTopologyGraph()
     {
         List<TopologyServerNode> nodes =
@@ -1099,7 +1099,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
         DefaultEdgeLabelMode = edgeLabels
     };
 
-    // pve-01, pve-02 et pve-03 joignent tous db-01 ; le flux de pve-03 suit la direction donnée.
+    // pve-01, pve-02 and pve-03 all reach db-01; the pve-03 flow follows the given direction.
     private static NetworkTopologyGraph CreateConvergingTopologyGraph(TopologyFlowDirection thirdFlowDirection)
     {
         List<TopologyServerNode> nodes =
@@ -1118,7 +1118,7 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
         return new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0);
     }
 
-    // Un serveur audité, desktop, joint chacun des serveurs distants répartis dans les sous-réseaux /24 donnés.
+    // One audited server, desktop, reaches each of the remote servers spread over the given /24 subnets.
     private static NetworkTopologyGraph CreateSubnetTopologyGraph(params (string Prefix, int Count)[] subnets)
     {
         List<TopologyServerNode> nodes = [Audited("desktop", "192.168.1.250")];
@@ -1127,11 +1127,11 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
         return new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0);
     }
 
-    // Ordonnées distinctes des rangées de serveurs distants, sous la rangée des serveurs audités (y = 60).
+    // Distinct ordinates of the remote server rows, below the row of audited servers (y = 60).
     private async Task<double[]> GetTargetRowOrdinatesAsync() =>
         [.. (await _mapPage!.GetNodeBoxesAsync()).Select(box => box[1]).Where(y => y > 60).Distinct().Order()];
 
-    // Abscisses distinctes des colonnes de serveurs distants, à droite de la colonne des serveurs audités (x = 60).
+    // Distinct abscissas of the remote server columns, to the right of the column of audited servers (x = 60).
     private async Task<double[]> GetTargetColumnAbscissasAsync() =>
         [.. (await _mapPage!.GetNodeBoxesAsync()).Select(box => box[0]).Where(x => x > 60).Distinct().Order()];
 

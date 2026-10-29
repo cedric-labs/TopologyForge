@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using TopologyForge.Export.Drawio.Model;
 
 /// <summary>
-/// Détecteur de collisions AABB et recherche de couloirs de déviation orthogonaux (Z-bend et U-bend).
+/// Detects AABB collisions and finds orthogonal detour corridors (Z-bend and U-bend).
 /// </summary>
 public static class CorridorWaypointFinder
 {
@@ -12,7 +12,7 @@ public static class CorridorWaypointFinder
     private const double ObstaclePadding = 16.0;
 
     /// <summary>
-    /// Boîte englobante alignée sur les axes avec marge de sécurité.
+    /// Axis-aligned bounding box with a safety margin.
     /// </summary>
     [StructLayout(LayoutKind.Auto)]
     public readonly record struct BoundingBox(string Id, double Left, double Top, double Right, double Bottom)
@@ -35,13 +35,13 @@ public static class CorridorWaypointFinder
             double minY = Math.Min(p1.Y, p2.Y);
             double maxY = Math.Max(p1.Y, p2.Y);
 
-            // Segment orthogonal horizontal ou vertical (test AABB rapide et exact)
+            // Horizontal or vertical orthogonal segment: the AABB test is fast and exact
             if (Math.Abs(p1.X - p2.X) < 0.01 || Math.Abs(p1.Y - p2.Y) < 0.01)
             {
                 return maxX >= Left && minX <= Right && maxY >= Top && minY <= Bottom;
             }
 
-            // Repli pour un segment diagonal (algorithme de Liang-Barsky)
+            // Fallback for a diagonal segment (Liang-Barsky algorithm)
             return IntersectsDiagonal(p1, p2);
         }
 
@@ -72,8 +72,8 @@ public static class CorridorWaypointFinder
     }
 
     /// <summary>
-    /// Calcule les waypoints orthogonaux entre startPoint et endPoint en intégrant
-    /// le fanOffset et en évitant les boîtes d'obstacles.
+    /// Computes the orthogonal waypoints between startPoint and endPoint, applying
+    /// the fanOffset and avoiding the obstacle boxes.
     /// </summary>
     public static IReadOnlyList<DiagramPoint> BuildOrthogonalWaypoints(
         DiagramPoint startPoint,

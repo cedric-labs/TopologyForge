@@ -1,37 +1,37 @@
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Algorithme de tri et d'ordonnancement des serveurs sur la cartographie.
+/// Algorithm used to sort and order the servers on the map.
 /// </summary>
 public enum TopologyNodeSortMethod
 {
     /// <summary>
-    /// Tri barycentrique multicouche (heuristique de Sugiyama) plaçant face à face les serveurs interconnectés pour minimiser les croisements de flèches.
+    /// Multi-layer barycentric sort (Sugiyama heuristic) that places interconnected servers face to face to minimise arrow crossings.
     /// </summary>
     BarycentricSugiyama = 0,
 
     /// <summary>
-    /// Tri par densité de trafic (nombre total de connexions entrantes et sortantes décroissant).
+    /// Sort by traffic density (total inbound and outbound connections, descending).
     /// </summary>
     ConnectionDegree = 1,
 
     /// <summary>
-    /// Tri alphabétique strict par nom d'hôte du serveur.
+    /// Strict alphabetical sort by server host name.
     /// </summary>
     Alphabetical = 2,
 
     /// <summary>
-    /// Tri logique par sous-réseau et octets d'adresse IP.
+    /// Logical sort by subnet and IP address octets.
     /// </summary>
     SubnetIp = 3,
 
     /// <summary>
-    /// Tri par tiers fonctionnels et couches d'architecture (Clients ➔ Passerelles/Ingress ➔ Applications ➔ Bases de données/Infra).
+    /// Sort by functional tier and architecture layer (Clients ➔ Gateways/Ingress ➔ Applications ➔ Databases/Infra).
     /// </summary>
     FunctionalTier = 4,
 
     /// <summary>
-    /// Regroupement par sous-réseau IP et zones de sécurité réseau contiguës.
+    /// Grouping by IP subnet and contiguous network security zones.
     /// </summary>
     SubnetCluster = 5
 }

@@ -32,11 +32,11 @@ const btnShowAll = document.getElementById('btnShowAll');
 const pageStatus = document.getElementById('pageStatus');
 
 const NODE_W = 236, NODE_H = 106;
-// Deux boîtes empilées gardent entre elles la hauteur de trois lignes d'étiquettes, quel que soit l'espacement :
-// deux étiquettes voisines doivent pouvoir s'y superposer, sinon l'une d'elles ne trouve aucune place libre
-// et finit masquée par une boîte.
+// Two stacked boxes always keep the height of three label lines between them, whatever the spacing:
+// two neighbouring labels must be able to stack there, otherwise one of them finds no free spot
+// and ends up hidden by a box.
 const STACKED_NODE_MIN_GAP = 42;
-// Sans étiquettes de ports, l'écart ne sert plus qu'au passage des flèches et de leurs lignes de séparation en bus.
+// Without port labels, the gap only has to carry the arrows and their bus separation lines.
 const STACKED_NODE_MIN_GAP_WITHOUT_LABELS = 24;
 
 function arePortLabelsShown() {
@@ -44,8 +44,8 @@ function arePortLabelsShown() {
 }
 
 const ROW_STEP = 162;
-// Les arbres serrent davantage leurs rangées (49 px entre deux boîtes en espacement équilibré, au lieu de 64 px) ;
-// le plancher de rowStep garde toujours la place des étiquettes de ports entre deux boîtes empilées.
+// Trees tighten their rows further (49 px between two boxes with balanced spacing, instead of 64 px);
+// the rowStep floor always keeps room for the port labels between two stacked boxes.
 const TREE_ROW_STEP = 148;
 
 function rowStep(gapFactor, baseStep = ROW_STEP) {
@@ -95,7 +95,7 @@ function applySpacingPreset(profile) {
 
 applySpacingPreset(spacingSelect.value);
 
-// Accepte les ports isolés et les plages « 8000-8080 », comme l'option CLI qui alimente les filtres initiaux.
+// Accepts single ports and "8000-8080" ranges, like the CLI option that feeds the initial filters.
 function parsePortList(str) {
   if (!str || !str.trim()) return [];
   return str.split(/[,;\s]+/).map(token => {
@@ -106,7 +106,7 @@ function parsePortList(str) {
   }).filter(r => r && !Number.isNaN(r.from) && !Number.isNaN(r.to) && r.from > 0);
 }
 
-// Les noms d'hôtes (DNS inverse) et de processus viennent de l'extérieur : tout ce qui part dans innerHTML passe ici.
+// Host names (reverse DNS) and process names come from outside: everything that goes into innerHTML goes through here.
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -459,8 +459,8 @@ function segmentsIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
          (ccw(ax, ay, bx, by, cx, cy) !== ccw(ax, ay, bx, by, dx, dy));
 }
 
-// Rognage de Liang-Barsky : tester seulement le point du segment le plus proche du centre ne suffit pas,
-// car sur une boîte plus large que haute un segment peut couper un coin sans que ce point y soit.
+// Liang-Barsky clipping: testing only the point of the segment closest to the centre is not enough,
+// because on a box wider than it is tall a segment can cut a corner without that point being inside.
 function segmentIntersectsBox(x1, y1, x2, y2, boxPos, pad) {
   const dx = x2 - x1, dy = y2 - y1;
   const boundaries = [
@@ -483,8 +483,8 @@ function segmentIntersectsBox(x1, y1, x2, y2, boxPos, pad) {
   return true;
 }
 
-// Clé commune aux deux sens d'une paire de serveurs, pour regrouper les flux A→B et B→A. La comparaison
-// ordinale reproduit l'ordre du tri par défaut des chaînes, utilisé jusqu'ici.
+// Key shared by both directions of a server pair, to group the A→B and B→A flows. The ordinal
+// comparison reproduces the default string sort order used until now.
 function undirectedPairKey(firstNodeId, secondNodeId) {
   return firstNodeId < secondNodeId
     ? `${firstNodeId}::${secondNodeId}`
@@ -665,8 +665,8 @@ function simulateForceDirectedLayout(nodes, edges, gapFactor) {
   const height = Math.max(800, svg.clientHeight || 900);
   const cx = width / 2, cy = height / 2;
 
-  // Les serveurs audités restent fixes pendant la simulation : posés tous au centre, ils resteraient superposés.
-  // Ils sont donc répartis sur un cercle dont la corde entre deux voisins laisse la place d'une boîte.
+  // Audited servers stay fixed during the simulation: all placed at the centre, they would stay on top of each other.
+  // They are therefore spread on a circle whose chord between two neighbours leaves room for a box.
   const locals = nodes.filter(n => n.isLocalAuditedServer);
   const localRadius = locals.length > 1 ? ((NODE_W + 80) * gapFactor) / (2 * Math.sin(Math.PI / locals.length)) : 0;
 
@@ -779,19 +779,19 @@ function simulateForceDirectedLayout(nodes, edges, gapFactor) {
   optimizeNodePositions2Opt(nodes, edges);
 }
 
-// Une colonne avance de 350 px et une rangée de 162 px : pour qu'une matrice de N serveurs garde à peu près
-// les proportions d'un écran 16:9, elle compte environ 0,83 colonne par rangée, soit √(0,83 N) colonnes.
-// Les rangées d'arbre, ramenées à 148 px, élargissent un peu la matrice ; le ratio est conservé tel quel.
+// A column advances by 350 px and a row by 162 px: for a matrix of N servers to keep roughly
+// the proportions of a 16:9 screen, it has about 0.83 columns per row, i.e. √(0.83 N) columns.
+// Tree rows, reduced to 148 px, widen the matrix slightly; the ratio is kept as is.
 const TREE_COLUMNS_PER_ROW = 0.83;
-// Les écarts sous les serveurs audités et entre deux bandes de sous-réseaux suivent l'espacement. Au plus serré
-// (facteur 0,65, rangées écartées de 24 px), une bande reste à 60 px de la suivante : assez pour les 42 px de marge
-// que prend la zone de sous-réseau autour de ses boîtes.
+// The gaps below the audited servers and between two subnet bands follow the spacing. At the tightest
+// (factor 0.65, rows 24 px apart), a band stays 60 px from the next one: enough for the 42 px margin
+// the subnet zone takes around its boxes.
 const TREE_ROOT_GAP = 40;
 const TREE_BAND_GAP = 56;
 
-// Ajouté au pas de rangée (ou de colonne) entre deux sous-réseaux du tri par zones et proportionnel à l'espacement :
-// en espacement équilibré, deux zones empilées restent à 64 px l'une de l'autre et deux colonnes de zones à 130 px,
-// une fois retirées les marges que prend chaque zone autour de ses boîtes.
+// Added to the row (or column) step between two subnets of the zone sort, in proportion to the spacing:
+// with balanced spacing, two stacked zones stay 64 px apart and two columns of zones 130 px apart,
+// once the margins each zone takes around its boxes are removed.
 const SUBNET_CLUSTER_GAP = 40;
 
 function treeColumnCount(serverCount) {
@@ -892,7 +892,7 @@ function layoutTree(ordered, edges, gapFactor, isHorizontal) {
       });
     });
   } else {
-    // Transposée de la disposition verticale : les rangées jouent le rôle des colonnes, avec les mêmes écarts.
+    // Transpose of the vertical layout: rows play the role of columns, with the same gaps.
     const MAX_ROWS = targets.length <= 4 ? Math.max(2, targets.length) : (targets.length <= 9 ? 3 : Math.max(4, treeColumnCount(targets.length)));
 
     let currentBandX = 60 + stepX + Math.round(TREE_ROOT_GAP * gapFactor);
@@ -942,7 +942,7 @@ function layoutTree(ordered, edges, gapFactor, isHorizontal) {
 // Pass 1 + Pipeline Orchestrator
 function computeLayout(nodes, edges, layoutMode, sortMethod) {
   nodePositions.clear();
-  // Un filtre sans résultat ne laisse rien à placer ; les dispositions en arbre supposent au moins une racine.
+  // A filter without results leaves nothing to place; the tree layouts assume at least one root.
   if (nodes.length === 0) return;
   const ordered = sortNodes(nodes, edges, sortMethod);
   const gapFactor = Number.parseFloat(nodeGapRange.value) || 1.0;
@@ -1060,7 +1060,7 @@ function computeLayout(nodes, edges, layoutMode, sortMethod) {
         });
       });
 
-      // La colonne suivante commence après le sous-réseau le plus large de la colonne, pas après le dernier placé.
+      // The next column starts after the widest subnet of the column, not after the last one placed.
       columnWidth = Math.max(columnWidth, colsInSub * stepX);
       const subHeight = rowsInSub * stepY;
       curY += subHeight + clusterGap;
@@ -1070,7 +1070,7 @@ function computeLayout(nodes, edges, layoutMode, sortMethod) {
         columnWidth = 0;
       }
     });
-    // Un échange entre deux sous-réseaux raccourcirait des flèches, mais ferait se chevaucher leurs zones.
+    // Swapping two subnets would shorten some arrows, but would make their zones overlap.
     optimizeNodePositions2Opt(ordered, edges, n => extractSubnetPrefix(n.ipAddress));
     applyForceRepulsionPolish(ordered, edges, gapFactor);
     return;
@@ -1294,8 +1294,8 @@ function buildRoutedEdgePath(startAnchor, endAnchor, routingMode, fanOffset, way
   }
 
   if (routingMode === 'orthogonal') {
-    // Le détour est perpendiculaire à l'arête : pour une arête plutôt horizontale, il est vertical et le couloir
-    // libre est une ligne horizontale à la hauteur du point de passage, que seul waypoint.y décrit.
+    // The detour is perpendicular to the edge: for a mostly horizontal edge it is vertical, and the free
+    // corridor is a horizontal line at the height of the waypoint, which only waypoint.y describes.
     if (waypoint && Math.abs(waypoint.y - (y1 + y2) / 2) > Math.abs(waypoint.x - (x1 + x2) / 2)) {
       const stub = 18;
       const n1 = sideNormalVector(startAnchor.side);
@@ -1361,20 +1361,20 @@ function buildRoutedEdgePath(startAnchor, endAnchor, routingMode, fanOffset, way
   };
 }
 
-// Les troncs IN et OUT d'un même serveur sont décalés de part et d'autre du milieu de son bord, et leurs lignes de séparation
-// d'une demi-ligne de part et d'autre, pour que leurs segments ne se superposent jamais.
+// The IN and OUT trunks of a server are offset on either side of the middle of its side, and their separation lines
+// by half a line on either side, so that their segments never overlap.
 const BUS_TRUNK_SENSE_OFFSET = { OUT: -14, MIXED: 0, IN: 14 };
 const BUS_SPLIT_SENSE_SHIFT = { OUT: -6, MIXED: 0, IN: 6 };
 const BUS_MIN_TRUNK_LENGTH = 18;
 const BUS_END_STUB = 18;
-// La pointe d'une flèche occupe environ 14 px avant l'ancrage : l'étiquette se place juste avant elle, sur la branche.
+// An arrowhead takes about 14 px before the anchor: the label sits just before it, on the branch.
 const BUS_LABEL_TIP_GAP = 18;
 const BUS_LANE_GAP = 8;
 const BUS_MAX_LANE_SHIFTS = 8;
 
-// Des serveurs voisins dont les cibles sont dans la même rangée ont la même ligne de séparation : superposées, on ne saurait
-// plus quel tronc alimente quelle branche. Une ligne qui en chevauche une autre déjà placée s'en écarte d'une voie à la fois,
-// en alternant, sans quitter l'espace entre le serveur et sa cible la plus proche ; sans voie libre, elle garde sa position.
+// Neighbouring servers whose targets are in the same row get the same separation line: stacked, nobody could tell
+// which trunk feeds which branch. A line that overlaps one already placed moves away from it one lane at a time,
+// alternating, without leaving the space between the server and its closest target; with no free lane, it keeps its position.
 function assignBusLane(lanes, lane) {
   for (let step = 0; step <= BUS_MAX_LANE_SHIFTS; step++) {
     const direction = step % 2 === 0 ? 1 : -1;
@@ -1393,12 +1393,12 @@ function assignBusLane(lanes, lane) {
   return lane.split;
 }
 
-// Les points d'arrivée sont plus écartés du milieu du bord que les départs de troncs (± 14 px), pour qu'un serveur
-// qui reçoit et émet par le même bord ne superpose jamais une arrivée à l'un de ses troncs.
+// Arrival points are further from the middle of the side than trunk departures (± 14 px), so that a server
+// that receives and sends through the same side never puts an arrival on top of one of its trunks.
 const BUS_ARRIVAL_SENSE_OFFSET = { OUT: -42, MIXED: 28, IN: 42 };
 
-// Les branches qui visent un même serveur par le même bord et dans le même sens aboutissent au même point :
-// elles se rejoignent sur leur dernier segment et ne montrent qu'une pointe, comme les troncs regroupent les départs.
+// Branches that reach the same server through the same side and in the same direction end at the same point:
+// they join on their last segment and show a single arrowhead, just as trunks group the departures.
 function mergeBusArrivals(drawnEdges, anchorMap) {
   drawnEdges.forEach(drawn => {
     const key = `${drawn.edge.edgeId}::dst`;
@@ -1412,8 +1412,8 @@ function mergeBusArrivals(drawnEdges, anchorMap) {
   });
 }
 
-// Regroupe les flèches par serveur source, bord de départ et sens : chaque groupe partage un tronc qui quitte le bord
-// à hauteur fixe, puis se sépare à mi-chemin de la cible la plus proche, à la même ligne pour toutes ses branches.
+// Groups the arrows by source server, departure side and direction: each group shares a trunk that leaves the side
+// at a fixed height, then splits halfway to the closest target, on the same line for all its branches.
 function computeBusTrunks(drawnEdges, anchorMap) {
   const groups = new Map();
   drawnEdges.forEach(drawn => {
@@ -1460,8 +1460,8 @@ function computeBusTrunks(drawnEdges, anchorMap) {
   return trunks;
 }
 
-// Repère d'un bus : « along » suit la ligne de séparation, « depth » croît du tronc vers ses cibles,
-// pour traiter une fois pour toutes les bus qui descendent, montent ou partent sur le côté.
+// Bus frame: "along" follows the separation line, "depth" grows from the trunk towards its targets,
+// so that buses going down, up or sideways are handled once and for all.
 function busFrame(trunkStart) {
   const isVertical = trunkStart.side === 'top' || trunkStart.side === 'bottom';
   const normal = sideNormalVector(trunkStart.side);
@@ -1483,9 +1483,9 @@ function busFrame(trunkStart) {
 
 const BUS_BOX_CLEARANCE = 4;
 
-// Dans un arbre, la descente directe de la ligne de séparation vers une cible éloignée traverserait les boîtes des rangées
-// intermédiaires de sa colonne. La branche passe alors par le couloir voisin de la cible, du côté de son point d'arrivée,
-// puis revient vers elle dans l'écart juste avant son bord. Sans obstacle, ou sans couloir libre, le tracé direct est gardé.
+// In a tree, going straight down from the separation line to a distant target would cross the boxes of the
+// intermediate rows of its column. The branch then takes the corridor next to the target, on the side of its arrival point,
+// and comes back to it in the gap just before its side. Without an obstacle, or without a free corridor, the direct path is kept.
 function findBusDetour(trunkStart, split, endAnchor, edge, lanePlan) {
   const sourceId = edge.sourceNodeId, targetId = edge.targetNodeId;
   const frame = busFrame(trunkStart);
@@ -1525,8 +1525,8 @@ function findBusDetour(trunkStart, split, endAnchor, edge, lanePlan) {
   return { corridor, approach: approach * frame.outward };
 }
 
-// Les branches d'un même tronc peuvent descendre ensemble dans un couloir, comme elles longent ensemble leur ligne
-// de séparation ; celles d'un autre serveur s'en écartent d'une voie à la fois, en alternant, sans toucher de boîte.
+// The branches of one trunk may go down a corridor together, just as they run together along their separation
+// line; those of another server move away one lane at a time, alternating, without touching a box.
 function assignCorridorLane(lanePlan, lane, isClear) {
   const { groupKey, corridorLanes } = lanePlan;
   const from = Math.min(lane.from, lane.to), to = Math.max(lane.from, lane.to);
@@ -1554,9 +1554,9 @@ function busLabelPoint(endAnchor) {
   return { x: endAnchor.x + n.nx * BUS_LABEL_TIP_GAP * 2.5, y: endAnchor.y - 6 };
 }
 
-// Le tronc part perpendiculairement au bord jusqu'à la ligne de séparation, la branche longe cette ligne jusqu'à la cible
-// puis l'aborde perpendiculairement à son bord d'arrivée, avec un court talon quand ce bord n'est pas face au tronc.
-// Avec un détour, la branche quitte la ligne de séparation au couloir choisi et rejoint la cible par l'écart qui la précède.
+// The trunk leaves perpendicular to the side up to the separation line, the branch runs along that line up to the target
+// then reaches it perpendicular to its arrival side, with a short stub when that side does not face the trunk.
+// With a detour, the branch leaves the separation line at the chosen corridor and reaches the target through the gap before it.
 function buildBusEdgePath(trunkStart, split, endAnchor, detour) {
   const x1 = trunkStart.x, y1 = trunkStart.y;
   const x2 = endAnchor.x, y2 = endAnchor.y;
@@ -1585,8 +1585,8 @@ function buildBusEdgePath(trunkStart, split, endAnchor, detour) {
   };
 }
 
-// Entre deux rangées d'arbre, l'écart ne loge pas à la fois le segment d'approche d'un détour et les étiquettes
-// empilées au-dessus de la cible : elles se posent à côté de la pointe, du côté opposé au couloir d'où vient l'approche.
+// Between two tree rows, the gap cannot hold both the approach segment of a detour and the labels
+// stacked above the target: they sit next to the arrowhead, on the side opposite the corridor the approach comes from.
 const BUS_DETOUR_LABEL_GAP = 6;
 
 function busLabelAbscissa(route, text) {
@@ -1596,13 +1596,13 @@ function busLabelAbscissa(route, text) {
 
 const EDGE_LABEL_CHAR_WIDTH = 6.2;
 const EDGE_LABEL_HEIGHT = 14;
-// Les décalages avancent d'une demi-ligne pour qu'une étiquette trouve sa place dans l'écart entre deux boîtes empilées,
-// quelle que soit l'ordonnée du milieu de sa flèche ; 24 demi-lignes gardent la portée de 6 lignes de chaque côté.
+// Offsets advance by half a line so that a label finds room in the gap between two stacked boxes,
+// whatever the ordinate of the middle of its arrow; 24 half-lines keep the reach of 6 lines on each side.
 const EDGE_LABEL_SHIFT = EDGE_LABEL_HEIGHT / 2;
 const EDGE_LABEL_MAX_SHIFTS = 24;
 
-// Les étiquettes sont placées avant d'être insérées dans le DOM : leur largeur est estimée d'après le nombre de caractères
-// (≈ 5,5 px mesurés à 10,5 px, majorés pour le gras) plutôt que mesurée par getBBox, qui forcerait une mise en page par étiquette.
+// Labels are placed before they are inserted into the DOM: their width is estimated from the number of characters
+// (≈ 5.5 px measured at 10.5 px, increased for bold) rather than measured with getBBox, which would force one layout per label.
 function edgeLabelBox(x, y, text) {
   const width = text.length * EDGE_LABEL_CHAR_WIDTH;
   return { left: x - width / 2, right: x + width / 2, top: y - EDGE_LABEL_HEIGHT + 3, bottom: y + 3 };
@@ -1612,10 +1612,10 @@ function edgeLabelBoxesOverlap(a, b) {
   return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 }
 
-// La marge absorbe l'écart entre la boîte estimée d'une étiquette et celle que le navigateur rend réellement.
+// The margin absorbs the difference between the estimated box of a label and the one the browser actually renders.
 const NODE_LABEL_CLEARANCE = 2;
 
-// Les boîtes de serveurs sont dessinées au-dessus des étiquettes : une étiquette posée sur l'une d'elles serait masquée.
+// Server boxes are drawn above the labels: a label placed on one of them would be hidden.
 function nodeLabelObstacles(nodes) {
   return nodes
     .map(n => nodePositions.get(n.nodeId))
@@ -1640,11 +1640,11 @@ function findFreeLabelRow(x, label, placed, obstacles) {
   return null;
 }
 
-// Chaque étiquette garde le milieu de sa flèche si la place est libre ; sinon elle monte ou descend d'une demi-ligne à la fois,
-// en alternant, jusqu'à la première position qui ne touche ni une autre étiquette ni un obstacle. Sans position libre, elle
-// reste sur sa flèche : sur une carte très dense, une étiquette superposée à une autre reste en partie lisible et vaut mieux
-// qu'une étiquette éloignée de son flux. Une étiquette qu'une boîte de serveur masquerait sur sa flèche est en revanche
-// invisible : elle tente alors les mêmes lignes décalées d'une largeur d'étiquette à droite, puis à gauche.
+// Each label keeps the middle of its arrow if the spot is free; otherwise it moves up or down half a line at a time,
+// alternating, up to the first position that touches neither another label nor an obstacle. With no free position, it
+// stays on its arrow: on a very dense map, a label on top of another stays partly readable, which is better
+// than a label far from its flow. A label that a server box would hide on its arrow, however, is
+// invisible: it then tries the same lines shifted by one label width to the right, then to the left.
 function placeEdgeLabels(labels, obstacles = []) {
   const placed = [];
   return labels.map(label => {
@@ -1676,9 +1676,9 @@ function filterAndPaginateGraph() {
     return true;
   });
 
-  // Une recherche garde les serveurs trouvés avec leurs voisins directs et les flux qui les relient :
-  // sans les voisins, aucune flèche ne resterait affichée. Le processus client d'un flux sortant n'est
-  // porté que par l'arête, d'où la recherche aussi sur les arêtes.
+  // A search keeps the matching servers with their direct neighbours and the flows between them:
+  // without the neighbours, no arrow would remain. The client process of an outbound flow is only
+  // carried by the edge, hence the search on edges as well.
   const nodeMatchesQuery = n =>
     matchesPattern(n.hostName, q) || matchesPattern(n.ipAddress, q) || matchesPattern(`${n.hostName} ${n.ipAddress}`, q)
     || n.ports.some(p => String(p.port).includes(q) || matchesPattern(p.processName || '', q) || matchesPattern(p.serviceTarget || '', q));
@@ -1737,7 +1737,7 @@ function filterAndPaginateGraph() {
 
   const displayStart = totalFiltered === 0 ? 0 : startIdx + 1;
   pageStatus.textContent = `Page ${currentPageIndex + 1} / ${totalPages} (${displayStart}–${endIdx} of ${totalFiltered} servers)`;
-  // Les compteurs d'en-tête portent sur tout le résultat filtré ; la barre de pagination dit ce que montre la page.
+  // The header counters cover the whole filtered result; the pagination bar tells what the page shows.
   const filteredNodeIds = new Set(rankedNodes.map(n => n.nodeId));
   const totalFilteredEdges = filteredEdges.filter(e => filteredNodeIds.has(e.sourceNodeId) && filteredNodeIds.has(e.targetNodeId)).length;
   const totalVisiblePorts = rankedNodes.reduce((sum, n) => sum + n.ports.filter(p => portFilter.allows(p.port)).length, 0);
@@ -1789,8 +1789,8 @@ function renderInspector(node, edges, allNodesMap) {
 
 function describeFlowEdge(e, siblings, fanSpacing) {
   const siblingIdx = siblings.indexOf(e);
-  // Le rang dans l'éventail est attribué dans l'ordre canonique de la paire, mais le routage calcule sa normale
-  // dans le sens de l'arête : une arête B→A doit inverser son décalage pour rester du côté que lui assigne le rang.
+  // The rank in the fan is assigned in the canonical order of the pair, but routing computes its normal
+  // in the direction of the edge: a B→A edge must reverse its offset to stay on the side its rank assigns.
   const isCanonicalOrder = e.sourceNodeId <= e.targetNodeId;
   const isInbound = e.direction === 'IN';
   return {
@@ -1814,9 +1814,9 @@ const PAIR_EDGE_STYLES = {
   MIXED: { stroke: '#8b9dc3', arrow: 'url(#arrowMixed)', origin: 'url(#originMixed)' }
 };
 
-// Sans étiquettes de ports, l'éventail des flux d'une paire n'apporte plus d'information et encombre la carte :
-// une seule flèche les résume, avec une pointe à chaque extrémité qui reçoit un flux. Elle ne garde la couleur
-// IN ou OUT que si tous ses flux la partagent ; les ports restent lisibles dans l'infobulle et l'inspecteur.
+// Without port labels, fanning out the flows of a pair no longer adds information and clutters the map:
+// a single arrow sums them up, with a head at each end that receives a flow. It keeps the IN or OUT
+// colour only if all its flows share it; the ports stay readable in the tooltip and the inspector.
 function describePairEdge(pairKey, flows) {
   const edge = flows[0];
   const isDoubleHeaded = flows.some(f => f.sourceNodeId !== edge.sourceNodeId);
@@ -1865,8 +1865,8 @@ function renderGraph(recomputePositions = false) {
   if (routingMode === 'bus') mergeBusArrivals(drawnEdges, anchorMap);
   const busTrunks = routingMode === 'bus' ? computeBusTrunks(drawnEdges, anchorMap) : null;
   if (busTrunks && selectedNodeId) {
-    // Les flèches d'un bus se superposent sur leur tronc : celles du serveur sélectionné sont tracées en dernier
-    // pour que leur tronc orange ne soit pas recouvert par celui, estompé, des autres branches.
+    // The arrows of a bus overlap on their trunk: those of the selected server are drawn last
+    // so that their orange trunk is not covered by the dimmed trunk of the other branches.
     const touchesSelection = drawn => drawn.edge.sourceNodeId === selectedNodeId || drawn.edge.targetNodeId === selectedNodeId;
     drawnEdges.sort((a, b) => Number(touchesSelection(a)) - Number(touchesSelection(b)));
   }
@@ -1921,7 +1921,7 @@ function renderGraph(recomputePositions = false) {
     }
   });
 
-  // Les étiquettes du serveur sélectionné sont placées en premier pour rester au milieu de leurs flèches.
+  // The labels of the selected server are placed first so that they stay in the middle of their arrows.
   pendingLabels.sort((a, b) => Number(b.isHighlighted) - Number(a.isHighlighted));
   const labelPositions = placeEdgeLabels(pendingLabels, nodeLabelObstacles(nodes));
   pendingLabels.forEach((pending, index) => {
@@ -2164,7 +2164,7 @@ if (showZonesCheck) {
   });
 }
 if (showPortsCheck) {
-  // L'écart minimal entre deux rangées dépend de la présence des étiquettes : la disposition est recalculée.
+  // The minimum gap between two rows depends on whether labels are shown: the layout is recomputed.
   showPortsCheck.addEventListener('change', () => { renderGraph(true); updateCliCommandDisplay(); });
 }
 routingSelect.addEventListener('change', () => { renderGraph(false); updateCliCommandDisplay(); });

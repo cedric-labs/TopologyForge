@@ -1,7 +1,7 @@
 namespace TopologyForge.Export.Drawio.Styling;
 
 /// <summary>
-/// Style visuel d'un nœud dans le diagramme Draw.io.
+/// Visual style of a node in the Draw.io diagram.
 /// </summary>
 public sealed record DiagramNodeStyle(
     string FillColor,
@@ -17,7 +17,7 @@ public sealed record DiagramNodeStyle(
     double Opacity = 100.0);
 
 /// <summary>
-/// Style visuel d'un conteneur (zone / swimlane) dans le diagramme Draw.io.
+/// Visual style of a container (zone / swimlane) in the Draw.io diagram.
 /// </summary>
 public sealed record DiagramContainerStyle(
     string FillColor,
@@ -31,7 +31,7 @@ public sealed record DiagramContainerStyle(
     int FontSize = 12);
 
 /// <summary>
-/// Style visuel d'une arête (lien / flux) dans le diagramme Draw.io.
+/// Visual style of an edge (link / flow) in the Draw.io diagram.
 /// </summary>
 public sealed record DiagramEdgeStyle(
     string StrokeColor,
@@ -43,7 +43,7 @@ public sealed record DiagramEdgeStyle(
     string ArrowStart = "none");
 
 /// <summary>
-/// Thème visuel complet pour le canevas, les conteneurs, les nœuds par rôle et les flux par clé de style.
+/// Complete visual theme for the canvas, containers, nodes by role and flows by style key.
 /// </summary>
 public sealed record DiagramTheme(
     string Name,
@@ -53,7 +53,7 @@ public sealed record DiagramTheme(
     IReadOnlyDictionary<string, DiagramEdgeStyle> FlowStyles)
 {
     /// <summary>
-    /// Thème sombre moderne optimisé pour les cartes d'infrastructure.
+    /// Modern dark theme for infrastructure maps.
     /// </summary>
     public static DiagramTheme DarkModern => new(
         Name: "DarkModern",
@@ -113,7 +113,7 @@ public sealed record DiagramTheme(
         });
 
     /// <summary>
-    /// Thème clair d'entreprise adapté aux impressions et documents institutionnels.
+    /// Light theme suited to printing and formal documents.
     /// </summary>
     public static DiagramTheme EnterpriseLight => new(
         Name: "EnterpriseLight",

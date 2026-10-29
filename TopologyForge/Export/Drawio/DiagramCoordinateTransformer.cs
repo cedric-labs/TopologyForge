@@ -3,22 +3,22 @@ namespace TopologyForge.Export.Drawio;
 using TopologyForge.Export.Drawio.Model;
 
 /// <summary>
-/// Transformateur géométrique résolvant les coordonnées relatives récursives pour les conteneurs et nœuds enfants mxGraph.
+/// Resolves the nested relative coordinates that mxGraph expects for containers and child nodes.
 /// </summary>
 public static class DiagramCoordinateTransformer
 {
     /// <summary>
-    /// Nœud résolu avec coordonnées relatives au conteneur parent direct.
+    /// Node resolved with coordinates relative to its direct parent container.
     /// </summary>
     public sealed record ResolvedNode(DiagramNode Original, double RelativeX, double RelativeY, string ParentCellId);
 
     /// <summary>
-    /// Conteneur résolu avec coordonnées relatives au conteneur parent direct.
+    /// Container resolved with coordinates relative to its direct parent container.
     /// </summary>
     public sealed record ResolvedContainer(DiagramContainer Original, double RelativeX, double RelativeY, string ParentCellId);
 
     /// <summary>
-    /// Calcule les coordonnées relatives requises par mxGraph à partir des coordonnées absolues du modèle.
+    /// Computes the relative coordinates mxGraph requires from the model's absolute coordinates.
     /// </summary>
     public static (IReadOnlyList<ResolvedContainer> Containers, IReadOnlyList<ResolvedNode> Nodes) ResolveHierarchicalCoordinates(
         DiagramDocument document)

@@ -1,17 +1,17 @@
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Contenu des étiquettes affichées sur les flèches de la cartographie HTML.
+/// Content of the labels shown on the arrows of the HTML map.
 /// </summary>
 public enum TopologyEdgeLabelMode
 {
     /// <summary>
-    /// Chaque flèche porte son sens, son port et son protocole (par exemple <c>OUT :443/TCP</c>).
+    /// Each arrow shows its direction, port and protocol (for example <c>OUT :443/TCP</c>).
     /// </summary>
     Ports = 0,
 
     /// <summary>
-    /// Aucune étiquette sur les flèches ; les ports restent listés dans l'inspecteur de serveur.
+    /// No label on the arrows; the ports remain listed in the server inspector.
     /// </summary>
     None = 1
 }

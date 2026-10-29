@@ -6,8 +6,8 @@ using TopologyForge.Rendering;
 
 namespace TopologyForge.Tests.E2E;
 
-// Routage en bus dans les dispositions en arbre : une branche qui viserait une rangée éloignée en traversant
-// les boîtes des rangées intermédiaires doit les contourner par les couloirs entre colonnes.
+// Bus routing in tree layouts: a branch that would reach a distant row by crossing
+// the boxes of the intermediate rows must go around them through the corridors between columns.
 public sealed partial class TopologyMapE2ETests
 {
     [Fact]
@@ -39,9 +39,9 @@ public sealed partial class TopologyMapE2ETests
     {
         _mapPage.Should().NotBeNull();
 
-        // Les deux serveurs audités visent les mêmes cibles : leurs branches descendent dans les mêmes couloirs, où elles
-        // ne doivent pas se superposer. Seuls comptent les segments verticaux avant le dernier : les branches qui visent
-        // une même cible se rejoignent ensuite dans l'écart qui la précède, jusqu'à leur pointe commune.
+        // Both audited servers aim at the same targets: their branches go down the same corridors, where they
+        // must not overlap. Only the vertical segments before the last one count: branches that aim at
+        // the same target then join in the gap before it, up to their shared head.
         await OpenGraphAsync(CreateTwoSourceSubnetGraph(), BusTreeOptions(TopologyEdgeLabelMode.None));
 
         var paths = await _mapPage!.GetEdgePathDefinitionsAsync();
@@ -58,7 +58,7 @@ public sealed partial class TopologyMapE2ETests
     {
         _mapPage.Should().NotBeNull();
 
-        // Une étiquette se lit sur la flèche qui aboutit à sa cible ; un segment qui la barre en travers la rend illisible.
+        // A label is read on the arrow that reaches its target; a segment crossing it makes it unreadable.
         await OpenGraphAsync(CreateTwoSourceSubnetGraph(), BusTreeOptions(TopologyEdgeLabelMode.Ports) with { DefaultLayoutMode = layout });
 
         var labels = await _mapPage!.GetEdgeLabelBoxesAsync();
@@ -69,7 +69,7 @@ public sealed partial class TopologyMapE2ETests
         acrossArrivals.Where(s => labels.Any(label => SegmentEntersBox(s, label))).Should().BeEmpty();
     }
 
-    // Deux serveurs audités joignent chacun les huit serveurs d'un même sous-réseau.
+    // Two audited servers each reach the eight servers of one subnet.
     private static NetworkTopologyGraph CreateTwoSourceSubnetGraph()
     {
         List<TopologyServerNode> nodes = [Audited("desktop-a", "192.168.1.250"), Audited("desktop-b", "192.168.1.251")];
@@ -80,7 +80,7 @@ public sealed partial class TopologyMapE2ETests
         return new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0);
     }
 
-    // Segments de tracé qui entrent dans une boîte de serveur ; un segment qui part du bord d'une boîte ou y aboutit n'y entre pas.
+    // Path segments that enter a server box; a segment that starts or ends on the side of a box does not enter it.
     private async Task<string[]> FindBoxCrossingsAsync()
     {
         var boxes = await _mapPage!.GetNodeBoxesAsync();
@@ -98,7 +98,7 @@ public sealed partial class TopologyMapE2ETests
         return [.. points.Zip(points.Skip(1), (a, b) => new[] { a[0], a[1], b[0], b[1] })];
     }
 
-    // Les tracés en bus sont faits de segments horizontaux ou verticaux : il suffit de comparer des intervalles.
+    // Bus paths are made of horizontal or vertical segments: comparing intervals is enough.
     private static bool SegmentEntersBox(double[] s, double[] box)
     {
         const double inset = 1;

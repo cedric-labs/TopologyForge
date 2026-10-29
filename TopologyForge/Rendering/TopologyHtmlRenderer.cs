@@ -8,16 +8,16 @@ using TopologyForge.Models;
 namespace TopologyForge.Rendering;
 
 /// <summary>
-/// Générateur de cartes topologiques HTML5 autonomes (Single-File, zéro dépendance externe) avec moteur de routage anti-croisement multi-passes, pagination par tranche et pointes directionnelles IN/OUT.
+/// Generates self-contained single-file HTML5 topology maps (no external dependency) with a multi-pass crossing-avoidance routing engine, slice pagination and IN/OUT arrowheads.
 /// </summary>
 public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        // Le JSON est inséré tel quel dans un bloc <script> : l'encodeur doit échapper <, > et & pour qu'un nom DNS
-        // inverse ou un nom de processus contenant « </script » ou « <!-- » ne puisse pas fermer le bloc.
-        // Toutes les plages Unicode restent lisibles (noms d'hôtes accentués).
+        // The JSON is inserted as is into a <script> block: the encoder must escape <, > and & so that a reverse DNS
+        // name or a process name containing "</script" or "<!--" cannot close the block.
+        // Every Unicode range stays readable (host names with accents).
         Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
         WriteIndented = false
     };
@@ -25,8 +25,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
 
     private const string MapScriptResourceName = "TopologyForge.Rendering.topology-map.js";
 
-    // Le script de la carte vit dans Rendering/topology-map.js, en ressource embarquée, pour être relu et analysé comme
-    // du JavaScript. Il est lu une seule fois puis copié dans chaque page, qui reste un fichier HTML autonome.
+    // The map script lives in Rendering/topology-map.js, as an embedded resource, so that it is reviewed and analysed as
+    // JavaScript. It is read once and then copied into each page, which stays a self-contained HTML file.
     private static readonly string MapScript = ReadMapScriptResource();
 
     /// <inheritdoc />

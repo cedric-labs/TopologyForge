@@ -5,7 +5,7 @@ using TopologyForge.Models;
 namespace TopologyForge.Parsers;
 
 /// <summary>
-/// Analyseur de fichiers CSV d'audit de flux réseau prenant en charge les champs quotés RFC 4180 et l'ordre dynamique des colonnes.
+/// Parses network flow audit CSV files, supporting RFC 4180 quoted fields and any column order.
 /// </summary>
 public sealed class TopologyCsvParser : ITopologyCsvParser
 {
