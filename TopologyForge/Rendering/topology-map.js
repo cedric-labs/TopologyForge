@@ -1499,7 +1499,7 @@ function findBusDetour(trunkStart, split, endAnchor, edge, lanePlan) {
   if (!isBlocked(endAlong, splitDepth, target.d0)) return null;
 
   const above = obstacles.filter(b => b.d1 <= target.d0 && b.a0 < target.a1 && target.a0 < b.a1).map(b => b.d1);
-  const approach = above.length > 0 ? (Math.max(...above) + target.d0) / 2 : target.d0 - BUS_END_STUB;
+  const approach = above.length > 0 ? Math.max(...above) + BUS_LANE_GAP : target.d0 - BUS_END_STUB;
   const crossed = obstacles.filter(b => b.d0 < approach && splitDepth < b.d1);
   const before = crossed.filter(b => b.a1 <= target.a0).map(b => b.a1);
   const after = crossed.filter(b => b.a0 >= target.a1).map(b => b.a0);
@@ -1574,8 +1574,18 @@ function buildBusEdgePath(trunkStart, split, endAnchor, detour) {
   return {
     d: points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' '),
     labelX: label.x,
-    labelY: label.y
+    labelY: label.y,
+    labelSideSign: detour && isVertical ? Math.sign(x2 - detour.corridor) : 0
   };
+}
+
+// Entre deux rangées d'arbre, l'écart ne loge pas à la fois le segment d'approche d'un détour et les étiquettes
+// empilées au-dessus de la cible : elles se posent à côté de la pointe, du côté opposé au couloir d'où vient l'approche.
+const BUS_DETOUR_LABEL_GAP = 6;
+
+function busLabelAbscissa(route, text) {
+  if (!route.labelSideSign) return route.labelX;
+  return route.labelX + route.labelSideSign * (text.length * EDGE_LABEL_CHAR_WIDTH / 2 + BUS_DETOUR_LABEL_GAP);
 }
 
 const EDGE_LABEL_CHAR_WIDTH = 6.2;
@@ -1896,7 +1906,7 @@ function renderGraph(recomputePositions = false) {
 
     if (drawn.label && !isDimmed && (edges.length <= 180 || isHighlighted)) {
       pendingLabels.push({
-        x: route.labelX,
+        x: busLabelAbscissa(route, drawn.label),
         y: route.labelY,
         text: drawn.label,
         fill: isHighlighted ? '#fbbf24' : drawn.labelFill,

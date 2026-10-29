@@ -42,18 +42,42 @@ public sealed partial class TopologyMapE2ETests
         // Les deux serveurs audités visent les mêmes cibles : leurs branches descendent dans les mêmes couloirs, où elles
         // ne doivent pas se superposer. Seuls comptent les segments verticaux avant le dernier : les branches qui visent
         // une même cible se rejoignent ensuite dans l'écart qui la précède, jusqu'à leur pointe commune.
-        List<TopologyServerNode> nodes = [Audited("desktop-a", "192.168.1.250"), Audited("desktop-b", "192.168.1.251")];
-        nodes.AddRange(Enumerable.Range(1, 8).Select(i => Remote($"srv-{i}", $"192.168.10.{10 + i}")));
-        var edges = nodes.Skip(2)
-            .SelectMany(n => new[] { Flow($"A{n.NodeId}", "desktop-a", n.NodeId), Flow($"B{n.NodeId}", "desktop-b", n.NodeId) })
-            .ToList();
-        await OpenGraphAsync(new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0), BusTreeOptions(TopologyEdgeLabelMode.None));
+        await OpenGraphAsync(CreateTwoSourceSubnetGraph(), BusTreeOptions(TopologyEdgeLabelMode.None));
 
         var paths = await _mapPage!.GetEdgePathDefinitionsAsync();
         var segments = paths.SelectMany(p => ParsePathSegments(p[1]).SkipLast(1).Where(IsVertical).Select(s => (Source: p[0].Split("::")[0], Segment: s))).ToList();
 
         var overlaps = segments.SelectMany(a => segments.Where(b => string.CompareOrdinal(a.Source, b.Source) < 0 && AreCollinearAndOverlapping(a.Segment, b.Segment)));
         overlaps.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(TopologyLayoutMode.Tree)]
+    [InlineData(TopologyLayoutMode.HorizontalTree)]
+    public async Task RoutingSelect_WhenBusBranchGoesAroundTreeRows_LeavesThePortLabelsUncrossed(TopologyLayoutMode layout)
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Une étiquette se lit sur la flèche qui aboutit à sa cible ; un segment qui la barre en travers la rend illisible.
+        await OpenGraphAsync(CreateTwoSourceSubnetGraph(), BusTreeOptions(TopologyEdgeLabelMode.Ports) with { DefaultLayoutMode = layout });
+
+        var labels = await _mapPage!.GetEdgeLabelBoxesAsync();
+        var paths = await _mapPage.GetEdgePathDefinitionsAsync();
+        var acrossArrivals = paths.SelectMany(p => ParsePathSegments(p[1]))
+            .Where(s => IsVertical(s) == (layout == TopologyLayoutMode.HorizontalTree));
+
+        acrossArrivals.Where(s => labels.Any(label => SegmentEntersBox(s, label))).Should().BeEmpty();
+    }
+
+    // Deux serveurs audités joignent chacun les huit serveurs d'un même sous-réseau.
+    private static NetworkTopologyGraph CreateTwoSourceSubnetGraph()
+    {
+        List<TopologyServerNode> nodes = [Audited("desktop-a", "192.168.1.250"), Audited("desktop-b", "192.168.1.251")];
+        nodes.AddRange(Enumerable.Range(1, 8).Select(i => Remote($"srv-{i}", $"192.168.10.{10 + i}")));
+        var edges = nodes.Skip(2)
+            .SelectMany(n => new[] { Flow($"A{n.NodeId}", "desktop-a", n.NodeId), Flow($"B{n.NodeId}", "desktop-b", n.NodeId) })
+            .ToList();
+        return new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0);
     }
 
     // Segments de tracé qui entrent dans une boîte de serveur ; un segment qui part du bord d'une boîte ou y aboutit n'y entre pas.
