@@ -57,10 +57,11 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
       * `SubnetIp`: Hierarchical IP address octet sorting.
     * **Spatial Hash Grid Acceleration (`SpatialHashGrid`)**:
       * 2D spatial grid partitioning segment-segment crossings and box-edge collisions into localized buckets, accelerating 2-Opt layout optimization on 150+ nodes.
-    * **3 Edge Routing Algorithms (`TopologyEdgeRoutingMode`)**:
+    * **4 Edge Routing Algorithms (`TopologyEdgeRoutingMode`)**:
       * `BezierCurved`: Cubic Bézier curves respecting boundary normal vectors with corridor detour and multi-edge fanout.
       * `OrthogonalCorridors`: 90-degree orthogonal corridors with lane-offset anti-collision spacing; a detour around a blocking box runs through the waypoint row or column, whichever the detour follows.
       * `DirectStraight`: Straight border-to-border vectors with parallel spacing.
+      * `Bus` (`bus` in the routing select and `TOPOLOGY_DATA.defaultRouting`): orthogonal buses designed for the `tree` layout and usable with the others. The arrows leaving one server from the same border share one trunk per direction (`OUT` cyan and `IN` green, offset on each side of the border middle, merged pairs with mixed directions in the middle), which runs to a split line halfway to the nearest target, then one branch per target enters it perpendicular to its border (`computeBusTrunks`, `buildBusEdgePath`). Split lines of neighbouring servers that overlap move 8 px apart, one lane at a time (`assignBusLane`). Port labels sit on the branch just before the arrow head. Selecting a server draws its branches and trunk in orange above the others. Branches do not avoid intermediate server boxes.
     * **Arrow Label Placement (`placeEdgeLabels`)**:
       * Each `IN` / `OUT :port/protocol` label sits at the middle of its arrow; when that spot is taken, it moves up or down half a row at a time (up to 24 shifts, six rows on each side) until it overlaps neither another label nor a server box (server boxes are drawn above labels and would hide them). With no free row, a label stays on its arrow, unless a server box would hide it there: it then tries the same rows one label width to the right, then to the left. Labels of the selected server are placed first.
       * Every layout keeps at least 42 px (three label rows) between two stacked server boxes, even with the `Compact` spacing profile, so that labels of the arrows linking them have room.

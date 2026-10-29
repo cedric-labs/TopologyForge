@@ -192,6 +192,21 @@ public sealed class TopologyHtmlRendererTests
     }
 
     [Fact]
+    public void RenderHtml_WhenBusRoutingConfigured_SerializesBusAndOffersItInTheRoutingSelect()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var options = new TopologyRenderingOptions { DefaultRoutingMode = TopologyEdgeRoutingMode.Bus };
+
+        // Act
+        var html = renderer.RenderHtml(CreateSampleGraph(), options);
+
+        // Assert
+        html.Should().Contain("\"defaultRouting\":\"bus\"");
+        html.Should().Contain("<option value=\"bus\">");
+    }
+
+    [Fact]
     public void RenderHtml_WhenOrganicLayoutAndFunctionalTierConfigured_SerializesExpectedDefaults()
     {
         // Arrange

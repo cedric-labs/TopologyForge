@@ -18,5 +18,11 @@ public enum TopologyEdgeRoutingMode
     /// <summary>
     /// Segments directs de bordure à bordure avec décalage parallèle pour les liens multiples.
     /// </summary>
-    DirectStraight = 2
+    DirectStraight = 2,
+
+    /// <summary>
+    /// Bus orthogonal : les flèches d'un même serveur partagent un tronc par sens (IN, OUT) jusqu'à une ligne de séparation,
+    /// puis se divisent en une branche par cible. Pensé pour la mise en page en arbre, utilisable avec les autres.
+    /// </summary>
+    Bus = 3
 }

@@ -1327,6 +1327,108 @@ function buildRoutedEdgePath(startAnchor, endAnchor, routingMode, fanOffset, way
   };
 }
 
+// Les troncs IN et OUT d'un même serveur sont décalés de part et d'autre du milieu de son bord, et leurs lignes de séparation
+// d'une demi-ligne de part et d'autre, pour que leurs segments ne se superposent jamais.
+const BUS_TRUNK_SENSE_OFFSET = { OUT: -14, MIXED: 0, IN: 14 };
+const BUS_SPLIT_SENSE_SHIFT = { OUT: -6, MIXED: 0, IN: 6 };
+const BUS_MIN_TRUNK_LENGTH = 18;
+const BUS_END_STUB = 18;
+// La pointe d'une flèche occupe environ 14 px avant l'ancrage : l'étiquette se place juste avant elle, sur la branche.
+const BUS_LABEL_TIP_GAP = 18;
+const BUS_LANE_GAP = 8;
+const BUS_MAX_LANE_SHIFTS = 8;
+
+// Des serveurs voisins dont les cibles sont dans la même rangée ont la même ligne de séparation : superposées, on ne saurait
+// plus quel tronc alimente quelle branche. Une ligne qui en chevauche une autre déjà placée s'en écarte d'une voie à la fois,
+// en alternant, sans quitter l'espace entre le serveur et sa cible la plus proche ; sans voie libre, elle garde sa position.
+function assignBusLane(lanes, lane) {
+  for (let step = 0; step <= BUS_MAX_LANE_SHIFTS; step++) {
+    const direction = step % 2 === 0 ? 1 : -1;
+    const split = lane.split + direction * Math.ceil(step / 2) * BUS_LANE_GAP;
+    const depth = (split - lane.origin) * lane.outward;
+    if (depth < BUS_LANE_GAP || depth > lane.reach - BUS_LANE_GAP) continue;
+    const isFree = !lanes.some(other => other.isVertical === lane.isVertical
+      && Math.abs(other.split - split) < BUS_LANE_GAP
+      && lane.from < other.to && other.from < lane.to);
+    if (isFree) {
+      lanes.push({ ...lane, split });
+      return split;
+    }
+  }
+  lanes.push(lane);
+  return lane.split;
+}
+
+// Regroupe les flèches par serveur source, bord de départ et sens : chaque groupe partage un tronc qui quitte le bord
+// à hauteur fixe, puis se sépare à mi-chemin de la cible la plus proche, à la même ligne pour toutes ses branches.
+function computeBusTrunks(drawnEdges, anchorMap) {
+  const groups = new Map();
+  drawnEdges.forEach(drawn => {
+    const start = anchorMap.get(`${drawn.edge.edgeId}::src`);
+    const end = anchorMap.get(`${drawn.edge.edgeId}::dst`);
+    if (!start || !end) return;
+    const key = `${drawn.edge.sourceNodeId}::${start.side}::${drawn.sense}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ drawn, start, end });
+  });
+
+  const trunks = new Map();
+  const lanes = [];
+  groups.forEach(members => {
+    const { drawn, start } = members[0];
+    const pos = nodePositions.get(drawn.edge.sourceNodeId);
+    if (!pos) return;
+    const isVertical = start.side === 'top' || start.side === 'bottom';
+    const normal = sideNormalVector(start.side);
+    const outward = normal.nx + normal.ny;
+    const offset = BUS_TRUNK_SENSE_OFFSET[drawn.sense];
+    const trunk = isVertical
+      ? { x: pos.x + NODE_W / 2 + offset, y: start.y, side: start.side }
+      : { x: start.x, y: pos.y + NODE_H / 2 + offset, side: start.side };
+    const origin = isVertical ? trunk.y : trunk.x;
+    const reach = Math.min(...members.map(m => ((isVertical ? m.end.y : m.end.x) - origin) * outward));
+    const alongBus = members.map(m => isVertical ? m.end.x : m.end.y).concat(isVertical ? trunk.x : trunk.y);
+    const split = assignBusLane(lanes, {
+      isVertical,
+      origin,
+      outward,
+      reach,
+      split: origin + outward * Math.max(BUS_MIN_TRUNK_LENGTH, reach / 2) + BUS_SPLIT_SENSE_SHIFT[drawn.sense],
+      from: Math.min(...alongBus) - BUS_END_STUB,
+      to: Math.max(...alongBus) + BUS_END_STUB
+    });
+    members.forEach(m => trunks.set(m.drawn.edgeId, { trunk, split }));
+  });
+  return trunks;
+}
+
+function busLabelPoint(endAnchor) {
+  const n = sideNormalVector(endAnchor.side);
+  if (n.ny < 0) return { x: endAnchor.x, y: endAnchor.y - BUS_LABEL_TIP_GAP };
+  if (n.ny > 0) return { x: endAnchor.x, y: endAnchor.y + BUS_LABEL_TIP_GAP + EDGE_LABEL_HEIGHT - 3 };
+  return { x: endAnchor.x + n.nx * BUS_LABEL_TIP_GAP * 2.5, y: endAnchor.y - 6 };
+}
+
+// Le tronc part perpendiculairement au bord jusqu'à la ligne de séparation, la branche longe cette ligne jusqu'à la cible
+// puis l'aborde perpendiculairement à son bord d'arrivée, avec un court talon quand ce bord n'est pas face au tronc.
+function buildBusEdgePath(trunkStart, split, endAnchor) {
+  const x1 = trunkStart.x, y1 = trunkStart.y;
+  const x2 = endAnchor.x, y2 = endAnchor.y;
+  const n2 = sideNormalVector(endAnchor.side);
+  const isVertical = trunkStart.side === 'top' || trunkStart.side === 'bottom';
+  const stubX = x2 + n2.nx * BUS_END_STUB, stubY = y2 + n2.ny * BUS_END_STUB;
+  const points = (isVertical
+    ? [[x1, y1], [x1, split], [stubX, split], [stubX, y2], [x2, y2]]
+    : [[x1, y1], [split, y1], [split, stubY], [x2, stubY], [x2, y2]])
+    .filter((p, i, all) => i === 0 || p[0] !== all[i - 1][0] || p[1] !== all[i - 1][1]);
+  const label = busLabelPoint(endAnchor);
+  return {
+    d: points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' '),
+    labelX: label.x,
+    labelY: label.y
+  };
+}
+
 const EDGE_LABEL_CHAR_WIDTH = 6.2;
 const EDGE_LABEL_HEIGHT = 14;
 // Les décalages avancent d'une demi-ligne pour qu'une étiquette trouve sa place dans l'écart entre deux boîtes empilées,
@@ -1529,6 +1631,7 @@ function describeFlowEdge(e, siblings, fanSpacing) {
   return {
     edge: e,
     edgeId: e.edgeId,
+    sense: isInbound ? 'IN' : 'OUT',
     fanOffset: (siblingIdx - (siblings.length - 1) / 2) * fanSpacing * (isCanonicalOrder ? 1 : -1),
     stroke: isInbound ? '#10b981' : '#38bdf8',
     markerStart: isInbound ? 'url(#originIn)' : 'url(#originOut)',
@@ -1553,11 +1656,13 @@ function describePairEdge(pairKey, flows) {
   const edge = flows[0];
   const isDoubleHeaded = flows.some(f => f.sourceNodeId !== edge.sourceNodeId);
   const directions = new Set(flows.map(f => f.direction === 'IN' ? 'IN' : 'OUT'));
-  const style = PAIR_EDGE_STYLES[directions.size === 1 ? [...directions][0] : 'MIXED'];
+  const sense = directions.size === 1 ? [...directions][0] : 'MIXED';
+  const style = PAIR_EDGE_STYLES[sense];
   const ports = [...new Set(flows.map(f => `${f.targetPort}/${f.protocol}`))];
   return {
     edge,
     edgeId: pairKey,
+    sense,
     fanOffset: 0,
     stroke: style.stroke,
     markerStart: isDoubleHeaded ? style.arrow : style.origin,
@@ -1593,6 +1698,13 @@ function renderGraph(recomputePositions = false) {
     ? edges.map(e => describeFlowEdge(e, pairBuckets.get(undirectedPairKey(e.sourceNodeId, e.targetNodeId)) || [e], fanSpacing))
     : Array.from(pairBuckets, ([pairKey, flows]) => describePairEdge(pairKey, flows));
   const anchorMap = computeAllEdgeAnchors(nodes, drawnEdges.map(drawn => drawn.edge));
+  const busTrunks = routingMode === 'bus' ? computeBusTrunks(drawnEdges, anchorMap) : null;
+  if (busTrunks && selectedNodeId) {
+    // Les flèches d'un bus se superposent sur leur tronc : celles du serveur sélectionné sont tracées en dernier
+    // pour que leur tronc orange ne soit pas recouvert par celui, estompé, des autres branches.
+    const touchesSelection = drawn => drawn.edge.sourceNodeId === selectedNodeId || drawn.edge.targetNodeId === selectedNodeId;
+    drawnEdges.sort((a, b) => Number(touchesSelection(a)) - Number(touchesSelection(b)));
+  }
 
   const edgesFrag = document.createDocumentFragment();
   const labelsFrag = document.createDocumentFragment();
@@ -1611,8 +1723,11 @@ function renderGraph(recomputePositions = false) {
     const startAnchor = anchorMap.get(`${e.edgeId}::src`) || { x: p1.x + NODE_W / 2, y: p1.y + NODE_H / 2, side: 'right' };
     const endAnchor = anchorMap.get(`${e.edgeId}::dst`) || { x: p2.x + NODE_W / 2, y: p2.y + NODE_H / 2, side: 'left' };
 
-    const waypoint = findCorridorWaypoint(startAnchor, endAnchor, e.sourceNodeId, e.targetNodeId, nodes, drawn.fanOffset);
-    const route = buildRoutedEdgePath(startAnchor, endAnchor, routingMode, drawn.fanOffset, waypoint);
+    const bus = busTrunks && busTrunks.get(drawn.edgeId);
+    const route = bus
+      ? buildBusEdgePath(bus.trunk, bus.split, endAnchor)
+      : buildRoutedEdgePath(startAnchor, endAnchor, routingMode, drawn.fanOffset,
+        findCorridorWaypoint(startAnchor, endAnchor, e.sourceNodeId, e.targetNodeId, nodes, drawn.fanOffset));
 
     const path = document.createElementNS(SVG_NS, 'path');
     path.setAttribute('d', route.d);

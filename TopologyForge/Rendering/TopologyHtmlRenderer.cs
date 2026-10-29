@@ -120,6 +120,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         {
             TopologyEdgeRoutingMode.OrthogonalCorridors => "orthogonal",
             TopologyEdgeRoutingMode.DirectStraight => "straight",
+            TopologyEdgeRoutingMode.Bus => "bus",
             _ => "bezier"
         };
 
@@ -530,6 +531,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("              <option value=\"bezier\">Curved Bezier (Obstacle bypass)</option>");
         sb.AppendLine("              <option value=\"orthogonal\">Orthogonal Corridors (90°)</option>");
         sb.AppendLine("              <option value=\"straight\">Direct (Border to border)</option>");
+        sb.AppendLine("              <option value=\"bus\">Bus (Shared trunk per server)</option>");
         sb.AppendLine("            </select>");
         sb.AppendLine("          </div>");
         sb.AppendLine("          <div class=\"filter-group\">");

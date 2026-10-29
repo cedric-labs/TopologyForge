@@ -614,6 +614,118 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task BuildBusEdgePath_WhenTrunkLeavesFromBottom_RunsDownToTheSplitRowThenAcrossAndDownToTheTarget()
+    {
+        _mapPage.Should().NotBeNull();
+
+        var d = await _mapPage!.BuildBusEdgePathAsync(100, 200, "bottom", 260, 400, 320, "top");
+
+        d.Should().Be("M 100 200 L 100 260 L 400 260 L 400 320");
+    }
+
+    [Fact]
+    public async Task BuildBusEdgePath_WhenTargetIsEnteredFromTheLeft_EndsWithAHorizontalApproach()
+    {
+        _mapPage.Should().NotBeNull();
+
+        var d = await _mapPage!.BuildBusEdgePathAsync(100, 200, "bottom", 260, 400, 320, "left");
+
+        d.Should().Be("M 100 200 L 100 260 L 382 260 L 382 320 L 400 320");
+    }
+
+    [Fact]
+    public async Task BuildBusEdgePath_WhenTargetIsEnteredFromTheTop_PlacesTheLabelJustAboveTheArrowTip()
+    {
+        _mapPage.Should().NotBeNull();
+
+        var label = await _mapPage!.GetBusEdgeLabelPointAsync(100, 200, "bottom", 260, 400, 320, "top");
+
+        label.Should().Equal(400, 302);
+    }
+
+    [Fact]
+    public async Task RoutingSelect_WhenChangedToBus_SharesOneTrunkPerServerAndDirection()
+    {
+        _mapPage.Should().NotBeNull();
+        await OpenGraphAsync(CreateBusTopologyGraph(), new TopologyRenderingOptions());
+        await _mapPage!.SelectLayoutAsync("tree");
+
+        await _mapPage.SelectRoutingAsync("bus");
+
+        var trunks = (await _mapPage.GetEdgePathDefinitionsAsync()).ToDictionary(p => p[0], p => BusTrunkOf(p[1]));
+        new[] { trunks["O2"], trunks["O3"] }.Should().AllBe(trunks["O1"]);
+        trunks["I2"].Should().Be(trunks["I1"]);
+        trunks["I1"].Should().NotBe(trunks["O1"]);
+    }
+
+    [Fact]
+    public async Task AssignBusLane_WhenNeighbourBusesShareTheirRowAndWidth_MovesEachLaterOneToAFreeLane()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Trois serveurs d'une même rangée desservent des cibles de la rangée suivante sur des largeurs qui se recouvrent :
+        // à la même ordonnée, on ne saurait plus quel tronc alimente quelle branche. Le troisième ne recouvre pas le premier.
+        double[][] spans = [[100, 500], [400, 700], [600, 900]];
+
+        var splits = await _mapPage!.AssignBusLanesAsync(origin: 200, reach: 140, split: 270, spans);
+
+        splits.Should().Equal(270, 262, 270);
+    }
+
+    [Fact]
+    public async Task AssignBusLane_WhenNoLaneRemainsBeforeTheNearestTarget_KeepsTheMidwaySplit()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Avec 20 px entre le serveur et sa cible, aucune voie ne respecte l'écart de 8 px de chaque côté.
+        double[][] spans = [[100, 500], [100, 500]];
+
+        var splits = await _mapPage!.AssignBusLanesAsync(origin: 200, reach: 20, split: 210, spans);
+
+        splits.Should().Equal(210, 210);
+    }
+
+    [Fact]
+    public async Task RoutingSelect_WhenChangedToBus_PlacesEachPortLabelNextToItsArrowTip()
+    {
+        _mapPage.Should().NotBeNull();
+        await OpenGraphAsync(CreateBusTopologyGraph(), new TopologyRenderingOptions());
+        await _mapPage!.SelectLayoutAsync("tree");
+
+        await _mapPage.SelectRoutingAsync("bus");
+
+        var tips = await _mapPage.GetEdgeEndPointsAsync();
+        var labelBoxes = await _mapPage.GetEdgeLabelBoxesAsync();
+        labelBoxes.Should().HaveCount(tips.Length);
+        labelBoxes.Select(box => tips.Min(tip => DistanceFromBox(box, tip)))
+            .Should().AllSatisfy(distance => distance.Should().BeLessThan(20));
+    }
+
+    [Fact]
+    public async Task RoutingSelect_WhenBusAndTargetServerSelected_DrawsItsBranchAndTrunkInOrangeOnTop()
+    {
+        _mapPage.Should().NotBeNull();
+        await OpenGraphAsync(CreateBusTopologyGraph(), new TopologyRenderingOptions());
+        await _mapPage!.SelectLayoutAsync("tree");
+        await _mapPage.SelectRoutingAsync("bus");
+
+        await _mapPage.ClickNodeByHostNameAsync("lxc-01");
+
+        (await _mapPage.EdgeById("O1").GetAttributeAsync("stroke")).Should().Be("#f59e0b");
+        (await _mapPage.Edges.Last.GetAttributeAsync("data-edge-id")).Should().Be("O1");
+    }
+
+    [Fact]
+    public async Task RoutingSelect_WhenChangedToBus_ReproducesTheRoutingInTheCliCommand()
+    {
+        _mapPage.Should().NotBeNull();
+
+        await _mapPage!.SelectRoutingAsync("bus");
+
+        (await _mapPage.CliCommandText.InnerTextAsync()).Should().Contain("--map-routing bus");
+    }
+
+    [Fact]
     public async Task SortSelect_WhenSubnetColumnsWrap_KeepsSubnetZonesApart()
     {
         _mapPage.Should().NotBeNull();
@@ -679,6 +791,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     [InlineData("grid", "orthogonal")]
     [InlineData("tree", "bezier")]
     [InlineData("tree", "orthogonal")]
+    [InlineData("tree", "bus")]
     [InlineData("layered", "straight")]
     public async Task RenderGraph_WhenManyFlowsLeaveOneServer_KeepsArrowLabelsApart(string layout, string routing)
     {
@@ -705,6 +818,7 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     [InlineData("bezier", TopologySpacingProfile.Balanced)]
     [InlineData("orthogonal", TopologySpacingProfile.Balanced)]
     [InlineData("straight", TopologySpacingProfile.Balanced)]
+    [InlineData("bus", TopologySpacingProfile.Balanced)]
     [InlineData("bezier", TopologySpacingProfile.Compact)]
     [InlineData("orthogonal", TopologySpacingProfile.Compact)]
     [InlineData("straight", TopologySpacingProfile.Compact)]
@@ -803,6 +917,40 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         [.. firstBoxes.SelectMany(a => secondBoxes
             .Where(b => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3])
             .Select(b => $"[{string.Join(", ", a)}] ∩ [{string.Join(", ", b)}]"))];
+
+    private static double DistanceFromBox(double[] box, double[] point)
+    {
+        var dx = Math.Max(Math.Max(box[0] - point[0], point[0] - (box[0] + box[2])), 0);
+        var dy = Math.Max(Math.Max(box[1] - point[1], point[1] - (box[1] + box[3])), 0);
+        return Math.Sqrt((dx * dx) + (dy * dy));
+    }
+
+    // Le tronc d'une flèche en bus est son premier segment : du point de départ jusqu'à l'ordonnée de séparation.
+    private static string BusTrunkOf(string pathDefinition) =>
+        string.Join(' ', pathDefinition.Split(' ').Take(6));
+
+    // pve-01 ouvre trois flux sortants vers ses conteneurs et deux flux entrants, en client, vers les NAS audités.
+    private static NetworkTopologyGraph CreateBusTopologyGraph()
+    {
+        List<TopologyServerNode> nodes =
+        [
+            Audited("pve-01", "192.168.1.10"),
+            Remote("lxc-01", "192.168.1.21"),
+            Remote("lxc-02", "192.168.1.22"),
+            Remote("lxc-03", "192.168.1.23"),
+            Audited("nas-01", "192.168.1.31"),
+            Audited("nas-02", "192.168.1.32")
+        ];
+        List<TopologyServiceEdge> edges =
+        [
+            Flow("O1", "pve-01", "lxc-01"),
+            Flow("O2", "pve-01", "lxc-02"),
+            Flow("O3", "pve-01", "lxc-03"),
+            new("I1", "pve-01", "nas-01", 2049, TopologyTransportProtocol.Tcp, "pvestatd", "nfsd", 5, TopologyFlowDirection.Inbound),
+            new("I2", "pve-01", "nas-02", 2049, TopologyTransportProtocol.Tcp, "pvestatd", "nfsd", 5, TopologyFlowDirection.Inbound)
+        ];
+        return new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0);
+    }
 
     private static TopologyServerNode Audited(string name, string ipAddress) => new(name, name, ipAddress, true, [], 0, 1);
 

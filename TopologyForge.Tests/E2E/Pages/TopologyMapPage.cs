@@ -185,6 +185,46 @@ public sealed class TopologyMapPage(IPage page)
             new object[] { startX, startY, startSide, endX, endY, endSide, waypointX, waypointY });
 
     /// <summary>
+    /// Attribut <c>d</c> de la flèche en bus que la page construit d'un départ de tronc vers un ancrage cible,
+    /// la séparation en branches ayant lieu à la coordonnée <paramref name="split"/>.
+    /// </summary>
+    public Task<string> BuildBusEdgePathAsync(double trunkX, double trunkY, string trunkSide, double split, double endX, double endY, string endSide) =>
+        Page.EvaluateAsync<string>(
+            "a => buildBusEdgePath({ x: a[0], y: a[1], side: a[2] }, a[3], { x: a[4], y: a[5], side: a[6] }).d",
+            new object[] { trunkX, trunkY, trunkSide, split, endX, endY, endSide });
+
+    /// <summary>
+    /// Point [x, y] où la page demande l'étiquette d'une flèche en bus, avant le placement anti-chevauchement.
+    /// </summary>
+    public Task<double[]> GetBusEdgeLabelPointAsync(double trunkX, double trunkY, string trunkSide, double split, double endX, double endY, string endSide) =>
+        Page.EvaluateAsync<double[]>(
+            "a => { const r = buildBusEdgePath({ x: a[0], y: a[1], side: a[2] }, a[3], { x: a[4], y: a[5], side: a[6] }); return [r.labelX, r.labelY]; }",
+            new object[] { trunkX, trunkY, trunkSide, split, endX, endY, endSide });
+
+    /// <summary>
+    /// Lignes de séparation que la page attribue successivement à des bus verticaux descendants partant de la même ordonnée
+    /// <paramref name="origin"/>, chacun couvrant la largeur [début, fin] donnée et visant la même ligne <paramref name="split"/>.
+    /// </summary>
+    public Task<double[]> AssignBusLanesAsync(double origin, double reach, double split, double[][] spans) =>
+        Page.EvaluateAsync<double[]>(
+            "a => { const lanes = []; return a.spans.map(s => assignBusLane(lanes, { isVertical: true, origin: a.origin, outward: 1, reach: a.reach, split: a.split, from: s[0], to: s[1] })); }",
+            new { origin, reach, split, spans });
+
+    /// <summary>
+    /// Couples [identifiant d'arête, attribut <c>d</c>] des flèches affichées, dans l'ordre du DOM.
+    /// </summary>
+    public Task<string[][]> GetEdgePathDefinitionsAsync() =>
+        EdgesLayer.EvaluateAsync<string[][]>(
+            "layer => Array.from(layer.querySelectorAll(':scope > path')).map(p => [p.getAttribute('data-edge-id'), p.getAttribute('d')])");
+
+    /// <summary>
+    /// Points [x, y] où se terminent les flèches affichées, c'est-à-dire leurs pointes.
+    /// </summary>
+    public Task<double[][]> GetEdgeEndPointsAsync() =>
+        EdgesLayer.EvaluateAsync<double[][]>(
+            "layer => Array.from(layer.querySelectorAll(':scope > path')).map(p => { const e = p.getPointAtLength(p.getTotalLength()); return [e.x, e.y]; })");
+
+    /// <summary>
     /// Rectangles [x, y, largeur, hauteur] des zones de sous-réseau affichées.
     /// </summary>
     public Task<double[][]> GetSubnetZoneBoxesAsync() =>
