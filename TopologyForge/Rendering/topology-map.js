@@ -1421,7 +1421,8 @@ function computeBusTrunks(drawnEdges, anchorMap) {
 
   const trunks = new Map();
   const lanes = [];
-  groups.forEach(members => {
+  const corridorLanes = [];
+  groups.forEach((members, groupKey) => {
     const { drawn, start } = members[0];
     const pos = nodePositions.get(drawn.edge.sourceNodeId);
     if (!pos) return;
@@ -1444,9 +1445,100 @@ function computeBusTrunks(drawnEdges, anchorMap) {
       from: Math.min(...alongBus) - BUS_END_STUB,
       to: Math.max(...alongBus) + BUS_END_STUB
     });
-    members.forEach(m => trunks.set(m.drawn.edgeId, { trunk, split }));
+    members.forEach(m => trunks.set(m.drawn.edgeId, {
+      trunk,
+      split,
+      detour: findBusDetour(trunk, split, m.end, m.drawn.edge, { groupKey, corridorLanes })
+    }));
   });
   return trunks;
+}
+
+// Repère d'un bus : « along » suit la ligne de séparation, « depth » croît du tronc vers ses cibles,
+// pour traiter une fois pour toutes les bus qui descendent, montent ou partent sur le côté.
+function busFrame(trunkStart) {
+  const isVertical = trunkStart.side === 'top' || trunkStart.side === 'bottom';
+  const normal = sideNormalVector(trunkStart.side);
+  const outward = normal.nx + normal.ny;
+  const alongSize = isVertical ? NODE_W : NODE_H;
+  const depthSize = isVertical ? NODE_H : NODE_W;
+  return {
+    isVertical,
+    outward,
+    along: p => isVertical ? p.x : p.y,
+    depth: p => (isVertical ? p.y : p.x) * outward,
+    box: pos => {
+      const a0 = isVertical ? pos.x : pos.y;
+      const d = (isVertical ? pos.y : pos.x) * outward;
+      return { a0, a1: a0 + alongSize, d0: outward > 0 ? d : d - depthSize, d1: outward > 0 ? d + depthSize : d };
+    }
+  };
+}
+
+const BUS_BOX_CLEARANCE = 4;
+
+// Dans un arbre, la descente directe de la ligne de séparation vers une cible éloignée traverserait les boîtes des rangées
+// intermédiaires de sa colonne. La branche passe alors par le couloir voisin de la cible, du côté de son point d'arrivée,
+// puis revient vers elle dans l'écart juste avant son bord. Sans obstacle, ou sans couloir libre, le tracé direct est gardé.
+function findBusDetour(trunkStart, split, endAnchor, edge, lanePlan) {
+  const sourceId = edge.sourceNodeId, targetId = edge.targetNodeId;
+  const frame = busFrame(trunkStart);
+  const targetPos = nodePositions.get(targetId);
+  const arrival = sideNormalVector(endAnchor.side);
+  if (!targetPos || (frame.isVertical ? arrival.ny : arrival.nx) !== -frame.outward) return null;
+
+  const target = frame.box(targetPos);
+  const obstacles = [];
+  nodePositions.forEach((pos, nodeId) => {
+    if (nodeId !== sourceId && nodeId !== targetId) obstacles.push(frame.box(pos));
+  });
+  const splitDepth = split * frame.outward;
+  const isBlocked = (along, fromDepth, toDepth) => obstacles.some(b =>
+    along > b.a0 - BUS_BOX_CLEARANCE && along < b.a1 + BUS_BOX_CLEARANCE && b.d0 < toDepth && fromDepth < b.d1);
+  const endAlong = frame.along(endAnchor);
+  if (!isBlocked(endAlong, splitDepth, target.d0)) return null;
+
+  const above = obstacles.filter(b => b.d1 <= target.d0 && b.a0 < target.a1 && target.a0 < b.a1).map(b => b.d1);
+  const approach = above.length > 0 ? (Math.max(...above) + target.d0) / 2 : target.d0 - BUS_END_STUB;
+  const crossed = obstacles.filter(b => b.d0 < approach && splitDepth < b.d1);
+  const before = crossed.filter(b => b.a1 <= target.a0).map(b => b.a1);
+  const after = crossed.filter(b => b.a0 >= target.a1).map(b => b.a0);
+  const corridors = [
+    before.length > 0 ? (Math.max(...before) + target.a0) / 2 : target.a0 - BUS_END_STUB,
+    after.length > 0 ? (Math.min(...after) + target.a1) / 2 : target.a1 + BUS_END_STUB
+  ].filter(along => !isBlocked(along, splitDepth, approach));
+  if (corridors.length === 0) return null;
+
+  const nearest = corridors.reduce((best, along) => Math.abs(along - endAlong) < Math.abs(best - endAlong) ? along : best, corridors[0]);
+  const corridor = assignCorridorLane(lanePlan, {
+    isVertical: frame.isVertical,
+    along: nearest,
+    from: Math.min(splitDepth, approach) * frame.outward,
+    to: Math.max(splitDepth, approach) * frame.outward
+  }, along => !isBlocked(along, splitDepth, approach));
+  return { corridor, approach: approach * frame.outward };
+}
+
+// Les branches d'un même tronc peuvent descendre ensemble dans un couloir, comme elles longent ensemble leur ligne
+// de séparation ; celles d'un autre serveur s'en écartent d'une voie à la fois, en alternant, sans toucher de boîte.
+function assignCorridorLane(lanePlan, lane, isClear) {
+  const { groupKey, corridorLanes } = lanePlan;
+  const from = Math.min(lane.from, lane.to), to = Math.max(lane.from, lane.to);
+  for (let step = 0; step <= BUS_MAX_LANE_SHIFTS; step++) {
+    const direction = step % 2 === 0 ? 1 : -1;
+    const along = lane.along + direction * Math.ceil(step / 2) * BUS_LANE_GAP;
+    if (!isClear(along)) continue;
+    const isFree = !corridorLanes.some(other => other.groupKey !== groupKey
+      && other.isVertical === lane.isVertical
+      && Math.abs(other.along - along) < BUS_LANE_GAP
+      && from < other.to && other.from < to);
+    if (isFree) {
+      corridorLanes.push({ groupKey, isVertical: lane.isVertical, along, from, to });
+      return along;
+    }
+  }
+  corridorLanes.push({ groupKey, isVertical: lane.isVertical, along: lane.along, from, to });
+  return lane.along;
 }
 
 function busLabelPoint(endAnchor) {
@@ -1458,15 +1550,25 @@ function busLabelPoint(endAnchor) {
 
 // Le tronc part perpendiculairement au bord jusqu'à la ligne de séparation, la branche longe cette ligne jusqu'à la cible
 // puis l'aborde perpendiculairement à son bord d'arrivée, avec un court talon quand ce bord n'est pas face au tronc.
-function buildBusEdgePath(trunkStart, split, endAnchor) {
+// Avec un détour, la branche quitte la ligne de séparation au couloir choisi et rejoint la cible par l'écart qui la précède.
+function buildBusEdgePath(trunkStart, split, endAnchor, detour) {
   const x1 = trunkStart.x, y1 = trunkStart.y;
   const x2 = endAnchor.x, y2 = endAnchor.y;
   const n2 = sideNormalVector(endAnchor.side);
   const isVertical = trunkStart.side === 'top' || trunkStart.side === 'bottom';
   const stubX = x2 + n2.nx * BUS_END_STUB, stubY = y2 + n2.ny * BUS_END_STUB;
-  const points = (isVertical
-    ? [[x1, y1], [x1, split], [stubX, split], [stubX, y2], [x2, y2]]
-    : [[x1, y1], [split, y1], [split, stubY], [x2, stubY], [x2, y2]])
+  let route;
+  if (detour) {
+    const { corridor, approach } = detour;
+    route = isVertical
+      ? [[x1, y1], [x1, split], [corridor, split], [corridor, approach], [x2, approach], [x2, y2]]
+      : [[x1, y1], [split, y1], [split, corridor], [approach, corridor], [approach, y2], [x2, y2]];
+  } else {
+    route = isVertical
+      ? [[x1, y1], [x1, split], [stubX, split], [stubX, y2], [x2, y2]]
+      : [[x1, y1], [split, y1], [split, stubY], [x2, stubY], [x2, y2]];
+  }
+  const points = route
     .filter((p, i, all) => i === 0 || p[0] !== all[i - 1][0] || p[1] !== all[i - 1][1]);
   const label = busLabelPoint(endAnchor);
   return {
@@ -1772,7 +1874,7 @@ function renderGraph(recomputePositions = false) {
 
     const bus = busTrunks && busTrunks.get(drawn.edgeId);
     const route = bus
-      ? buildBusEdgePath(bus.trunk, bus.split, endAnchor)
+      ? buildBusEdgePath(bus.trunk, bus.split, endAnchor, bus.detour)
       : buildRoutedEdgePath(startAnchor, endAnchor, routingMode, drawn.fanOffset,
         findCorridorWaypoint(startAnchor, endAnchor, e.sourceNodeId, e.targetNodeId, nodes, drawn.fanOffset));
 

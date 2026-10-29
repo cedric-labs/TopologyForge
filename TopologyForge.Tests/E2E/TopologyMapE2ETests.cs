@@ -12,7 +12,7 @@ namespace TopologyForge.Tests.E2E;
 /// <summary>
 /// Suite de tests E2E Playwright automatisÃ©s validant le rendu structurel SVG, l'interactivitÃ© des contrÃ´les et la prÃ©cision des filtres.
 /// </summary>
-public sealed class TopologyMapE2ETests : IAsyncLifetime
+public sealed partial class TopologyMapE2ETests : IAsyncLifetime
 {
     private IPlaywright? _playwright;
     private IBrowser? _browser;
