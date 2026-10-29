@@ -835,6 +835,21 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SortSelect_WhenSubnetClustersStack_SeparatesThemByTheSpacingGap()
+    {
+        _mapPage.Should().NotBeNull();
+        await OpenGraphAsync(
+            CreateSubnetTopologyGraph(("192.168.10", 2), ("192.168.20", 2)),
+            new TopologyRenderingOptions { DefaultSortMethod = TopologyNodeSortMethod.SubnetCluster });
+
+        var rows = (await _mapPage!.GetNodeBoxesAsync()).Select(box => box[1]).Distinct().Order();
+
+        // Le premier sous-réseau commence à 310 px (le polissage l'écarte ensuite des flèches vers le second) ;
+        // en espacement équilibré (facteur 1,05), le second suit à 2 × 170 + 42 px, soit 64 px entre leurs zones.
+        rows.TakeLast(2).Should().Equal(692, 862);
+    }
+
+    [Fact]
     public async Task LayoutSelect_WhenHorizontalTreeSubnetBandsWrap_SeparatesThemByTheTreeGaps()
     {
         _mapPage.Should().NotBeNull();

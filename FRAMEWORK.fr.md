@@ -52,7 +52,7 @@ TopologyForge est le framework partagé .NET de **modélisation topologique, de 
     * **6 méthodes de tri des serveurs (`TopologyNodeSortMethod`)** :
       * `BarycentricSugiyama` : Heuristique barycentrique/médiane multi-passes + optimisation 2-Opt.
       * `FunctionalTier` : Stratification architecturale en 4 couches (Clients ➔ Passerelles/Ingress ➔ Applications ➔ Bases de données/Infra).
-      * `SubnetCluster` : Regroupement spatial contigu par sous-réseaux IP CIDR avec enveloppes visuelles englobantes ; chaque colonne commence après son sous-réseau le plus large et l'optimiseur 2-Opt n'échange que des serveurs d'un même sous-réseau, si bien que les enveloppes ne se chevauchent jamais.
+      * `SubnetCluster` : Regroupement spatial contigu par sous-réseaux IP CIDR avec enveloppes visuelles englobantes ; chaque colonne commence après son sous-réseau le plus large et l'optimiseur 2-Opt n'échange que des serveurs d'un même sous-réseau, si bien que les enveloppes ne se chevauchent jamais. Deux sous-réseaux sont séparés d'un pas de rangée (ou de colonne) plus 40 px × le facteur d'écartement des serveurs, soit environ 64 px entre deux enveloppes empilées en `Balanced`.
       * `ConnectionDegree` : Tri par densité de trafic (nombre de connexions décroissant).
       * `Alphabetical` : Tri alphabétique par nom d'hôte.
       * `SubnetIp` : Tri logique par sous-réseau et octets d'adresse IP.

@@ -52,7 +52,7 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
     * **6 Server Sorting Strategies (`TopologyNodeSortMethod`)**:
       * `BarycentricSugiyama`: Multi-pass barycenter/median heuristic with 2-Opt refinement.
       * `FunctionalTier`: 4-tier architectural stratification (Clients ➔ Gateways/Ingress ➔ Applications ➔ Databases/Infra).
-      * `SubnetCluster`: Contiguous spatial clustering by IP CIDR subnets with visual boundary enclosures; columns start after their widest subnet and 2-Opt swaps stay within a subnet, so enclosures never overlap.
+      * `SubnetCluster`: Contiguous spatial clustering by IP CIDR subnets with visual boundary enclosures; columns start after their widest subnet and 2-Opt swaps stay within a subnet, so enclosures never overlap. Two subnets are separated by one row (or column) step plus 40 px × the node spacing factor, about 64 px between two stacked enclosures with `Balanced`.
       * `ConnectionDegree`: Traffic density sorting by descending connection count.
       * `Alphabetical`: Alphabetical ordering by hostname.
       * `SubnetIp`: Hierarchical IP address octet sorting.

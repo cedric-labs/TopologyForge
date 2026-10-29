@@ -789,6 +789,11 @@ const TREE_COLUMNS_PER_ROW = 0.83;
 const TREE_ROOT_GAP = 40;
 const TREE_BAND_GAP = 56;
 
+// Ajouté au pas de rangée (ou de colonne) entre deux sous-réseaux du tri par zones et proportionnel à l'espacement :
+// en espacement équilibré, deux zones empilées restent à 64 px l'une de l'autre et deux colonnes de zones à 130 px,
+// une fois retirées les marges que prend chaque zone autour de ses boîtes.
+const SUBNET_CLUSTER_GAP = 40;
+
 function treeColumnCount(serverCount) {
   return Math.ceil(Math.sqrt(TREE_COLUMNS_PER_ROW * serverCount));
 }
@@ -1038,6 +1043,7 @@ function computeLayout(nodes, edges, layoutMode, sortMethod) {
 
     let curY = startClusterY;
     let columnWidth = 0;
+    const clusterGap = Math.round(SUBNET_CLUSTER_GAP * gapFactor);
     subnetMap.forEach((subNodes) => {
       const unplacedNodes = subNodes.filter(n => !nodePositions.has(n.nodeId));
       if (unplacedNodes.length === 0) return;
@@ -1057,10 +1063,10 @@ function computeLayout(nodes, edges, layoutMode, sortMethod) {
       // La colonne suivante commence après le sous-réseau le plus large de la colonne, pas après le dernier placé.
       columnWidth = Math.max(columnWidth, colsInSub * stepX);
       const subHeight = rowsInSub * stepY;
-      curY += subHeight + 110;
+      curY += subHeight + clusterGap;
       if (curY > 1400) {
         curY = startClusterY;
-        curX += columnWidth + 110;
+        curX += columnWidth + clusterGap;
         columnWidth = 0;
       }
     });
