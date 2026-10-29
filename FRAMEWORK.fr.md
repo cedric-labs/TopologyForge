@@ -69,6 +69,8 @@ TopologyForge est le framework partagé .NET de **modélisation topologique, de 
       * Distinction visuelle et chromatique des flux sortants (`OUT` en bleu cyan `#38bdf8`) et entrants (`IN` en vert émeraude `#10b981`).
     * **Profils et curseurs d'écartement (`TopologySpacingProfile`)** :
       * Profils `Compact`, `Balanced`, `Spacious` (adapté aux cartes de plus de 100 serveurs) et curseurs temps réel d'écartement des serveurs (`0.65x` à `2.4x`) et d'écartement des flèches (`6px` à `46px`).
+    * **Étiquettes des flèches (`TopologyEdgeLabelMode`)** :
+      * `Ports` (par défaut) inscrit le sens, le port et le protocole sur chaque flèche (`OUT :443/TCP`) ; `None` trace les flèches sans étiquette, ce qui allège les cartes denses. La case `Show Ports` bascule entre les deux à tout moment, à partir de `TopologyRenderingOptions.DefaultEdgeLabelMode` ; l'inspecteur de serveur continue de lister les ports dans les deux modes.
     * **Contrôles de filtrage ergonomiques & Bouton "Apply Filters"** :
       * Bouton `Apply Filters` dédié et déclenchement par validation `[Enter]` sur les champs de recherche textuelle et de ports, supprimant les recalculs intempestifs frappe par frappe pour une fluidité maximale sur les cartes denses.
       * La recherche textuelle garde les serveurs trouvés avec leurs voisins directs et les flux qui les relient ; elle porte aussi sur le port, le processus et la cible de service de chaque flux, ce qui permet de retrouver un processus client sortant.
@@ -79,7 +81,7 @@ TopologyForge est le framework partagé .NET de **modélisation topologique, de 
       * Bouton `◀ Sidebar` (ou touche `[B]`) permettant de masquer/afficher instantanément le panneau latéral pour allouer 100 % de l'écran au canevas SVG.
       * Sections d'options cliquables en accordéon (`1. Layout`, `2. Filters`, `3. CLI Command`, `4. Inspector`), supprimant tout défilement vertical parasite.
     * **Reproduction CLI instantanée (`CLI Command`)** :
-      * Encadré affichant la commande qui reproduit la vue courante (filtres, disposition, tri, routage, écartement). Sa syntaxe vient de `TopologyRenderingOptions.CliCommandFormat` (`TopologyCliCommandFormat` : `Prefix`, `LayoutOption`, `SortOption`, `RoutingOption`, `SpacingOption`) ; les valeurs par défaut produisent la syntaxe NetFlowAudit 1.x `NetFlowAudit.Cli --map-only ... --map-layout ...`.
+      * Encadré affichant la commande qui reproduit la vue courante (filtres, disposition, tri, routage, écartement, étiquettes des flèches). Sa syntaxe vient de `TopologyRenderingOptions.CliCommandFormat` (`TopologyCliCommandFormat` : `Prefix`, `LayoutOption`, `SortOption`, `RoutingOption`, `SpacingOption`, `EdgeLabelsOption`, suivi de `none` quand les ports sont masqués) ; les valeurs par défaut produisent la syntaxe NetFlowAudit 1.x `NetFlowAudit.Cli --map-only ... --map-layout ...`.
       * Bouton `📋 Copy Command` pour copier la syntaxe dans le presse-papier en un clic.
     * **Export Vectoriel SVG Autonome (`Export SVG`)** :
       * Bouton intégré dans la barre d'outils permettant d'extraire la vue courante (avec filtres, sélections et déplacements manuels) sous forme de fichier vectoriel autonome `network_topology_map.svg`.

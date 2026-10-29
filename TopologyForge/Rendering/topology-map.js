@@ -9,6 +9,7 @@ const nodesLayer = document.getElementById('nodesLayer');
 const layoutSelect = document.getElementById('layoutSelect');
 const sortSelect = document.getElementById('sortSelect');
 const showZonesCheck = document.getElementById('showZonesCheck');
+const showPortsCheck = document.getElementById('showPortsCheck');
 const routingSelect = document.getElementById('routingSelect');
 const spacingSelect = document.getElementById('spacingSelect');
 const nodeGapRange = document.getElementById('nodeGapRange');
@@ -55,6 +56,7 @@ if (TOPOLOGY_DATA.defaultSort) {
   }
 }
 if (TOPOLOGY_DATA.defaultRouting) routingSelect.value = TOPOLOGY_DATA.defaultRouting;
+if (showPortsCheck) showPortsCheck.checked = TOPOLOGY_DATA.defaultEdgeLabels !== 'none';
 if (TOPOLOGY_DATA.defaultSpacing) {
   spacingSelect.value = TOPOLOGY_DATA.defaultSpacing;
   applySpacingPreset(TOPOLOGY_DATA.defaultSpacing);
@@ -1543,6 +1545,7 @@ function renderGraph(recomputePositions = false) {
   const labelsFrag = document.createDocumentFragment();
   const nodesFrag = document.createDocumentFragment();
   const pendingLabels = [];
+  const showPorts = !showPortsCheck || showPortsCheck.checked;
 
   edges.forEach(e => {
     const p1 = nodePositions.get(e.sourceNodeId);
@@ -1582,7 +1585,7 @@ function renderGraph(recomputePositions = false) {
     path.setAttribute('marker-end', markerEnd);
     edgesFrag.appendChild(path);
 
-    if (!isDimmed && (edges.length <= 180 || isHighlighted)) {
+    if (showPorts && !isDimmed && (edges.length <= 180 || isHighlighted)) {
       pendingLabels.push({
         x: route.labelX,
         y: route.labelY,
@@ -1749,6 +1752,7 @@ function buildCliCommand() {
   if (sortSelect.value && sortSelect.value !== 'sugiyama') parts.push(`${cli.sortOption} ${sortSelect.value}`);
   if (routingSelect.value && routingSelect.value !== 'bezier') parts.push(`${cli.routingOption} ${routingSelect.value}`);
   if (spacingSelect.value && spacingSelect.value !== 'balanced') parts.push(`${cli.spacingOption} ${spacingSelect.value}`);
+  if (showPortsCheck && !showPortsCheck.checked) parts.push(`${cli.edgeLabelsOption} none`);
   return parts.join(' ');
 }
 
@@ -1833,6 +1837,9 @@ if (showZonesCheck) {
   showZonesCheck.addEventListener('change', () => {
     renderGraph(false);
   });
+}
+if (showPortsCheck) {
+  showPortsCheck.addEventListener('change', () => { renderGraph(false); updateCliCommandDisplay(); });
 }
 routingSelect.addEventListener('change', () => { renderGraph(false); updateCliCommandDisplay(); });
 

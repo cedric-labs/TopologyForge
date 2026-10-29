@@ -72,6 +72,36 @@ public sealed class TopologyHtmlRendererTests
         html.Should().Contain("\"sortOption\":\"--map-sort\"");
         html.Should().Contain("\"routingOption\":\"--map-routing\"");
         html.Should().Contain("\"spacingOption\":\"--map-spacing\"");
+        html.Should().Contain("\"edgeLabelsOption\":\"--map-edge-labels\"");
+    }
+
+    [Fact]
+    public void RenderHtml_WhenNoEdgeLabelModeGiven_ShowsPortsOnArrowsWithACheckbox()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+
+        // Act
+        var html = renderer.RenderHtml(CreateSampleGraph(), new TopologyRenderingOptions());
+
+        // Assert
+        html.Should().Contain("<input type=\"checkbox\" id=\"showPortsCheck\" checked>");
+        html.Should().Contain("<label for=\"showPortsCheck\">Show Ports</label>");
+        html.Should().Contain("\"defaultEdgeLabels\":\"ports\"");
+    }
+
+    [Fact]
+    public void RenderHtml_WhenEdgeLabelModeIsNone_SerializesNoneAsDefault()
+    {
+        // Arrange
+        var renderer = new TopologyHtmlRenderer();
+        var options = new TopologyRenderingOptions { DefaultEdgeLabelMode = TopologyEdgeLabelMode.None };
+
+        // Act
+        var html = renderer.RenderHtml(CreateSampleGraph(), options);
+
+        // Assert
+        html.Should().Contain("\"defaultEdgeLabels\":\"none\"");
     }
 
     [Fact]

@@ -458,6 +458,38 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         (await _mapPage.SubnetZones.CountAsync()).Should().Be(zoneCount);
     }
 
+    [Fact]
+    public async Task ShowPortsCheckbox_WhenUnchecked_RemovesArrowLabelsAndKeepsPortsInInspector()
+    {
+        _mapPage.Should().NotBeNull();
+        (await _mapPage!.ShowPortsCheckbox.IsCheckedAsync()).Should().BeTrue();
+        (await _mapPage.Labels.CountAsync()).Should().Be(5);
+
+        await _mapPage.ShowPortsCheckbox.UncheckAsync();
+
+        (await _mapPage.Labels.CountAsync()).Should().Be(0);
+        (await _mapPage.GetEdgeCountAsync()).Should().Be(5);
+        (await _mapPage.CliCommandText.InnerTextAsync()).Should().EndWith("--map-edge-labels none");
+        await _mapPage.ClickNodeAsync(0);
+        (await _mapPage.InspectorContent.InnerTextAsync()).Should().MatchRegex(@":\d+/(TCP|UDP)");
+    }
+
+    [Fact]
+    public async Task ShowPortsCheckbox_WhenEdgeLabelModeIsNoneAndChecked_RestoresArrowLabels()
+    {
+        _mapPage.Should().NotBeNull();
+        await OpenGraphAsync(CreateSampleTopologyGraph(),
+            new TopologyRenderingOptions { DefaultEdgeLabelMode = TopologyEdgeLabelMode.None });
+        (await _mapPage!.ShowPortsCheckbox.IsCheckedAsync()).Should().BeFalse();
+        (await _mapPage.Labels.CountAsync()).Should().Be(0);
+        (await _mapPage.CliCommandText.InnerTextAsync()).Should().Contain("--map-edge-labels none");
+
+        await _mapPage.ShowPortsCheckbox.CheckAsync();
+
+        (await _mapPage.Labels.CountAsync()).Should().Be(5);
+        (await _mapPage.CliCommandText.InnerTextAsync()).Should().NotContain("--map-edge-labels");
+    }
+
     [Theory]
     [InlineData("nas", "proxy")]
     [InlineData("proxy", "nas")]

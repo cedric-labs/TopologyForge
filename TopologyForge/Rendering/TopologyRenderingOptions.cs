@@ -31,6 +31,11 @@ public sealed record TopologyRenderingOptions
     public TopologySpacingProfile DefaultSpacingProfile { get; init; } = TopologySpacingProfile.Balanced;
 
     /// <summary>
+    /// Contenu initial des étiquettes des flèches (ports affichés par défaut).
+    /// </summary>
+    public TopologyEdgeLabelMode DefaultEdgeLabelMode { get; init; } = TopologyEdgeLabelMode.Ports;
+
+    /// <summary>
     /// Nombre initial de serveurs affichés par page (100 par défaut).
     /// </summary>
     public int DefaultPageSize { get; init; } = 100;

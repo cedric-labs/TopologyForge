@@ -141,6 +141,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
             DefaultSort = defaultSort,
             DefaultRouting = defaultRouting,
             DefaultSpacing = defaultSpacing,
+            DefaultEdgeLabels = options.DefaultEdgeLabelMode == TopologyEdgeLabelMode.None ? "none" : "ports",
             DefaultPageSize = defaultPageSize,
             InitialIncludePorts = options.InitialIncludePorts,
             InitialExcludePorts = options.InitialExcludePorts,
@@ -152,7 +153,8 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 options.CliCommandFormat.LayoutOption,
                 options.CliCommandFormat.SortOption,
                 options.CliCommandFormat.RoutingOption,
-                options.CliCommandFormat.SpacingOption
+                options.CliCommandFormat.SpacingOption,
+                options.CliCommandFormat.EdgeLabelsOption
             },
             Nodes = graph.Nodes.Select(n => new
             {
@@ -514,6 +516,10 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
         sb.AppendLine("        <div class=\"filter-checkbox-group\">");
         sb.AppendLine("          <input type=\"checkbox\" id=\"showZonesCheck\">");
         sb.AppendLine("          <label for=\"showZonesCheck\">Show Subnet Zones</label>");
+        sb.AppendLine("        </div>");
+        sb.AppendLine("        <div class=\"filter-checkbox-group\">");
+        sb.AppendLine("          <input type=\"checkbox\" id=\"showPortsCheck\" checked>");
+        sb.AppendLine("          <label for=\"showPortsCheck\">Show Ports</label>");
         sb.AppendLine("        </div>");
 
         sb.AppendLine("        <div class=\"grid-2\">");

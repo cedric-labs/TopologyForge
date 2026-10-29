@@ -30,4 +30,9 @@ public sealed record TopologyCliCommandFormat
     /// Option portant le profil d'écartement (par défaut <c>--map-spacing</c>).
     /// </summary>
     public string SpacingOption { get; init; } = "--map-spacing";
+
+    /// <summary>
+    /// Option portant le contenu des étiquettes des flèches (par défaut <c>--map-edge-labels</c>), ajoutée avec la valeur <c>none</c> quand les ports sont masqués.
+    /// </summary>
+    public string EdgeLabelsOption { get; init; } = "--map-edge-labels";
 }
