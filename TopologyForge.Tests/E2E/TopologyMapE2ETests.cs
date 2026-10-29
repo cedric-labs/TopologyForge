@@ -726,6 +726,80 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task RoutingSelect_WhenBusAndSeveralServersReachOneTarget_MergesTheirBranchesIntoOneArrowTip()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Trois serveurs audités joignent la même base : sans regroupement à l'arrivée, trois branches parallèles
+        // aboutissent chacune à sa pointe et la carte ne montre plus qu'elles visent une seule cible.
+        await OpenGraphAsync(CreateConvergingTopologyGraph(TopologyFlowDirection.Outbound), BusTreeOptions(TopologyEdgeLabelMode.None));
+
+        var tips = await _mapPage!.GetEdgeEndPointsAsync();
+
+        tips.Should().HaveCount(3);
+        tips.Select(tip => (Math.Round(tip[0]), Math.Round(tip[1]))).Distinct().Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task RoutingSelect_WhenBusBranchesReachOneTargetInBothDirections_KeepsOneTipPerDirection()
+    {
+        _mapPage.Should().NotBeNull();
+        await OpenGraphAsync(CreateConvergingTopologyGraph(TopologyFlowDirection.Inbound), BusTreeOptions(TopologyEdgeLabelMode.Ports));
+
+        var tips = await _mapPage!.GetEdgeEndPointsAsync();
+
+        tips.Should().HaveCount(3);
+        tips.Select(tip => (Math.Round(tip[0]), Math.Round(tip[1]))).Distinct().Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task LayoutSelect_WhenTreeIsCompactWithoutPortLabels_StacksRowsCloserThanTheLabelGap()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // L'écart de 42 px entre deux boîtes empilées loge les étiquettes de ports : sans elles, il ne sert plus à rien.
+        await OpenGraphAsync(
+            CreateSubnetTopologyGraph(("192.168.1", 4)),
+            new TopologyRenderingOptions
+            {
+                DefaultLayoutMode = TopologyLayoutMode.Tree,
+                DefaultSpacingProfile = TopologySpacingProfile.Compact,
+                DefaultEdgeLabelMode = TopologyEdgeLabelMode.None
+            });
+
+        var rows = await GetTargetRowOrdinatesAsync();
+
+        rows.Should().Equal(220, 350);
+    }
+
+    [Fact]
+    public async Task LayoutSelect_WhenTreeHasManyServersInOneSubnet_SpreadsThemOverMoreThanThreeColumns()
+    {
+        _mapPage.Should().NotBeNull();
+        await OpenGraphAsync(CreateSubnetTopologyGraph(("192.168.10", 20)), new TopologyRenderingOptions { DefaultLayoutMode = TopologyLayoutMode.Tree });
+
+        var boxes = await _mapPage!.GetNodeBoxesAsync();
+
+        boxes.Where(box => box[1] > 60).Select(box => box[0]).Distinct().Should().HaveCount(5);
+    }
+
+    [Fact]
+    public async Task LayoutSelect_WhenTreeSubnetBandsWrap_SeparatesThemByHalfTheFormerGap()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Deux sous-réseaux de 3 serveurs n'entrent pas sur une même bande de 3 colonnes : le second passe en dessous.
+        await OpenGraphAsync(
+            CreateSubnetTopologyGraph(("192.168.10", 3), ("192.168.20", 3)),
+            new TopologyRenderingOptions { DefaultLayoutMode = TopologyLayoutMode.Tree });
+
+        var rows = await GetTargetRowOrdinatesAsync();
+
+        // Espacement équilibré (facteur 1,05) : rangées de 170 px, 42 px sous les serveurs audités, 59 px entre deux bandes.
+        rows.Should().Equal(272, 442, 671, 841);
+    }
+
+    [Fact]
     public async Task SortSelect_WhenSubnetColumnsWrap_KeepsSubnetZonesApart()
     {
         _mapPage.Should().NotBeNull();
@@ -951,6 +1025,45 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
         ];
         return new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0);
     }
+
+    private static TopologyRenderingOptions BusTreeOptions(TopologyEdgeLabelMode edgeLabels) => new()
+    {
+        DefaultLayoutMode = TopologyLayoutMode.Tree,
+        DefaultRoutingMode = TopologyEdgeRoutingMode.Bus,
+        DefaultEdgeLabelMode = edgeLabels
+    };
+
+    // pve-01, pve-02 et pve-03 joignent tous db-01 ; le flux de pve-03 suit la direction donnée.
+    private static NetworkTopologyGraph CreateConvergingTopologyGraph(TopologyFlowDirection thirdFlowDirection)
+    {
+        List<TopologyServerNode> nodes =
+        [
+            Audited("pve-01", "192.168.1.10"),
+            Audited("pve-02", "192.168.1.11"),
+            Audited("pve-03", "192.168.1.12"),
+            Remote("db-01", "192.168.1.40")
+        ];
+        List<TopologyServiceEdge> edges =
+        [
+            Flow("E1", "pve-01", "db-01"),
+            Flow("E2", "pve-02", "db-01"),
+            new("E3", "pve-03", "db-01", 5432, TopologyTransportProtocol.Tcp, "backup", "postgres", 5, thirdFlowDirection)
+        ];
+        return new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0);
+    }
+
+    // Un serveur audité, desktop, joint chacun des serveurs distants répartis dans les sous-réseaux /24 donnés.
+    private static NetworkTopologyGraph CreateSubnetTopologyGraph(params (string Prefix, int Count)[] subnets)
+    {
+        List<TopologyServerNode> nodes = [Audited("desktop", "192.168.1.250")];
+        nodes.AddRange(subnets.SelectMany(s => Enumerable.Range(1, s.Count).Select(i => Remote($"srv-{s.Prefix}-{i}", $"{s.Prefix}.{10 + i}"))));
+        var edges = nodes.Skip(1).Select((n, i) => Flow($"E{i}", "desktop", n.NodeId)).ToList();
+        return new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0);
+    }
+
+    // Ordonnées distinctes des rangées de serveurs distants, sous la rangée des serveurs audités (y = 60).
+    private async Task<double[]> GetTargetRowOrdinatesAsync() =>
+        [.. (await _mapPage!.GetNodeBoxesAsync()).Select(box => box[1]).Where(y => y > 60).Distinct().Order()];
 
     private static TopologyServerNode Audited(string name, string ipAddress) => new(name, name, ipAddress, true, [], 0, 1);
 

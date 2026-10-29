@@ -36,9 +36,16 @@ const NODE_W = 236, NODE_H = 106;
 // deux étiquettes voisines doivent pouvoir s'y superposer, sinon l'une d'elles ne trouve aucune place libre
 // et finit masquée par une boîte.
 const STACKED_NODE_MIN_GAP = 42;
+// Sans étiquettes de ports, l'écart ne sert plus qu'au passage des flèches et de leurs lignes de séparation en bus.
+const STACKED_NODE_MIN_GAP_WITHOUT_LABELS = 24;
+
+function arePortLabelsShown() {
+  return !showPortsCheck || showPortsCheck.checked;
+}
 
 function rowStep(gapFactor) {
-  return Math.max(Math.round(162 * gapFactor), NODE_H + STACKED_NODE_MIN_GAP);
+  const minGap = arePortLabelsShown() ? STACKED_NODE_MIN_GAP : STACKED_NODE_MIN_GAP_WITHOUT_LABELS;
+  return Math.max(Math.round(162 * gapFactor), NODE_H + minGap);
 }
 let panX = 50, panY = 50, scale = 1.0;
 let isPanning = false, startPanX = 0, startPanY = 0;
@@ -767,6 +774,19 @@ function simulateForceDirectedLayout(nodes, edges, gapFactor) {
   optimizeNodePositions2Opt(nodes, edges);
 }
 
+// Une colonne avance de 350 px et une rangée de 162 px : pour qu'une matrice de N serveurs garde à peu près
+// les proportions d'un écran 16:9, elle compte environ 0,83 colonne par rangée, soit √(0,83 N) colonnes.
+const TREE_COLUMNS_PER_ROW = 0.83;
+// Les écarts sous les serveurs audités et entre deux bandes de sous-réseaux suivent l'espacement. Au plus serré
+// (facteur 0,65, rangées écartées de 24 px), une bande reste à 60 px de la suivante : assez pour les 42 px de marge
+// que prend la zone de sous-réseau autour de ses boîtes.
+const TREE_ROOT_GAP = 40;
+const TREE_BAND_GAP = 56;
+
+function treeColumnCount(serverCount) {
+  return Math.ceil(Math.sqrt(TREE_COLUMNS_PER_ROW * serverCount));
+}
+
 function layoutTree(ordered, edges, gapFactor, isHorizontal) {
   const stepX = Math.round(350 * gapFactor);
   const stepY = rowStep(gapFactor);
@@ -815,20 +835,20 @@ function layoutTree(ordered, edges, gapFactor, isHorizontal) {
 
   if (!isHorizontal) {
     // Strictly bound max columns across the screen so targets wrap cleanly in row bands
-    const MAX_COLS = targets.length <= 4 ? Math.max(2, targets.length) : (targets.length <= 9 ? 3 : 4);
+    const MAX_COLS = targets.length <= 4 ? Math.max(2, targets.length) : (targets.length <= 9 ? 3 : Math.max(4, treeColumnCount(targets.length)));
 
-    let currentBandY = 60 + stepY + 80;
+    let currentBandY = 60 + stepY + Math.round(TREE_ROOT_GAP * gapFactor);
     let currentBandCol = 0;
     let maxRowsInCurrentBand = 0;
     let maxPlacedX = 60;
 
     sortedSubnets.forEach(([subnet, subNodes]) => {
-      let colsInSub = subNodes.length <= 2 ? 1 : (subNodes.length > 8 ? 3 : 2);
+      let colsInSub = subNodes.length <= 2 ? 1 : (subNodes.length > 8 ? Math.max(3, treeColumnCount(subNodes.length)) : 2);
       if (colsInSub > MAX_COLS) colsInSub = MAX_COLS;
 
       // Wrap to next horizontal band if this subnet exceeds remaining columns
       if (currentBandCol + colsInSub > MAX_COLS && currentBandCol > 0) {
-        currentBandY += maxRowsInCurrentBand * stepY + 110;
+        currentBandY += maxRowsInCurrentBand * stepY + Math.round(TREE_BAND_GAP * gapFactor);
         currentBandCol = 0;
         maxRowsInCurrentBand = 0;
       }
@@ -1359,6 +1379,25 @@ function assignBusLane(lanes, lane) {
   return lane.split;
 }
 
+// Les points d'arrivée sont plus écartés du milieu du bord que les départs de troncs (± 14 px), pour qu'un serveur
+// qui reçoit et émet par le même bord ne superpose jamais une arrivée à l'un de ses troncs.
+const BUS_ARRIVAL_SENSE_OFFSET = { OUT: -42, MIXED: 28, IN: 42 };
+
+// Les branches qui visent un même serveur par le même bord et dans le même sens aboutissent au même point :
+// elles se rejoignent sur leur dernier segment et ne montrent qu'une pointe, comme les troncs regroupent les départs.
+function mergeBusArrivals(drawnEdges, anchorMap) {
+  drawnEdges.forEach(drawn => {
+    const key = `${drawn.edge.edgeId}::dst`;
+    const end = anchorMap.get(key);
+    const pos = nodePositions.get(drawn.edge.targetNodeId);
+    if (!end || !pos) return;
+    const offset = BUS_ARRIVAL_SENSE_OFFSET[drawn.sense];
+    anchorMap.set(key, end.side === 'top' || end.side === 'bottom'
+      ? { ...end, x: pos.x + NODE_W / 2 + offset }
+      : { ...end, y: pos.y + NODE_H / 2 + offset });
+  });
+}
+
 // Regroupe les flèches par serveur source, bord de départ et sens : chaque groupe partage un tronc qui quitte le bord
 // à hauteur fixe, puis se sépare à mi-chemin de la cible la plus proche, à la même ligne pour toutes ses branches.
 function computeBusTrunks(drawnEdges, anchorMap) {
@@ -1693,11 +1732,11 @@ function renderGraph(recomputePositions = false) {
     pairBuckets.get(pairKey).push(e);
   });
 
-  const showPorts = !showPortsCheck || showPortsCheck.checked;
-  const drawnEdges = showPorts
+  const drawnEdges = arePortLabelsShown()
     ? edges.map(e => describeFlowEdge(e, pairBuckets.get(undirectedPairKey(e.sourceNodeId, e.targetNodeId)) || [e], fanSpacing))
     : Array.from(pairBuckets, ([pairKey, flows]) => describePairEdge(pairKey, flows));
   const anchorMap = computeAllEdgeAnchors(nodes, drawnEdges.map(drawn => drawn.edge));
+  if (routingMode === 'bus') mergeBusArrivals(drawnEdges, anchorMap);
   const busTrunks = routingMode === 'bus' ? computeBusTrunks(drawnEdges, anchorMap) : null;
   if (busTrunks && selectedNodeId) {
     // Les flèches d'un bus se superposent sur leur tronc : celles du serveur sélectionné sont tracées en dernier
@@ -1999,7 +2038,8 @@ if (showZonesCheck) {
   });
 }
 if (showPortsCheck) {
-  showPortsCheck.addEventListener('change', () => { renderGraph(false); updateCliCommandDisplay(); });
+  // L'écart minimal entre deux rangées dépend de la présence des étiquettes : la disposition est recalculée.
+  showPortsCheck.addEventListener('change', () => { renderGraph(true); updateCliCommandDisplay(); });
 }
 routingSelect.addEventListener('change', () => { renderGraph(false); updateCliCommandDisplay(); });
 
