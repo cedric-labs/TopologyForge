@@ -881,19 +881,21 @@ function layoutTree(ordered, edges, gapFactor, isHorizontal) {
       });
     });
   } else {
-    const MAX_ROWS = targets.length <= 4 ? Math.max(2, targets.length) : (targets.length <= 12 ? 4 : 6);
+    // Transposée de la disposition verticale : les rangées jouent le rôle des colonnes, avec les mêmes écarts.
+    const MAX_ROWS = targets.length <= 4 ? Math.max(2, targets.length) : (targets.length <= 9 ? 3 : Math.max(4, treeColumnCount(targets.length)));
 
-    let currentBandX = 60 + stepX + 110;
+    let currentBandX = 60 + stepX + Math.round(TREE_ROOT_GAP * gapFactor);
     let currentBandRow = 0;
     let maxColsInCurrentBand = 0;
     let maxPlacedY = 60;
 
     sortedSubnets.forEach(([subnet, subNodes]) => {
-      let rowsInSub = subNodes.length <= 2 ? 1 : 2;
+      let rowsInSub = subNodes.length <= 2 ? 1 : (subNodes.length > 8 ? Math.max(3, treeColumnCount(subNodes.length)) : 2);
+      if (rowsInSub > MAX_ROWS) rowsInSub = MAX_ROWS;
       const colsInSub = Math.ceil(subNodes.length / rowsInSub);
 
       if (currentBandRow + rowsInSub > MAX_ROWS && currentBandRow > 0) {
-        currentBandX += maxColsInCurrentBand * stepX + 110;
+        currentBandX += maxColsInCurrentBand * stepX + Math.round(TREE_BAND_GAP * gapFactor);
         currentBandRow = 0;
         maxColsInCurrentBand = 0;
       }

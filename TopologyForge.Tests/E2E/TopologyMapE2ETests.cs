@@ -800,6 +800,33 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task LayoutSelect_WhenHorizontalTreeHasManyServersInOneSubnet_SpreadsThemOverMoreThanTwoRows()
+    {
+        _mapPage.Should().NotBeNull();
+        await OpenGraphAsync(CreateSubnetTopologyGraph(("192.168.10", 20)), new TopologyRenderingOptions { DefaultLayoutMode = TopologyLayoutMode.HorizontalTree });
+
+        var boxes = await _mapPage!.GetNodeBoxesAsync();
+
+        boxes.Where(box => box[0] > 60).Select(box => box[1]).Distinct().Should().HaveCount(5);
+    }
+
+    [Fact]
+    public async Task LayoutSelect_WhenHorizontalTreeSubnetBandsWrap_SeparatesThemByTheTreeGaps()
+    {
+        _mapPage.Should().NotBeNull();
+
+        // Deux sous-réseaux de 3 serveurs n'entrent pas sur une même bande de 3 rangées : le second passe à droite.
+        await OpenGraphAsync(
+            CreateSubnetTopologyGraph(("192.168.10", 3), ("192.168.20", 3)),
+            new TopologyRenderingOptions { DefaultLayoutMode = TopologyLayoutMode.HorizontalTree });
+
+        var columns = await GetTargetColumnAbscissasAsync();
+
+        // Espacement équilibré (facteur 1,05) : colonnes de 368 px, 42 px après les serveurs audités, 59 px entre deux bandes.
+        columns.Should().Equal(470, 838, 1265, 1633);
+    }
+
+    [Fact]
     public async Task SortSelect_WhenSubnetColumnsWrap_KeepsSubnetZonesApart()
     {
         _mapPage.Should().NotBeNull();
@@ -1064,6 +1091,10 @@ public sealed class TopologyMapE2ETests : IAsyncLifetime
     // Ordonnées distinctes des rangées de serveurs distants, sous la rangée des serveurs audités (y = 60).
     private async Task<double[]> GetTargetRowOrdinatesAsync() =>
         [.. (await _mapPage!.GetNodeBoxesAsync()).Select(box => box[1]).Where(y => y > 60).Distinct().Order()];
+
+    // Abscisses distinctes des colonnes de serveurs distants, à droite de la colonne des serveurs audités (x = 60).
+    private async Task<double[]> GetTargetColumnAbscissasAsync() =>
+        [.. (await _mapPage!.GetNodeBoxesAsync()).Select(box => box[0]).Where(x => x > 60).Distinct().Order()];
 
     private static TopologyServerNode Audited(string name, string ipAddress) => new(name, name, ipAddress, true, [], 0, 1);
 
