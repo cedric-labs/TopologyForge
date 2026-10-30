@@ -2073,10 +2073,13 @@ function buildCliCommand() {
   if (q) parts.push(`--include-hosts "*${q}*"`);
   if (directionSelect.value === 'OUT') parts.push('--direction OUT');
   else if (directionSelect.value === 'IN') parts.push('--direction IN');
-  if (layoutSelect.value && layoutSelect.value !== 'layered') parts.push(`${cli.layoutOption} ${layoutSelect.value}`);
-  if (sortSelect.value && sortSelect.value !== 'sugiyama') parts.push(`${cli.sortOption} ${sortSelect.value}`);
-  if (routingSelect.value && routingSelect.value !== 'bezier') parts.push(`${cli.routingOption} ${routingSelect.value}`);
-  if (spacingSelect.value && spacingSelect.value !== 'balanced') parts.push(`${cli.spacingOption} ${spacingSelect.value}`);
+  // Always written, even at the default value: the copied command inherits the consumer's configuration file
+  // for any option it omits, so leaving out a default would not reproduce the view the user is looking at.
+  const sortValue = sortSelect.value === 'sugiyama' ? cli.sugiyamaSortValue : sortSelect.value;
+  if (layoutSelect.value) parts.push(`${cli.layoutOption} ${layoutSelect.value}`);
+  if (sortValue) parts.push(`${cli.sortOption} ${sortValue}`);
+  if (routingSelect.value) parts.push(`${cli.routingOption} ${routingSelect.value}`);
+  if (spacingSelect.value) parts.push(`${cli.spacingOption} ${spacingSelect.value}`);
   if (showPortsCheck && !showPortsCheck.checked) parts.push(`${cli.edgeLabelsOption} none`);
   return parts.join(' ');
 }

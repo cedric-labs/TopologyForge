@@ -153,6 +153,7 @@ public sealed class TopologyHtmlRenderer : ITopologyHtmlRenderer
                 options.CliCommandFormat.Prefix,
                 options.CliCommandFormat.LayoutOption,
                 options.CliCommandFormat.SortOption,
+                options.CliCommandFormat.SugiyamaSortValue,
                 options.CliCommandFormat.RoutingOption,
                 options.CliCommandFormat.SpacingOption,
                 options.CliCommandFormat.EdgeLabelsOption

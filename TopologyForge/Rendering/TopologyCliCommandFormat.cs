@@ -22,6 +22,13 @@ public sealed record TopologyCliCommandFormat
     public string SortOption { get; init; } = "--map-sort";
 
     /// <summary>
+    /// Value written after <see cref="SortOption"/> when the map uses its default Sugiyama ordering
+    /// (<c>sugiyama</c> by default). A consumer whose command line names this ordering differently,
+    /// such as <c>barycentric</c>, sets it here.
+    /// </summary>
+    public string SugiyamaSortValue { get; init; } = "sugiyama";
+
+    /// <summary>
     /// Option carrying the arrow routing (<c>--map-routing</c> by default).
     /// </summary>
     public string RoutingOption { get; init; } = "--map-routing";

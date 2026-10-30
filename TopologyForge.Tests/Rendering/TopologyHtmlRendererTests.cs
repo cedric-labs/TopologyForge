@@ -70,6 +70,7 @@ public sealed class TopologyHtmlRendererTests
         html.Should().Contain("\"prefix\":\"NetFlowAudit.Cli --map-only\"");
         html.Should().Contain("\"layoutOption\":\"--map-layout\"");
         html.Should().Contain("\"sortOption\":\"--map-sort\"");
+        html.Should().Contain("\"sugiyamaSortValue\":\"sugiyama\"");
         html.Should().Contain("\"routingOption\":\"--map-routing\"");
         html.Should().Contain("\"spacingOption\":\"--map-spacing\"");
         html.Should().Contain("\"edgeLabelsOption\":\"--map-edge-labels\"");

@@ -726,6 +726,43 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CliCommandText_WhenMapIsOpenedWithDefaultOptions_ReproducesEveryRenderingOption()
+    {
+        _mapPage.Should().NotBeNull();
+
+        var command = await _mapPage!.CliCommandText.InnerTextAsync();
+
+        command.Should().Contain("--map-layout layered");
+        command.Should().Contain("--map-sort sugiyama");
+        command.Should().Contain("--map-routing bezier");
+        command.Should().Contain("--map-spacing balanced");
+    }
+
+    [Fact]
+    public async Task SortSelect_WhenChangedBackToSugiyama_ReproducesTheSortInTheCliCommand()
+    {
+        _mapPage.Should().NotBeNull();
+        await _mapPage!.SelectSortAsync("degree");
+
+        await _mapPage.SelectSortAsync("sugiyama");
+
+        (await _mapPage.CliCommandText.InnerTextAsync()).Should().Contain("--map-sort sugiyama");
+    }
+
+    [Fact]
+    public async Task SortSelect_WhenCliCommandFormatNamesTheSugiyamaValue_UsesThatNameInTheCliCommand()
+    {
+        _mapPage.Should().NotBeNull();
+        var options = new TopologyRenderingOptions
+        {
+            CliCommandFormat = new TopologyCliCommandFormat { SugiyamaSortValue = "barycentric" }
+        };
+        await OpenGraphAsync(CreateSampleTopologyGraph(), options);
+
+        (await _mapPage!.CliCommandText.InnerTextAsync()).Should().Contain("--map-sort barycentric");
+    }
+
+    [Fact]
     public async Task RoutingSelect_WhenBusAndSeveralServersReachOneTarget_MergesTheirBranchesIntoOneArrowTip()
     {
         _mapPage.Should().NotBeNull();
