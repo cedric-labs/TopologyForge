@@ -57,6 +57,10 @@ public sealed class TopologyMapPage(IPage page)
     public ILocator ViewportGroup => Page.Locator("#viewportGroup");
     public ILocator ZonesLayer => Page.Locator("#zonesLayer");
     public ILocator SubnetZones => Page.Locator("#zonesLayer > g.subnet-zone");
+
+    /// <summary>Texts of the zone badges, in display order.</summary>
+    public Task<IReadOnlyList<string>> GetSubnetZoneLabelsAsync() =>
+        SubnetZones.Locator("text").AllTextContentsAsync();
     public ILocator EdgesLayer => Page.Locator("#edgesLayer");
     public ILocator NodesLayer => Page.Locator("#nodesLayer");
     public ILocator LabelsLayer => Page.Locator("#labelsLayer");

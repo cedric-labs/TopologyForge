@@ -52,7 +52,7 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
     * **6 Server Sorting Strategies (`TopologyNodeSortMethod`)**:
       * `BarycentricSugiyama`: Multi-pass barycenter/median heuristic with 2-Opt refinement.
       * `FunctionalTier`: 4-tier architectural stratification (Clients ➔ Gateways/Ingress ➔ Applications ➔ Databases/Infra).
-      * `SubnetCluster`: Contiguous spatial clustering by IP CIDR subnets with visual boundary enclosures; columns start after their widest subnet and 2-Opt swaps stay within a subnet, so enclosures never overlap. Two subnets are separated by one row (or column) step plus 40 px × the node spacing factor, about 64 px between two stacked enclosures with `Balanced`.
+      * `SubnetCluster`: Contiguous spatial clustering by IP CIDR subnets (public IPv4 addresses share one "Internet" zone) with visual boundary enclosures; columns start after their widest subnet and 2-Opt swaps stay within a subnet, so enclosures never overlap. Two subnets are separated by one row (or column) step plus 40 px × the node spacing factor, about 64 px between two stacked enclosures with `Balanced`.
       * `ConnectionDegree`: Traffic density sorting by descending connection count.
       * `Alphabetical`: Alphabetical ordering by hostname.
       * `SubnetIp`: Hierarchical IP address octet sorting.
@@ -92,7 +92,7 @@ TopologyForge is a shared .NET library dedicated to **topological modeling, decl
       * `AdaptiveThreshold` (default) keeps one edge per port up to three ports between two servers in the same direction, then merges them; `ByDirection` always merges per source, target and direction; `None` keeps one edge per port.
       * `ByServerPair` merges every flow of a server pair into one edge, as the HTML map does when ports are hidden: two arrow heads (`DiagramEdgeDirection.Bidirectional`) when flows run both ways, the `Inbound` or `Outbound` style when all merged flows share it, otherwise the `Mixed` style on the `layer_mixed` layer. The label lists the ports; metadata gives `ports`, `flow_count` and `total_observations`.
       * `DrawioXmlRenderer` honours `DiagramEdge.Direction`: `Bidirectional` draws the end arrow at both ends, `Undirected` draws none.
-      * `TopologyToDrawioAdapter.LayoutOptions` (`TopologyDrawioLayoutOptions`) controls the placement of the target servers: zones (one per /24 subnet) wrap onto a new row beyond `MaxRowWidth` (3200 by default), and `GroupBySubnets = false` writes no container and lays the server cards out as a plain grid under the same width limit. Rows are as tall as their tallest element.
+      * `TopologyToDrawioAdapter.LayoutOptions` (`TopologyDrawioLayoutOptions`) controls the placement of the target servers: zones (one per /24 subnet, plus one "Internet" zone for all public IPv4 addresses, detected by `PublicAddressClassifier`) wrap onto a new row beyond `MaxRowWidth` (3200 by default), and `GroupBySubnets = false` writes no container and lays the server cards out as a plain grid under the same width limit. Rows are as tall as their tallest element.
     * **Dashboard Ergonomics & Orphan Pruning**:
       * **Header-Aligned Sidebar Toggle**: Integrated into the top KPI banner directly beside *Servers*, avoiding any section heading overlap.
       * **Auto-Pruning of Orphan Nodes**: Nodes losing all active links and listeners after filtering are automatically pruned from the canvas and live KPI metrics.

@@ -3,6 +3,7 @@ namespace TopologyForge.Export.Drawio.Adapters;
 using System.Globalization;
 using TopologyForge.Export.Drawio.Model;
 using TopologyForge.Export.Drawio.Styling;
+using TopologyForge.Filtering;
 using TopologyForge.Geometry;
 using TopologyForge.Models;
 
@@ -27,6 +28,7 @@ public sealed class TopologyToDrawioAdapter(
     private const double ContainerPadding = 24.0;
     private const double ContainerHeaderOffset = 36.0;
     private const string MixedLayerId = "layer_mixed";
+    private const string InternetZoneName = "Internet";
 
     /// <summary>
     /// Converts the network graph into a Draw.io document with a tree layout and collision-free routing.
@@ -161,7 +163,7 @@ public sealed class TopologyToDrawioAdapter(
 
             containers.Add(new DiagramContainer(
                 Id: zoneId,
-                Label: $"Subnet {zone.Cidr}",
+                Label: zone.Cidr == InternetZoneName ? InternetZoneName : $"Subnet {zone.Cidr}",
                 X: GridSnapper.Snap(zoneX, gridSize),
                 Y: GridSnapper.Snap(zoneY, gridSize),
                 Width: zone.Width,
@@ -382,6 +384,7 @@ public sealed class TopologyToDrawioAdapter(
     private static string ExtractSubnetPrefix(string ipAddress)
     {
         if (string.IsNullOrWhiteSpace(ipAddress)) return "Unknown";
+        if (PublicAddressClassifier.IsPublic(ipAddress)) return InternetZoneName;
         int lastDot = ipAddress.LastIndexOf('.');
         return lastDot > 0 ? ipAddress[..lastDot] + ".0/24" : "Other";
     }

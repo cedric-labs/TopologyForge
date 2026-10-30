@@ -921,6 +921,23 @@ public sealed partial class TopologyMapE2ETests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SortSelect_WhenServersHavePublicAddresses_GroupsThemInOneInternetZone()
+    {
+        _mapPage.Should().NotBeNull();
+
+        List<TopologyServerNode> nodes = [Audited("desktop", "192.168.1.50"), Remote("nas", "192.168.1.60")];
+        nodes.AddRange(new[] { "1.1.1.1", "93.184.216.34", "151.101.1.69" }.Select(ip => Remote($"pub-{ip}", ip)));
+        var edges = nodes.Skip(1).Select((n, i) => Flow($"E{i}", "desktop", n.NodeId)).ToList();
+        await OpenGraphAsync(new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, edges, edges.Count, 0), new TopologyRenderingOptions());
+
+        await _mapPage!.SelectSortAsync("subnet");
+
+        var labels = await _mapPage.GetSubnetZoneLabelsAsync();
+        labels.Should().Contain("Zone: Internet (3 servers)");
+        labels.Where(l => l.Contains("Internet", StringComparison.Ordinal)).Should().ContainSingle();
+    }
+
+    [Fact]
     public async Task SortSelect_WhenSwappingServersAcrossSubnetsWouldShortenFlows_KeepsSubnetZonesApart()
     {
         _mapPage.Should().NotBeNull();

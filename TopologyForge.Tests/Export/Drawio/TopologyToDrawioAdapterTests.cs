@@ -284,4 +284,28 @@ public sealed class TopologyToDrawioAdapterTests
             }
         }
     }
+
+    [Fact]
+    public void Convert_WhenTargetsHavePublicAddresses_GroupsThemInOneInternetZone()
+    {
+        // Arrange
+        var nodes = new List<TopologyServerNode>
+        {
+            new("root", "pve01", "192.168.1.10", true, [], 0, 3),
+            new("lan", "nas", "192.168.1.20", false, [], 1, 0),
+            new("pub1", "dns", "1.1.1.1", false, [], 1, 0),
+            new("pub2", "cdn", "93.184.216.34", false, [], 1, 0),
+            new("pub3", "api", "151.101.1.69", false, [], 1, 0)
+        };
+        var graph = new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, [], 0, 0);
+        var adapter = new TopologyToDrawioAdapter();
+
+        // Act
+        var doc = adapter.Convert(graph);
+
+        // Assert
+        doc.Containers.Select(c => c.Label).Should().BeEquivalentTo("Subnet 192.168.1.0/24", "Internet");
+        var internet = doc.Containers.Single(c => c.Label == "Internet");
+        doc.Nodes.Where(n => n.ContainerId == internet.Id).Select(n => n.Id).Should().BeEquivalentTo("pub1", "pub2", "pub3");
+    }
 }
