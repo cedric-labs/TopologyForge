@@ -172,4 +172,116 @@ public sealed class TopologyToDrawioAdapterTests
         pairEdge.LayerId.Should().Be("layer_outbound");
         doc.Layers.Select(l => l.Id).Should().NotContain("layer_mixed");
     }
+    private static NetworkTopologyGraph CreateGraphWithOneServerPerSubnet(int subnetCount)
+    {
+        var nodes = new List<TopologyServerNode>
+        {
+            new("root", "pve01", "192.168.1.10", true, [], 0, subnetCount)
+        };
+        nodes.AddRange(Enumerable.Range(1, subnetCount)
+            .Select(i => new TopologyServerNode($"srv_{i}", $"host-{i}", $"10.{i}.0.5", false, [], 1, 0)));
+        return new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, [], 0, 0);
+    }
+
+    [Fact]
+    public void Convert_WhenManySubnets_WrapsTheZonesWithinTheMaximumRowWidth()
+    {
+        // Arrange
+        var graph = CreateGraphWithOneServerPerSubnet(56);
+        var adapter = new TopologyToDrawioAdapter { LayoutOptions = new TopologyDrawioLayoutOptions { MaxRowWidth = 2000 } };
+
+        // Act
+        var doc = adapter.Convert(graph);
+
+        // Assert
+        doc.Containers.Should().HaveCount(56);
+        doc.Containers.Max(c => c.X + c.Width).Should().BeLessThanOrEqualTo(80 + 2000);
+        doc.Containers.Select(c => c.Y).Distinct().Should().HaveCountGreaterThan(1);
+    }
+
+    [Fact]
+    public void Convert_WhenManySubnetsAndDefaultOptions_KeepsTheDiagramWithinTheDefaultRowWidth()
+    {
+        // Arrange
+        var graph = CreateGraphWithOneServerPerSubnet(56);
+
+        // Act
+        var doc = new TopologyToDrawioAdapter().Convert(graph);
+
+        // Assert
+        doc.Containers.Max(c => c.X + c.Width).Should().BeLessThanOrEqualTo(80 + TopologyDrawioLayoutOptions.DefaultMaxRowWidth);
+    }
+
+    [Fact]
+    public void Convert_WhenZonesWrapOntoSeveralRows_DoesNotOverlapZonesOrServers()
+    {
+        // Arrange
+        var graph = CreateGraphWithOneServerPerSubnet(20);
+        var adapter = new TopologyToDrawioAdapter { LayoutOptions = new TopologyDrawioLayoutOptions { MaxRowWidth = 1000 } };
+
+        // Act
+        var doc = adapter.Convert(graph);
+
+        // Assert
+        var zones = doc.Containers.ToList();
+        for (int i = 0; i < zones.Count; i++)
+        {
+            for (int j = i + 1; j < zones.Count; j++)
+            {
+                var a = zones[i];
+                var b = zones[j];
+                bool overlap = a.X < b.X + b.Width && b.X < a.X + a.Width && a.Y < b.Y + b.Height && b.Y < a.Y + a.Height;
+                overlap.Should().BeFalse($"{a.Label} and {b.Label} must not overlap");
+            }
+        }
+    }
+
+    [Fact]
+    public void Convert_WhenSubnetGroupingIsOff_WritesNoContainerAndKeepsEveryNode()
+    {
+        // Arrange
+        var graph = CreateGraphWithOneServerPerSubnet(30);
+        var adapter = new TopologyToDrawioAdapter
+        {
+            LayoutOptions = new TopologyDrawioLayoutOptions { GroupBySubnets = false, MaxRowWidth = 1000 }
+        };
+
+        // Act
+        var doc = adapter.Convert(graph);
+
+        // Assert
+        doc.Containers.Should().BeEmpty();
+        doc.Nodes.Should().HaveCount(31);
+        doc.Nodes.Should().OnlyContain(n => n.ContainerId == null);
+        doc.Nodes.Where(n => n.RoleKey != "AuditedRoot").Max(n => n.X + n.Width).Should().BeLessThanOrEqualTo(80 + 1000);
+        doc.Nodes.Select(n => (n.X, n.Y)).Distinct().Should().HaveCount(31);
+    }
+    [Fact]
+    public void Convert_WhenZonesWrapOntoSeveralRows_RoutesEdgesToEveryRowWithoutWaypointInsideAnotherServer()
+    {
+        // Arrange
+        var graph = CreateGraphWithOneServerPerSubnet(12);
+        var edges = Enumerable.Range(1, 12)
+            .Select(i => new TopologyServiceEdge($"e{i}", "root", $"srv_{i}", 443, TopologyTransportProtocol.Tcp, "p", "s", 1, TopologyFlowDirection.Outbound))
+            .ToList();
+        graph = graph with { Edges = edges };
+        var adapter = new TopologyToDrawioAdapter { LayoutOptions = new TopologyDrawioLayoutOptions { MaxRowWidth = 800 } };
+
+        // Act
+        var doc = adapter.Convert(graph);
+
+        // Assert
+        doc.Containers.Select(c => c.Y).Distinct().Should().HaveCountGreaterThan(1);
+        doc.Edges.Should().HaveCount(12).And.OnlyContain(e => e.ExitAnchor != null && e.EntryAnchor != null);
+        foreach (var edge in doc.Edges)
+        {
+            var obstacles = doc.Nodes.Where(n => n.Id != edge.SourceNodeId && n.Id != edge.TargetNodeId);
+            foreach (var point in edge.Waypoints ?? [])
+            {
+                obstacles.Should().NotContain(
+                    n => point.X > n.X && point.X < n.X + n.Width && point.Y > n.Y && point.Y < n.Y + n.Height,
+                    $"edge {edge.Id} must go around servers");
+            }
+        }
+    }
 }

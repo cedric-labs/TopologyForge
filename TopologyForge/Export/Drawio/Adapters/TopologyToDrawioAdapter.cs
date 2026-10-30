@@ -16,6 +16,14 @@ public sealed class TopologyToDrawioAdapter(
     EdgeAggregationMode aggregationMode = EdgeAggregationMode.AdaptiveThreshold)
 {
     private const double NodeWidth = 200.0;
+    private const double ZoneOriginX = 80.0;
+    private const double MinimumRowHeight = 90.0;
+
+    /// <summary>
+    /// Placement of the target servers; the defaults group them by subnet and wrap rows at a bounded width.
+    /// </summary>
+    public TopologyDrawioLayoutOptions LayoutOptions { get; init; } = new();
+
     private const double ContainerPadding = 24.0;
     private const double ContainerHeaderOffset = 36.0;
     private const string MixedLayerId = "layer_mixed";
@@ -102,85 +110,140 @@ public sealed class TopologyToDrawioAdapter(
                 }));
         }
 
-        // 2. Targets grouped by subnet
+        // 2. Targets, grouped by subnet unless the options turn the zones off
         var subnetGroups = targetNodes
             .GroupBy(n => ExtractSubnetPrefix(n.IpAddress))
             .OrderByDescending(g => g.Count())
             .ThenBy(g => g.Key, StringComparer.Ordinal)
             .ToList();
 
-        double curSubnetX = 80.0;
         double targetStartY = roots.Count > 0 ? 240.0 : 60.0;
-        int subnetIndex = 1;
 
-        foreach (var group in subnetGroups)
+        if (LayoutOptions.GroupBySubnets)
         {
-            string subnetId = $"zone_{subnetIndex++}";
-            string subnetCidr = group.Key;
-            var subNodes = group.ToList();
-
-            // Columns at most 2 nodes wide
-            int subCols = Math.Min(2, subNodes.Count);
-            int subRows = (int)Math.Ceiling(subNodes.Count / (double)subCols);
-
-            double maxNodeH = 90.0;
-            var nodesInSubnet = new List<DiagramNode>();
-
-            for (int idx = 0; idx < subNodes.Count; idx++)
-            {
-                var srv = subNodes[idx];
-                int col = idx % subCols;
-                int row = idx / subCols;
-
-                double nodeX = curSubnetX + ContainerPadding + (col * (NodeWidth + 20.0));
-                double nodeY = targetStartY + ContainerHeaderOffset + (row * (maxNodeH + 20.0));
-
-                var badges = srv.ListeningPorts.Select(p => $":{p.Port}/{p.Protocol}").ToList();
-                double nodeH = DrawioHtmlCardBuilder.ComputeCardHeight(badges.Count, gridSize);
-                if (nodeH > maxNodeH) maxNodeH = nodeH;
-
-                nodesInSubnet.Add(new DiagramNode(
-                    Id: srv.NodeId,
-                    Label: srv.HostName,
-                    Subtitle: srv.IpAddress,
-                    X: GridSnapper.Snap(nodeX, gridSize),
-                    Y: GridSnapper.Snap(nodeY, gridSize),
-                    Width: NodeWidth,
-                    Height: nodeH,
-                    LayerId: "layer_infra",
-                    ContainerId: subnetId,
-                    Shape: DiagramNodeShape.RichCardHtml,
-                    RoleKey: "Standard",
-                    Badges: badges,
-                    TooltipTemplate: "IP: %ip%\nName: %name%\nSubnet: " + subnetCidr,
-                    Metadata: new Dictionary<string, string>
-                    {
-                        ["ip"] = srv.IpAddress,
-                        ["subnet"] = subnetCidr,
-                        ["inbound_count"] = srv.InboundConnectionCount.ToString(CultureInfo.InvariantCulture),
-                        ["outbound_count"] = srv.OutboundConnectionCount.ToString(CultureInfo.InvariantCulture)
-                    }));
-            }
-
-            double containerW = (subCols * NodeWidth) + ((subCols - 1) * 20.0) + (ContainerPadding * 2);
-            double containerH = ContainerHeaderOffset + (subRows * (maxNodeH + 20.0)) + ContainerPadding;
-
-            diagramContainers.Add(new DiagramContainer(
-                Id: subnetId,
-                Label: $"Subnet {subnetCidr}",
-                X: GridSnapper.Snap(curSubnetX, gridSize),
-                Y: GridSnapper.Snap(targetStartY, gridSize),
-                Width: GridSnapper.Snap(containerW, gridSize),
-                Height: GridSnapper.Snap(containerH, gridSize),
-                LayerId: "layer_infra",
-                Metadata: new Dictionary<string, string> { ["cidr"] = subnetCidr }));
-
-            diagramNodes.AddRange(nodesInSubnet);
-            curSubnetX += containerW + 40.0;
+            diagramContainers.AddRange(PlaceTargetsInSubnetZones(subnetGroups, targetStartY, diagramNodes));
+        }
+        else
+        {
+            PlaceTargetsAsGrid(subnetGroups, targetStartY, diagramNodes);
         }
 
         return (diagramContainers, diagramNodes);
     }
+
+    private List<DiagramContainer> PlaceTargetsInSubnetZones(
+        IReadOnlyList<IGrouping<string, TopologyServerNode>> subnetGroups,
+        double startY,
+        List<DiagramNode> diagramNodes)
+    {
+        var zones = subnetGroups.Select(group => PlanZone(group.Key, group.ToList())).ToList();
+        var origins = RowPacker.Pack(
+            zones.Select(z => (z.Width, z.Height)).ToList(),
+            ZoneOriginX,
+            startY,
+            LayoutOptions.MaxRowWidth,
+            horizontalGap: 40.0,
+            verticalGap: 40.0);
+
+        var containers = new List<DiagramContainer>(zones.Count);
+        for (int zoneIndex = 0; zoneIndex < zones.Count; zoneIndex++)
+        {
+            var zone = zones[zoneIndex];
+            string zoneId = $"zone_{zoneIndex + 1}";
+            var (zoneX, zoneY) = origins[zoneIndex];
+
+            for (int idx = 0; idx < zone.Servers.Count; idx++)
+            {
+                double nodeX = zoneX + ContainerPadding + (idx % zone.Columns * (NodeWidth + 20.0));
+                double nodeY = zoneY + ContainerHeaderOffset + (idx / zone.Columns * (zone.RowHeight + 20.0));
+                diagramNodes.Add(CreateTargetNode(zone.Servers[idx], zone.Cidr, nodeX, nodeY, zoneId));
+            }
+
+            containers.Add(new DiagramContainer(
+                Id: zoneId,
+                Label: $"Subnet {zone.Cidr}",
+                X: GridSnapper.Snap(zoneX, gridSize),
+                Y: GridSnapper.Snap(zoneY, gridSize),
+                Width: zone.Width,
+                Height: zone.Height,
+                LayerId: "layer_infra",
+                Metadata: new Dictionary<string, string> { ["cidr"] = zone.Cidr }));
+        }
+
+        return containers;
+    }
+
+    // Servers of one subnet stay next to each other, but no container surrounds them.
+    private void PlaceTargetsAsGrid(
+        IReadOnlyList<IGrouping<string, TopologyServerNode>> subnetGroups,
+        double startY,
+        List<DiagramNode> diagramNodes)
+    {
+        var servers = subnetGroups.SelectMany(group => group.Select(server => (Server: server, Cidr: group.Key))).ToList();
+        var origins = RowPacker.Pack(
+            servers.Select(s => (NodeWidth, ComputeNodeHeight(s.Server))).ToList(),
+            ZoneOriginX,
+            startY,
+            LayoutOptions.MaxRowWidth,
+            horizontalGap: 20.0,
+            verticalGap: 20.0);
+
+        for (int i = 0; i < servers.Count; i++)
+        {
+            diagramNodes.Add(CreateTargetNode(servers[i].Server, servers[i].Cidr, origins[i].X, origins[i].Y, containerId: null));
+        }
+    }
+
+    private ZonePlan PlanZone(string cidr, List<TopologyServerNode> servers)
+    {
+        // Columns at most 2 nodes wide
+        int columns = Math.Min(2, servers.Count);
+        int rows = (int)Math.Ceiling(servers.Count / (double)columns);
+        double rowHeight = Math.Max(MinimumRowHeight, servers.Max(ComputeNodeHeight));
+
+        double width = (columns * NodeWidth) + ((columns - 1) * 20.0) + (ContainerPadding * 2);
+        double height = ContainerHeaderOffset + (rows * (rowHeight + 20.0)) + ContainerPadding;
+
+        return new ZonePlan(cidr, servers, columns, rowHeight, GridSnapper.Snap(width, gridSize), GridSnapper.Snap(height, gridSize));
+    }
+
+    private double ComputeNodeHeight(TopologyServerNode server) =>
+        DrawioHtmlCardBuilder.ComputeCardHeight(server.ListeningPorts.Count, gridSize);
+
+    private DiagramNode CreateTargetNode(TopologyServerNode server, string subnetCidr, double x, double y, string? containerId)
+    {
+        var badges = server.ListeningPorts.Select(p => $":{p.Port}/{p.Protocol}").ToList();
+
+        return new DiagramNode(
+            Id: server.NodeId,
+            Label: server.HostName,
+            Subtitle: server.IpAddress,
+            X: GridSnapper.Snap(x, gridSize),
+            Y: GridSnapper.Snap(y, gridSize),
+            Width: NodeWidth,
+            Height: DrawioHtmlCardBuilder.ComputeCardHeight(badges.Count, gridSize),
+            LayerId: "layer_infra",
+            ContainerId: containerId,
+            Shape: DiagramNodeShape.RichCardHtml,
+            RoleKey: "Standard",
+            Badges: badges,
+            TooltipTemplate: "IP: %ip%\nName: %name%\nSubnet: " + subnetCidr,
+            Metadata: new Dictionary<string, string>
+            {
+                ["ip"] = server.IpAddress,
+                ["subnet"] = subnetCidr,
+                ["inbound_count"] = server.InboundConnectionCount.ToString(CultureInfo.InvariantCulture),
+                ["outbound_count"] = server.OutboundConnectionCount.ToString(CultureInfo.InvariantCulture)
+            });
+    }
+
+    private sealed record ZonePlan(
+        string Cidr,
+        IReadOnlyList<TopologyServerNode> Servers,
+        int Columns,
+        double RowHeight,
+        double Width,
+        double Height);
 
     private IReadOnlyList<DiagramEdge> BuildAndAggregateEdges(IReadOnlyList<TopologyServiceEdge> edges)
     {
