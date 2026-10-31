@@ -4,6 +4,7 @@ using AwesomeAssertions;
 using TopologyForge.Export.Drawio.Adapters;
 using TopologyForge.Export.Drawio.Model;
 using TopologyForge.Models;
+using TopologyForge.Rendering;
 using Xunit;
 
 public sealed class TopologyToDrawioAdapterTests
@@ -332,5 +333,50 @@ public sealed class TopologyToDrawioAdapterTests
         doc.Containers.Select(c => c.Label).Should().BeEquivalentTo("Subnet 192.168.1.0/24", "Internet");
         var internet = doc.Containers.Single(c => c.Label == "Internet");
         doc.Nodes.Where(n => n.ContainerId == internet.Id).Select(n => n.Id).Should().BeEquivalentTo("pub1", "pub2", "pub3");
+    }
+
+    [Fact]
+    public void Convert_WhenSortIsSubnetIp_OrdersTheZonesByAddress()
+    {
+        // Arrange
+        var nodes = new List<TopologyServerNode>
+        {
+            new("root", "pve01", "192.168.1.10", true, [], 0, 1),
+            new("a", "a", "192.168.1.5", false, [], 1, 0),
+            new("b", "b", "192.168.1.6", false, [], 1, 0),
+            new("c", "c", "10.0.0.6", false, [], 1, 0)
+        };
+        var graph = new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, [], 0, 0);
+        var adapter = new TopologyToDrawioAdapter { LayoutOptions = new TopologyDrawioLayoutOptions { SortMethod = TopologyNodeSortMethod.SubnetIp } };
+
+        // Act
+        var doc = adapter.Convert(graph);
+
+        // Assert
+        doc.Containers.Select(c => c.Label).Should().Equal("Subnet 10.0.0.0/24", "Subnet 192.168.1.0/24");
+    }
+
+    [Fact]
+    public void Convert_WhenSortIsAlphabeticalAndSubnetsAreOff_PlacesTheServersInNameOrder()
+    {
+        // Arrange
+        var nodes = new List<TopologyServerNode>
+        {
+            new("root", "pve01", "192.168.1.10", true, [], 0, 1),
+            new("n1", "nas", "192.168.1.5", false, [], 1, 0),
+            new("n2", "backup", "10.0.0.5", false, [], 1, 0),
+            new("n3", "pihole", "10.0.0.6", false, [], 1, 0)
+        };
+        var graph = new NetworkTopologyGraph(DateTimeOffset.UtcNow, nodes, [], 0, 0);
+        var adapter = new TopologyToDrawioAdapter
+        {
+            LayoutOptions = new TopologyDrawioLayoutOptions { GroupBySubnets = false, SortMethod = TopologyNodeSortMethod.Alphabetical }
+        };
+
+        // Act
+        var doc = adapter.Convert(graph);
+
+        // Assert
+        doc.Nodes.Where(n => n.Id != "root").OrderBy(n => n.X).Select(n => n.Label).Should().Equal("backup", "nas", "pihole");
     }
 }

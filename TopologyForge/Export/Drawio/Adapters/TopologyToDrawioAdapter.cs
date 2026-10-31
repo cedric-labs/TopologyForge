@@ -6,6 +6,7 @@ using TopologyForge.Export.Drawio.Styling;
 using TopologyForge.Filtering;
 using TopologyForge.Geometry;
 using TopologyForge.Models;
+using TopologyForge.Rendering;
 
 /// <summary>
 /// Converts a network topology graph <see cref="NetworkTopologyGraph"/>
@@ -37,7 +38,7 @@ public sealed class TopologyToDrawioAdapter(
     {
         ArgumentNullException.ThrowIfNull(graph);
 
-        var (containers, nodes) = LayoutNodesAndContainers(graph.Nodes);
+        var (containers, nodes) = LayoutNodesAndContainers(graph.Nodes, graph.Edges);
         var edges = BuildAndAggregateEdges(graph.Edges);
 
         var router = new TopologyEdgeRouter(gridSize, fanSpacing);
@@ -65,7 +66,8 @@ public sealed class TopologyToDrawioAdapter(
     }
 
     private (IReadOnlyList<DiagramContainer> Containers, IReadOnlyList<DiagramNode> Nodes) LayoutNodesAndContainers(
-        IReadOnlyList<TopologyServerNode> serverNodes)
+        IReadOnlyList<TopologyServerNode> serverNodes,
+        IReadOnlyList<TopologyServiceEdge> flows)
     {
         var roots = serverNodes.Where(n => n.IsLocalAuditedServer).ToList();
         if (roots.Count == 0 && serverNodes.Count > 0)
@@ -113,11 +115,9 @@ public sealed class TopologyToDrawioAdapter(
         }
 
         // 2. Targets, grouped by subnet unless the options turn the zones off
-        var subnetGroups = targetNodes
-            .GroupBy(n => ExtractSubnetPrefix(n.IpAddress))
-            .OrderByDescending(g => g.Count())
-            .ThenBy(g => g.Key, StringComparer.Ordinal)
-            .ToList();
+        var sortMethod = LayoutOptions.SortMethod;
+        var orderedTargets = TopologyNodeOrderer.Order(targetNodes, flows, sortMethod);
+        var subnetGroups = GroupBySubnet(orderedTargets, sortMethod);
 
         double targetStartY = roots.Count > 0 ? 240.0 : 60.0;
 
@@ -127,7 +127,12 @@ public sealed class TopologyToDrawioAdapter(
         }
         else
         {
-            PlaceTargetsAsGrid(subnetGroups, targetStartY, diagramNodes);
+            // Subnet-based and default orders keep the servers of one subnet together; the other methods order the whole grid.
+            bool keepsSubnetsTogether = IsSubnetOrdered(sortMethod) || sortMethod == TopologyNodeSortMethod.BarycentricSugiyama;
+            var servers = keepsSubnetsTogether
+                ? subnetGroups.SelectMany(group => group.Select(server => (Server: server, Cidr: group.Key))).ToList()
+                : orderedTargets.Select(server => (Server: server, Cidr: TopologyNodeOrderer.SubnetPrefixOf(server.IpAddress))).ToList();
+            PlaceTargetsAsGrid(servers, targetStartY, diagramNodes);
         }
 
         return (diagramContainers, diagramNodes);
@@ -177,11 +182,10 @@ public sealed class TopologyToDrawioAdapter(
 
     // Servers of one subnet stay next to each other, but no container surrounds them.
     private void PlaceTargetsAsGrid(
-        IReadOnlyList<IGrouping<string, TopologyServerNode>> subnetGroups,
+        IReadOnlyList<(TopologyServerNode Server, string Cidr)> servers,
         double startY,
         List<DiagramNode> diagramNodes)
     {
-        var servers = subnetGroups.SelectMany(group => group.Select(server => (Server: server, Cidr: group.Key))).ToList();
         var origins = RowPacker.Pack(
             servers.Select(s => (NodeWidth, ComputeNodeHeight(s.Server))).ToList(),
             ZoneOriginX,
@@ -195,6 +199,20 @@ public sealed class TopologyToDrawioAdapter(
             diagramNodes.Add(CreateTargetNode(servers[i].Server, servers[i].Cidr, origins[i].X, origins[i].Y, containerId: null));
         }
     }
+
+    // The subnet methods already order the servers by address, so their zones keep that order; the others put the largest zone first.
+    private static List<IGrouping<string, TopologyServerNode>> GroupBySubnet(
+        IReadOnlyList<TopologyServerNode> orderedTargets,
+        TopologyNodeSortMethod sortMethod)
+    {
+        var groups = orderedTargets.GroupBy(n => TopologyNodeOrderer.SubnetPrefixOf(n.IpAddress), StringComparer.Ordinal);
+        return IsSubnetOrdered(sortMethod)
+            ? [.. groups]
+            : [.. groups.OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal)];
+    }
+
+    private static bool IsSubnetOrdered(TopologyNodeSortMethod sortMethod) =>
+        sortMethod is TopologyNodeSortMethod.SubnetIp or TopologyNodeSortMethod.SubnetCluster;
 
     private ZonePlan PlanZone(string cidr, List<TopologyServerNode> servers)
     {
@@ -379,13 +397,5 @@ public sealed class TopologyToDrawioAdapter(
         return ports.Count <= 2
             ? string.Join(", ", ports)
             : $"{ports[0]}, {ports[1]} (+{ports.Count - 2})";
-    }
-
-    private static string ExtractSubnetPrefix(string ipAddress)
-    {
-        if (string.IsNullOrWhiteSpace(ipAddress)) return "Unknown";
-        if (PublicAddressClassifier.IsPublic(ipAddress)) return InternetZoneName;
-        int lastDot = ipAddress.LastIndexOf('.');
-        return lastDot > 0 ? ipAddress[..lastDot] + ".0/24" : "Other";
     }
 }

@@ -1,5 +1,7 @@
 namespace TopologyForge.Export.Drawio.Adapters;
 
+using TopologyForge.Rendering;
+
 /// <summary>
 /// Controls how <see cref="TopologyToDrawioAdapter"/> places the target servers below the audited servers.
 /// </summary>
@@ -21,4 +23,10 @@ public sealed record TopologyDrawioLayoutOptions
     /// (<see cref="DefaultMaxRowWidth"/> by default). A single element wider than this still gets its own row.
     /// </summary>
     public double MaxRowWidth { get; init; } = DefaultMaxRowWidth;
+
+    /// <summary>
+    /// Order of the target servers, and of the zones for the subnet methods
+    /// (<see cref="TopologyNodeSortMethod.BarycentricSugiyama"/> by default: zones by size, servers in graph order).
+    /// </summary>
+    public TopologyNodeSortMethod SortMethod { get; init; } = TopologyNodeSortMethod.BarycentricSugiyama;
 }
