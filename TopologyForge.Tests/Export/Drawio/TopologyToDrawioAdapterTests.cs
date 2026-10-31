@@ -120,6 +120,31 @@ public sealed class TopologyToDrawioAdapterTests
     }
 
     [Fact]
+    public void Convert_WhenFlowsGoBothWays_NamesTheLayersInEnglish()
+    {
+        // Arrange
+        var desktop = new TopologyServerNode("desktop", "desktop", "192.168.1.10", true, [], 1, 1);
+        var proxy = new TopologyServerNode("proxy", "proxy", "192.168.1.30", false, [], 1, 1);
+        var edges = new List<TopologyServiceEdge>
+        {
+            new("e1", "desktop", "proxy", 443, TopologyTransportProtocol.Tcp, "curl", "nginx", 25, TopologyFlowDirection.Outbound),
+            new("e2", "proxy", "desktop", 8080, TopologyTransportProtocol.Tcp, "nginx", "kestrel", 40, TopologyFlowDirection.Inbound)
+        };
+        var graph = new NetworkTopologyGraph(DateTimeOffset.UtcNow, [desktop, proxy], edges, 65, 0);
+        var adapter = new TopologyToDrawioAdapter(aggregationMode: EdgeAggregationMode.ByServerPair);
+
+        // Act
+        var doc = adapter.Convert(graph);
+
+        // Assert
+        doc.Layers.Select(l => l.Name).Should().Equal(
+            "Infrastructure (Servers & Zones)",
+            "Inbound flows",
+            "Outbound flows",
+            "Mixed flows (Inbound + Outbound)");
+    }
+
+    [Fact]
     public void Convert_WhenByServerPairAndFlowsGoBothWays_MergesThemIntoOneBidirectionalMixedEdge()
     {
         // Arrange

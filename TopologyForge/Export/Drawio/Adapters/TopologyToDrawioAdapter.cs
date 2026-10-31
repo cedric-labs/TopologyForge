@@ -45,13 +45,13 @@ public sealed class TopologyToDrawioAdapter(
 
         var layers = new List<DiagramLayer>
         {
-            new("layer_infra", "Infrastructure (Serveurs & Zones)", Visible: true),
-            new("layer_inbound", "Flux Entrants (Inbound)", Visible: true),
-            new("layer_outbound", "Flux Sortants (Outbound)", Visible: true)
+            new("layer_infra", "Infrastructure (Servers & Zones)", Visible: true),
+            new("layer_inbound", "Inbound flows", Visible: true),
+            new("layer_outbound", "Outbound flows", Visible: true)
         };
         if (edges.Any(e => e.LayerId == MixedLayerId))
         {
-            layers.Add(new DiagramLayer(MixedLayerId, "Flux Mixtes (Inbound + Outbound)", Visible: true));
+            layers.Add(new DiagramLayer(MixedLayerId, "Mixed flows (Inbound + Outbound)", Visible: true));
         }
 
         return new DiagramDocument(
